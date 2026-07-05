@@ -1,0 +1,30 @@
+# --- secrets (NEVER commit real keys) ---
+.env
+backend/.env
+frontend/.env
+*.key
+*.pem
+
+# --- python ---
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+*.db
+*.sqlite3
+.pytest_cache/
+.mypy_cache/
+
+# --- node / frontend ---
+node_modules/
+dist/
+build/
+.vite/
+*.local
+
+# --- os / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
