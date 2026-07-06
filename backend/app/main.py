@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
-from app.routers import advisor
+from app.routers import advisor, alerts
 
 settings = get_settings()
 app = FastAPI(title="NexTrade API", version="0.1.0")
@@ -15,6 +15,7 @@ app.add_middleware(
 )
 
 app.include_router(advisor.router)
+app.include_router(alerts.router)
 
 
 @app.get("/health")
