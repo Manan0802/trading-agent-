@@ -12,6 +12,7 @@ from app.services.advisor.asset_allocator import (
     recommended_products,
 )
 from app.services.advisor.tax_advisor import generate_tax_saving_plan
+from app.services.llm.advisor_prompts import get_goal_explanation
 
 router = APIRouter(prefix="/api/v1", tags=["advisor"])
 
@@ -52,6 +53,11 @@ def create_goal(body: GoalCreate, db: Session = Depends(get_db)):
         body.target_amount, int(body.years), body.annual_return_rate, body.current_savings
     )
     alloc = get_allocation(body.years, body.risk_profile)
+    explanation = get_goal_explanation(
+        {"goal_name": body.goal_name, "target_amount": body.target_amount, "years": body.years},
+        sip,
+        alloc,
+    )
     goal = Goal(
         user_id=body.user_id,
         goal_type=body.goal_type,
@@ -64,6 +70,7 @@ def create_goal(body: GoalCreate, db: Session = Depends(get_db)):
         equity_allocation=alloc["equity"],
         debt_allocation=alloc["debt"],
         gold_allocation=alloc["gold"],
+        llm_explanation=explanation,
     )
     db.add(goal)
     db.commit()
