@@ -52,7 +52,7 @@ export function GoalNew() {
 
   const createGoal = useMutation({
     mutationFn: async () => {
-      const { data } = await api.post('/api/v1/goals', { user_id: 'demo-user', ...form })
+      const { data } = await api.post('/api/v1/goals', form)
       return data
     },
     onSuccess: (data) => navigate(`/goals/${data.id}`),

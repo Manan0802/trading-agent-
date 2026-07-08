@@ -7,7 +7,12 @@ from app.models import User, Goal
 def test_create_user_and_goal():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
-    u = User(name="Manan", phone="+910000000000")
+    u = User(
+        name="Manan",
+        phone="+910000000000",
+        email="manan@example.com",
+        hashed_password="not-used-oauth-only",
+    )
     db.add(u)
     db.commit()
     db.refresh(u)

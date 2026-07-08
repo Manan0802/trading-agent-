@@ -12,6 +12,18 @@ class Settings(BaseSettings):
     twilio_whatsapp_number: str = "whatsapp:+14155238886"
     allowed_origins: str = "http://localhost:5173"
 
+    jwt_secret: str = "dev-secret-change-in-production-min-32-chars"
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+    frontend_url: str = "http://localhost:5173"
+    backend_url: str = "http://localhost:8000"
+
+    @property
+    def async_database_url(self) -> str:
+        if self.database_url.startswith("sqlite:///"):
+            return self.database_url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
+        return self.database_url
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -3,7 +3,6 @@ from pydantic import BaseModel, ConfigDict
 
 
 class GoalCreate(BaseModel):
-    user_id: str
     goal_type: str
     goal_name: str
     target_amount: float

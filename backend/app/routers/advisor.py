@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from app.auth.fastapi_users_app import current_active_user
 from app.database import get_db
-from app.models import Goal
+from app.models import Goal, User
 from app.schemas.goal import GoalCreate, GoalOut
 from app.schemas.advisor import SipRequest, RiskScoreRequest, AllocationRequest, TaxRequest
 from app.services.advisor.sip_calculator import calculate_required_sip
@@ -48,7 +49,11 @@ def tax_saving(req: TaxRequest):
 
 
 @router.post("/goals", response_model=GoalOut)
-def create_goal(body: GoalCreate, db: Session = Depends(get_db)):
+def create_goal(
+    body: GoalCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
     sip = calculate_required_sip(
         body.target_amount, int(body.years), body.annual_return_rate, body.current_savings
     )
@@ -59,7 +64,7 @@ def create_goal(body: GoalCreate, db: Session = Depends(get_db)):
         alloc,
     )
     goal = Goal(
-        user_id=body.user_id,
+        user_id=user.id,
         goal_type=body.goal_type,
         goal_name=body.goal_name,
         target_amount=body.target_amount,
@@ -79,13 +84,20 @@ def create_goal(body: GoalCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/goals", response_model=list[GoalOut])
-def list_goals(user_id: str, db: Session = Depends(get_db)):
-    return db.query(Goal).filter(Goal.user_id == user_id).all()
+def list_goals(
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    return db.query(Goal).filter(Goal.user_id == user.id).all()
 
 
 @router.get("/goals/{goal_id}", response_model=GoalOut)
-def get_goal(goal_id: str, db: Session = Depends(get_db)):
+def get_goal(
+    goal_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
     goal = db.get(Goal, goal_id)
-    if not goal:
+    if not goal or goal.user_id != user.id:
         raise HTTPException(404, "Goal not found")
     return goal
