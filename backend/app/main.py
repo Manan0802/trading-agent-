@@ -5,8 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.routers import advisor, alerts, auth
 from app.jobs.scheduler import start_scheduler
+from app.auth.backend import auth_backend
 from app.auth.fastapi_users_app import fastapi_users
-from app.schemas.user import UserRead, UserUpdate
+from app.schemas.user import UserCreate, UserRead, UserUpdate
 
 settings = get_settings()
 
@@ -30,6 +31,14 @@ app.add_middleware(
 app.include_router(advisor.router)
 app.include_router(alerts.router)
 app.include_router(auth.router)
+app.include_router(
+    fastapi_users.get_auth_router(auth_backend), prefix="/api/v1/auth/jwt", tags=["auth"]
+)
+app.include_router(
+    fastapi_users.get_register_router(UserRead, UserCreate),
+    prefix="/api/v1/auth",
+    tags=["auth"],
+)
 app.include_router(
     fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/api/v1/users", tags=["users"]
 )

@@ -1,10 +1,53 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
+import { setToken } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 
 export function Login() {
+  const navigate = useNavigate()
+  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
+
+  async function loginWithPassword(loginEmail: string, loginPassword: string) {
+    const body = new URLSearchParams()
+    body.set('username', loginEmail)
+    body.set('password', loginPassword)
+    const { data } = await api.post('/api/v1/auth/jwt/login', body)
+    setToken(data.access_token)
+    navigate('/goals/new', { replace: true })
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setIsSubmitting(true)
+    try {
+      if (mode === 'register') {
+        await api.post('/api/v1/auth/register', { email, password, name })
+      }
+      await loginWithPassword(email, password)
+    } catch (err: any) {
+      setError(err.response?.data?.detail ?? 'Something went wrong. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   async function signInWithGoogle() {
     setIsRedirecting(true)
@@ -21,11 +64,65 @@ export function Login() {
       <Card className="w-full">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Welcome to NexTrade</CardTitle>
-          <CardDescription>Sign in to see your goals and plans.</CardDescription>
+          <CardDescription>
+            {mode === 'login' ? 'Sign in to see your goals and plans.' : 'Create your account.'}
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
+          <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
+            {mode === 'register' && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="name">Name</Label>
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" size="lg" disabled={isSubmitting}>
+              {isSubmitting
+                ? 'Please wait…'
+                : mode === 'login'
+                  ? 'Log in'
+                  : 'Create account'}
+            </Button>
+          </form>
+
+          <button
+            type="button"
+            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+            onClick={() => {
+              setError(null)
+              setMode(mode === 'login' ? 'register' : 'login')
+            }}
+          >
+            {mode === 'login' ? "Don't have an account? Create one" : 'Already have an account? Log in'}
+          </button>
+
+          <Separator />
+
           <Button
             className="w-full"
+            variant="outline"
             size="lg"
             onClick={signInWithGoogle}
             disabled={isRedirecting}

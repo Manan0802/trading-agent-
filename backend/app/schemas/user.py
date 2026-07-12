@@ -17,3 +17,7 @@ class UserUpdate(schemas.BaseUserUpdate):
     risk_profile: str | None = None
     annual_income: float | None = None
     monthly_expenses: float | None = None
+
+
+class UserCreate(schemas.BaseUserCreate):
+    name: str = ""
