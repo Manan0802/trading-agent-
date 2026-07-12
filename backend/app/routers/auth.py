@@ -18,7 +18,16 @@ def _redirect_uri() -> str:
 
 @router.get("/authorize")
 async def authorize():
-    authorization_url = await google_oauth_client.get_authorization_url(_redirect_uri())
+    redirect_uri = _redirect_uri()
+    authorization_url = await google_oauth_client.get_authorization_url(
+        redirect_uri, extras_params={"prompt": "consent", "access_type": "offline"}
+    )
+    logger.info(
+        f"OAuth authorize: redirect_uri={redirect_uri!r} "
+        f"client_id={settings.google_oauth_client_id!r} "
+        f"client_id_len={len(settings.google_oauth_client_id)} "
+        f"client_secret_len={len(settings.google_oauth_client_secret)}"
+    )
     return {"authorization_url": authorization_url}
 
 
@@ -31,8 +40,11 @@ async def callback(
     if error or not code:
         raise HTTPException(400, f"Google denied login: {error}")
 
+    redirect_uri = _redirect_uri()
+    logger.info(f"OAuth callback: redirect_uri={redirect_uri!r} code_prefix={code[:12]!r}")
+
     try:
-        token = await google_oauth_client.get_access_token(code, _redirect_uri())
+        token = await google_oauth_client.get_access_token(code, redirect_uri)
     except GetAccessTokenError as e:
         body = e.response.text if e.response is not None else str(e)
         logger.error(f"Google token exchange failed: {body}")
