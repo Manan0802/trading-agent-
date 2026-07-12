@@ -10,11 +10,15 @@ from app.config import get_settings
 settings = get_settings()
 router = APIRouter(prefix="/api/v1/auth/google", tags=["auth"])
 
-oauth2_callback = OAuth2AuthorizeCallback(google_oauth_client, route_name="auth:google-callback")
-
 
 def _redirect_uri() -> str:
     return f"{settings.backend_url}/api/v1/auth/google/callback"
+
+
+# Use a fixed redirect_url (not route_name) so the URI sent to Google's token
+# endpoint is byte-identical to the one used to obtain the authorization code —
+# Google 400s the token exchange on any mismatch (scheme/host/trailing slash).
+oauth2_callback = OAuth2AuthorizeCallback(google_oauth_client, redirect_url=_redirect_uri())
 
 
 @router.get("/authorize")
