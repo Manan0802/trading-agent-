@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from httpx_oauth.integrations.fastapi import OAuth2AuthorizeCallback
+from httpx_oauth.oauth2 import GetAccessTokenError
+from loguru import logger
 
 from app.auth.backend import get_jwt_strategy
 from app.auth.google import google_oauth_client
@@ -15,12 +16,6 @@ def _redirect_uri() -> str:
     return f"{settings.backend_url}/api/v1/auth/google/callback"
 
 
-# Use a fixed redirect_url (not route_name) so the URI sent to Google's token
-# endpoint is byte-identical to the one used to obtain the authorization code —
-# Google 400s the token exchange on any mismatch (scheme/host/trailing slash).
-oauth2_callback = OAuth2AuthorizeCallback(google_oauth_client, redirect_url=_redirect_uri())
-
-
 @router.get("/authorize")
 async def authorize():
     authorization_url = await google_oauth_client.get_authorization_url(_redirect_uri())
@@ -29,10 +24,20 @@ async def authorize():
 
 @router.get("/callback", name="auth:google-callback")
 async def callback(
-    access_token_state: tuple = Depends(oauth2_callback),
+    code: str | None = None,
+    error: str | None = None,
     user_manager: UserManager = Depends(get_user_manager),
 ):
-    token, _state = access_token_state
+    if error or not code:
+        raise HTTPException(400, f"Google denied login: {error}")
+
+    try:
+        token = await google_oauth_client.get_access_token(code, _redirect_uri())
+    except GetAccessTokenError as e:
+        body = e.response.text if e.response is not None else str(e)
+        logger.error(f"Google token exchange failed: {body}")
+        raise HTTPException(400, f"Google token exchange failed: {body}")
+
     account_id, account_email = await google_oauth_client.get_id_email(token["access_token"])
     user = await user_manager.oauth_callback(
         google_oauth_client.name,
