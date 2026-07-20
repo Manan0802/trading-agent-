@@ -5,6 +5,7 @@ import { GoalDetail } from '@/pages/GoalDetail'
 import { Login } from '@/pages/Login'
 import { AuthCallback } from '@/pages/AuthCallback'
 import { Portfolio } from '@/pages/Portfolio'
+import { Research } from '@/pages/Research'
 import { Button } from '@/components/ui/button'
 import { clearToken, isAuthenticated } from '@/lib/auth'
 import { cn } from '@/lib/utils'
@@ -20,6 +21,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 const NAV = [
   { to: '/portfolio', label: 'Portfolio' },
+  { to: '/research', label: 'Research' },
   { to: '/goals/new', label: 'New goal' },
 ]
 
@@ -88,6 +90,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <Portfolio />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/research"
+              element={
+                <RequireAuth>
+                  <Research />
                 </RequireAuth>
               }
             />

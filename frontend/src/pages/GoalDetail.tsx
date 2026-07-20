@@ -2,9 +2,11 @@ import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { AllocationPie } from '@/components/AllocationPie'
+import { GoalFundPlan } from '@/components/GoalFundPlan'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { formatInr } from '@/lib/format'
 
 type Goal = {
   id: string
@@ -17,14 +19,6 @@ type Goal = {
   gold_allocation: number | null
   llm_explanation: string | null
   status: string
-}
-
-function formatInr(value: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(value)
 }
 
 export function GoalDetail() {
@@ -105,6 +99,8 @@ export function GoalDetail() {
           </CardContent>
         </Card>
       )}
+
+      {id && <GoalFundPlan goalId={id} />}
     </div>
   )
 }
