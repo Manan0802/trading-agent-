@@ -128,11 +128,17 @@ def get_scheme_meta(scheme_code: str) -> SchemeMeta:
 
 
 def get_nav_history(scheme_code: str) -> list[NavPoint]:
-    """Full NAV history, oldest first (mfapi.in serves it newest first)."""
+    """Full NAV history, oldest first (mfapi.in serves it newest first).
+
+    Rows with a non-positive NAV are dropped: AMFI's feed carries zero-NAV
+    placeholder rows for dates before a scheme actually launched, and dividing
+    by those produces infinities that silently corrupt every downstream metric.
+    """
     rows = _get_scheme(scheme_code)["data"]
-    if not rows:
-        raise MutualFundDataError(f"No NAV history for scheme {scheme_code}")
-    return sorted((_parse_nav_point(row) for row in rows), key=lambda p: p.date)
+    points = [p for p in (_parse_nav_point(row) for row in rows) if p.nav > 0]
+    if not points:
+        raise MutualFundDataError(f"No usable NAV history for scheme {scheme_code}")
+    return sorted(points, key=lambda p: p.date)
 
 
 def get_latest_nav(scheme_code: str) -> NavPoint:

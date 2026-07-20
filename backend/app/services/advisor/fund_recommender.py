@@ -1,0 +1,166 @@
+"""Turns an asset allocation into named funds and rupee amounts.
+
+"Put 65% in equity" is not actionable. This resolves that into "invest
+₹8,000/month in Parag Parikh Flexi Cap Direct Growth", with the reasoning
+attached so the pick can be questioned.
+"""
+
+from dataclasses import dataclass, field
+from typing import Callable
+
+from app.services.advisor.fund_metrics import FundMetrics
+from app.services.advisor.fund_scorer import (
+    FundForScoring,
+    ScoredFund,
+    ScoringResult,
+    score_peer_group,
+)
+from app.services.advisor.fund_universe import BENCHMARK_BY_ASSET_CLASS, UNIVERSE
+
+# Below this a monthly SIP is not worth splitting further — most funds set a
+# ₹500 or ₹1,000 minimum instalment.
+MIN_MONTHLY_SIP = 500.0
+
+# The top pick gets a larger share, but not so much that the basket stops
+# being a basket.
+_TOP_FUND_SHARE = 0.6
+
+Scorer = Callable[[str], ScoringResult]
+
+
+@dataclass(frozen=True)
+class FundRecommendation:
+    asset_class: str
+    scheme_code: str
+    scheme_name: str
+    category: str
+    monthly_amount: float
+    score: float
+    rationale: str
+    metrics: FundMetrics
+
+
+@dataclass(frozen=True)
+class SkippedAssetClass:
+    asset_class: str
+    reason: str
+
+
+@dataclass
+class RecommendationResult:
+    recommendations: list[FundRecommendation] = field(default_factory=list)
+    skipped: list[SkippedAssetClass] = field(default_factory=list)
+
+
+def _rationale(fund: ScoredFund, rank: int, peers: int) -> str:
+    m = fund.metrics
+    parts = [f"Ranked {rank} of {peers} {fund.category.split(' - ')[-1]} funds"]
+
+    if m.cagr_3y is not None:
+        parts.append(f"{m.cagr_3y:.1%} a year over 3 years")
+    if m.sortino is not None:
+        parts.append(f"Sortino {m.sortino:.2f}")
+    if m.consistency is not None:
+        parts.append(f"beat its benchmark in {m.consistency:.0%} of 3-year windows")
+    if m.downside_capture is not None:
+        if m.downside_capture < 0:
+            # The fund rose while the market fell — "gave up -60% of falls"
+            # would read as nonsense.
+            parts.append("tended to rise when the market fell")
+        else:
+            parts.append(f"gave up {m.downside_capture:.0%} of market falls")
+    if m.alpha is not None:
+        parts.append(f"{m.alpha:+.1%} annual alpha")
+    return ". ".join(parts) + "."
+
+
+def _split(amount: float, count: int) -> list[float]:
+    """Weight the top pick more heavily, and make the parts add back exactly."""
+    if count == 1:
+        return [amount]
+    top = round(amount * _TOP_FUND_SHARE)
+    return [top, amount - top]
+
+
+def _load_universe(asset_class: str) -> ScoringResult:
+    """Fetch and score the real fund universe for an asset class."""
+    from app.services.advisor import fund_metrics
+    from app.services.marketdata import mutual_fund
+
+    benchmark_code = BENCHMARK_BY_ASSET_CLASS.get(asset_class)
+    benchmark = (
+        mutual_fund.get_nav_history(benchmark_code) if benchmark_code else None
+    )
+    funds = []
+    for code in UNIVERSE[asset_class]:
+        meta = mutual_fund.get_scheme_meta(code)
+        navs = mutual_fund.get_nav_history(code)
+        funds.append(
+            FundForScoring(
+                scheme_code=code,
+                scheme_name=meta.scheme_name,
+                category=meta.scheme_category,
+                metrics=fund_metrics.compute_metrics(navs, benchmark),
+            )
+        )
+    return score_peer_group(funds)
+
+
+def recommend_for_allocation(
+    allocation: dict[str, int],
+    monthly_sip: float,
+    funds_per_class: int = 2,
+    scorer: Scorer = _load_universe,
+    return_skipped: bool = False,
+):
+    result = RecommendationResult()
+
+    for asset_class, percent in allocation.items():
+        if percent <= 0:
+            continue
+
+        class_amount = monthly_sip * percent / 100
+        if class_amount < MIN_MONTHLY_SIP:
+            result.skipped.append(
+                SkippedAssetClass(
+                    asset_class=asset_class,
+                    reason=(
+                        f"₹{class_amount:,.0f}/month is below the ₹{MIN_MONTHLY_SIP:,.0f} "
+                        "minimum most funds accept"
+                    ),
+                )
+            )
+            continue
+
+        ranked = scorer(asset_class).ranked
+        if not ranked:
+            result.skipped.append(
+                SkippedAssetClass(
+                    asset_class=asset_class,
+                    reason="No fund in this category has enough history to judge",
+                )
+            )
+            continue
+
+        # Narrow the basket rather than recommend instalments too small to place.
+        count = min(funds_per_class, len(ranked))
+        while count > 1 and class_amount / count < MIN_MONTHLY_SIP:
+            count -= 1
+
+        for fund, amount in zip(ranked[:count], _split(class_amount, count)):
+            result.recommendations.append(
+                FundRecommendation(
+                    asset_class=asset_class,
+                    scheme_code=fund.scheme_code,
+                    scheme_name=fund.scheme_name,
+                    category=fund.category,
+                    monthly_amount=amount,
+                    score=fund.score,
+                    rationale=_rationale(
+                        fund, ranked.index(fund) + 1, len(ranked)
+                    ),
+                    metrics=fund.metrics,
+                )
+            )
+
+    return result if return_skipped else result.recommendations

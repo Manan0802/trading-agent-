@@ -122,6 +122,32 @@ def test_repeat_calls_hit_cache_not_the_network(monkeypatch):
     assert len(calls) == 1
 
 
+def test_zero_nav_placeholder_rows_are_dropped(monkeypatch):
+    """AMFI's feed carries 0.0 NAV rows for dates before a scheme launched.
+    Left in, they divide into infinities and poison every metric."""
+    _stub(
+        monkeypatch,
+        {
+            **SCHEME_PAYLOAD,
+            "data": [
+                {"date": "17-07-2026", "nav": "91.46030"},
+                {"date": "16-07-2026", "nav": "91.02810"},
+                {"date": "03-01-2013", "nav": "0.00000"},
+                {"date": "04-01-2013", "nav": "0.00000"},
+            ],
+        },
+    )
+    history = mf.get_nav_history("122639")
+    assert len(history) == 2
+    assert all(p.nav > 0 for p in history)
+
+
+def test_a_scheme_with_only_placeholder_rows_raises(monkeypatch):
+    _stub(monkeypatch, {**SCHEME_PAYLOAD, "data": [{"date": "03-01-2013", "nav": "0.0"}]})
+    with pytest.raises(mf.MutualFundDataError):
+        mf.get_nav_history("122639")
+
+
 def test_empty_nav_history_raises_rather_than_returning_garbage(monkeypatch):
     _stub(monkeypatch, {**SCHEME_PAYLOAD, "data": []})
     with pytest.raises(mf.MutualFundDataError):

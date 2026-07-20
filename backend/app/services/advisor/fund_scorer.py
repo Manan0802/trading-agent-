@@ -29,8 +29,10 @@ METRIC_WEIGHTS: dict[str, float] = {
 LOWER_IS_BETTER = {"downside_capture"}
 
 # Without these a fund cannot be judged at all, so it is set aside rather than
-# scored on partial evidence.
-REQUIRED_METRICS = ("cagr_3y", "sortino", "consistency")
+# scored on partial evidence. Deliberately benchmark-free: debt and gold funds
+# have no equity benchmark to be measured against, but are still judgeable on
+# their own risk-adjusted record.
+REQUIRED_METRICS = ("cagr_3y", "sortino")
 
 NEUTRAL_SCORE = 50.0
 
