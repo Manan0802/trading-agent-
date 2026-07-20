@@ -15,3 +15,6 @@ pytest==8.1.1
 fastapi-users[sqlalchemy]==15.0.5
 httpx-oauth==0.17.0
 aiosqlite==0.22.1
+pyxirr==0.10.8
+mftool==3.3
+yfinance==1.5.1
