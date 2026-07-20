@@ -82,7 +82,7 @@ def _split(amount: float, count: int) -> list[float]:
     return [top, amount - top]
 
 
-def _load_universe(asset_class: str) -> ScoringResult:
+def load_scored_universe(asset_class: str) -> ScoringResult:
     """Fetch and score the real fund universe for an asset class."""
     from app.services.advisor import fund_metrics
     from app.services.marketdata import mutual_fund
@@ -110,7 +110,7 @@ def recommend_for_allocation(
     allocation: dict[str, int],
     monthly_sip: float,
     funds_per_class: int = 2,
-    scorer: Scorer = _load_universe,
+    scorer: Scorer = load_scored_universe,
     return_skipped: bool = False,
 ):
     result = RecommendationResult()
