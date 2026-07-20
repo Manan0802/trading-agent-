@@ -26,3 +26,30 @@ class GoalOut(BaseModel):
     status: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class FundRecommendationOut(BaseModel):
+    asset_class: str
+    scheme_code: str
+    scheme_name: str
+    category: str
+    monthly_amount: float
+    score: float
+    rationale: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SkippedAssetClassOut(BaseModel):
+    asset_class: str
+    reason: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class GoalRecommendationsOut(BaseModel):
+    goal_id: str
+    monthly_sip: float
+    allocation: dict[str, int]
+    recommendations: list[FundRecommendationOut]
+    skipped: list[SkippedAssetClassOut]

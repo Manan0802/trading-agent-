@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.auth.fastapi_users_app import current_active_user
 from app.database import get_db
 from app.models import Goal, User
-from app.schemas.goal import GoalCreate, GoalOut
+from app.schemas.goal import GoalCreate, GoalOut, GoalRecommendationsOut
 from app.schemas.advisor import SipRequest, RiskScoreRequest, AllocationRequest, TaxRequest
 from app.services.advisor.sip_calculator import calculate_required_sip
 from app.services.advisor.asset_allocator import (
@@ -12,8 +12,10 @@ from app.services.advisor.asset_allocator import (
     get_allocation,
     recommended_products,
 )
+from app.services.advisor.fund_recommender import recommend_for_allocation
 from app.services.advisor.tax_advisor import generate_tax_saving_plan
 from app.services.llm.advisor_prompts import get_goal_explanation
+from app.services.marketdata.mutual_fund import MutualFundDataError
 
 router = APIRouter(prefix="/api/v1", tags=["advisor"])
 
@@ -101,3 +103,43 @@ def get_goal(
     if not goal or goal.user_id != user.id:
         raise HTTPException(404, "Goal not found")
     return goal
+
+
+@router.get("/goals/{goal_id}/recommendations", response_model=GoalRecommendationsOut)
+def get_goal_recommendations(
+    goal_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """The actual funds to buy for this goal, and how much into each.
+
+    Served separately from the goal itself because it depends on live NAV data
+    for the whole fund universe — goal creation should not wait on that.
+    """
+    goal = db.get(Goal, goal_id)
+    if not goal or goal.user_id != user.id:
+        raise HTTPException(404, "Goal not found")
+
+    allocation = {
+        "equity": goal.equity_allocation or 0,
+        "debt": goal.debt_allocation or 0,
+        "gold": goal.gold_allocation or 0,
+    }
+    try:
+        result = recommend_for_allocation(
+            allocation,
+            monthly_sip=goal.required_monthly_sip or 0,
+            return_skipped=True,
+        )
+    except MutualFundDataError as exc:
+        raise HTTPException(
+            503, f"Fund data is temporarily unavailable — please retry ({exc})"
+        ) from exc
+
+    return GoalRecommendationsOut(
+        goal_id=goal.id,
+        monthly_sip=goal.required_monthly_sip or 0,
+        allocation=allocation,
+        recommendations=result.recommendations,
+        skipped=result.skipped,
+    )
