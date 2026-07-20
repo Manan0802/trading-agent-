@@ -52,6 +52,28 @@ def test_search_returns_scheme_codes_as_strings(monkeypatch):
     assert results[1].scheme_name.endswith("Direct Plan - Growth")
 
 
+def test_search_query_is_url_encoded():
+    """Fund names contain spaces and ampersands, which would otherwise
+    corrupt the request URL."""
+    calls: list[str] = []
+
+    def fake_get_json(path: str):
+        calls.append(path)
+        return SEARCH_PAYLOAD
+
+    import app.services.marketdata.mutual_fund as module
+
+    original = module._get_json
+    module._get_json = fake_get_json
+    try:
+        mf.search_schemes("Aditya Birla Sun Life & Co")
+    finally:
+        module._get_json = original
+
+    assert " " not in calls[0]
+    assert "%26" in calls[0]  # the ampersand
+
+
 def test_nav_history_is_parsed_and_ordered_oldest_first(monkeypatch):
     _stub(monkeypatch, SCHEME_PAYLOAD)
     history = mf.get_nav_history("122639")
@@ -104,3 +126,47 @@ def test_empty_nav_history_raises_rather_than_returning_garbage(monkeypatch):
     _stub(monkeypatch, {**SCHEME_PAYLOAD, "data": []})
     with pytest.raises(mf.MutualFundDataError):
         mf.get_latest_nav("122639")
+
+
+def test_a_dropped_connection_is_retried(monkeypatch):
+    """mfapi.in intermittently drops TLS handshakes; one blip must not fail
+    a whole portfolio valuation."""
+    import httpx
+
+    attempts = {"n": 0}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return SCHEME_PAYLOAD
+
+    def flaky_get(url, timeout):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise httpx.ConnectTimeout("handshake timed out")
+        return FakeResponse()
+
+    monkeypatch.setattr(mf.httpx, "get", flaky_get)
+    monkeypatch.setattr(mf.time, "sleep", lambda _: None)
+
+    assert mf.get_latest_nav("122639").nav == pytest.approx(91.4603)
+    assert attempts["n"] == 2
+
+
+def test_persistent_failure_still_raises(monkeypatch):
+    import httpx
+
+    attempts = {"n": 0}
+
+    def always_fails(url, timeout):
+        attempts["n"] += 1
+        raise httpx.ConnectTimeout("down")
+
+    monkeypatch.setattr(mf.httpx, "get", always_fails)
+    monkeypatch.setattr(mf.time, "sleep", lambda _: None)
+
+    with pytest.raises(mf.MutualFundDataError):
+        mf.get_latest_nav("122639")
+    assert attempts["n"] == mf._MAX_ATTEMPTS

@@ -9,12 +9,15 @@ import time
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
+from urllib.parse import quote_plus
 
 import httpx
 
 BASE_URL = "https://api.mfapi.in"
 _TIMEOUT_SECONDS = 20
 _CACHE_TTL_SECONDS = 6 * 60 * 60  # NAVs publish once daily, ~11 PM IST
+_MAX_ATTEMPTS = 3
+_RETRY_BACKOFF_SECONDS = 1.0
 
 _cache: dict[str, tuple[float, Any]] = {}
 
@@ -60,12 +63,20 @@ def clear_cache() -> None:
 
 
 def _get_json(path: str) -> Any:
-    try:
-        response = httpx.get(f"{BASE_URL}{path}", timeout=_TIMEOUT_SECONDS)
-        response.raise_for_status()
-        return response.json()
-    except httpx.HTTPError as exc:
-        raise MutualFundDataError(f"mfapi.in request failed for {path}: {exc}") from exc
+    """Fetch with a short retry — mfapi.in intermittently drops connections."""
+    last_error: Exception | None = None
+    for attempt in range(_MAX_ATTEMPTS):
+        try:
+            response = httpx.get(f"{BASE_URL}{path}", timeout=_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as exc:
+            last_error = exc
+            if attempt < _MAX_ATTEMPTS - 1:
+                time.sleep(_RETRY_BACKOFF_SECONDS * (attempt + 1))
+    raise MutualFundDataError(
+        f"mfapi.in request failed for {path}: {last_error}"
+    ) from last_error
 
 
 def _get_json_cached(path: str) -> Any:
@@ -86,7 +97,8 @@ def _parse_nav_point(row: dict) -> NavPoint:
 
 
 def search_schemes(query: str) -> list[SchemeSearchResult]:
-    payload = _get_json_cached(f"/mf/search?q={query}")
+    # Encoded, because fund names legitimately contain "&" and spaces.
+    payload = _get_json_cached(f"/mf/search?q={quote_plus(query)}")
     return [
         SchemeSearchResult(
             scheme_code=str(row["schemeCode"]),
