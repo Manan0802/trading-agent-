@@ -143,3 +143,13 @@ def get_nav_history(scheme_code: str) -> list[NavPoint]:
 
 def get_latest_nav(scheme_code: str) -> NavPoint:
     return get_nav_history(scheme_code)[-1]
+
+
+def nav_on_or_before(navs: list[NavPoint], target: date) -> NavPoint | None:
+    """The NAV in force on a date — NAVs are not published on holidays.
+
+    Returns None if the series starts after the date, which means the fund did
+    not exist yet and the caller must not pretend otherwise.
+    """
+    candidates = [p for p in navs if p.date <= target]
+    return candidates[-1] if candidates else None

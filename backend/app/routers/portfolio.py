@@ -7,15 +7,24 @@ from app.auth.fastapi_users_app import current_active_user
 from app.database import get_db
 from app.models import Holding, Transaction, User
 from app.schemas.portfolio import (
+    BenchmarkComparisonOut,
     HoldingCreate,
     HoldingOut,
     PortfolioSummaryOut,
     TransactionCreate,
     TransactionOut,
 )
+from app.services.advisor.fund_universe import BENCHMARK_SCHEME_CODE
+from app.services.marketdata import mutual_fund
+from app.services.marketdata.mutual_fund import MutualFundDataError, NavPoint
 from app.services.marketdata.pricing import get_current_price
+from app.services.portfolio.benchmark import compare_to_benchmark
 from app.services.portfolio.fifo import TxnInput, apply_fifo
 from app.services.portfolio.valuation import HoldingInput, value_portfolio
+
+
+def get_benchmark_navs() -> list[NavPoint]:
+    return mutual_fund.get_nav_history(BENCHMARK_SCHEME_CODE)
 
 router = APIRouter(prefix="/api/v1/portfolio", tags=["portfolio"])
 
@@ -133,3 +142,37 @@ def get_portfolio(
         [_to_input(h) for h in holdings], get_current_price, date.today()
     )
     return PortfolioSummaryOut.model_validate(summary)
+
+
+@router.get("/benchmark", response_model=BenchmarkComparisonOut)
+def get_benchmark_comparison(
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """What the same money, invested on the same dates, would be worth in the index."""
+    holdings = db.query(Holding).filter(Holding.user_id == user.id).all()
+    valuation_date = date.today()
+    summary = value_portfolio(
+        [_to_input(h) for h in holdings], get_current_price, valuation_date
+    )
+
+    transactions = [
+        TxnInput(t.txn_date, t.txn_type, t.units, t.price)
+        for h in holdings
+        for t in h.transactions
+    ]
+    try:
+        benchmark_navs = get_benchmark_navs() if transactions else []
+    except MutualFundDataError as exc:
+        raise HTTPException(
+            503, f"Benchmark data is temporarily unavailable — please retry ({exc})"
+        ) from exc
+
+    return BenchmarkComparisonOut.model_validate(
+        compare_to_benchmark(
+            transactions,
+            benchmark_navs,
+            portfolio_current_value=summary.total_current_value,
+            valuation_date=valuation_date,
+        )
+    )

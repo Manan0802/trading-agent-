@@ -61,6 +61,18 @@ class HoldingSummaryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class BenchmarkComparisonOut(BaseModel):
+    comparable: bool
+    portfolio_value: float
+    benchmark_value: float | None
+    portfolio_xirr: float | None
+    benchmark_xirr: float | None
+    outperformance: float | None
+    reason: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PortfolioSummaryOut(BaseModel):
     holdings: list[HoldingSummaryOut]
     total_invested: float

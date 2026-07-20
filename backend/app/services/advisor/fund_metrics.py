@@ -14,7 +14,7 @@ from datetime import date, timedelta
 
 import numpy as np
 
-from app.services.marketdata.mutual_fund import NavPoint
+from app.services.marketdata.mutual_fund import NavPoint, nav_on_or_before
 
 DEFAULT_RISK_FREE_RATE = 0.06  # ~Indian 10-year G-sec
 _MONTHS_PER_YEAR = 12
@@ -40,12 +40,6 @@ class FundMetrics:
     consistency: float | None = None
 
 
-def _nav_on_or_before(navs: list[NavPoint], target: date) -> NavPoint | None:
-    """Latest NAV at or before a date — NAVs are not published on holidays."""
-    candidates = [p for p in navs if p.date <= target]
-    return candidates[-1] if candidates else None
-
-
 def cagr(navs: list[NavPoint], years: float) -> float | None:
     """Annualised growth over the trailing window, or None if history is short."""
     if len(navs) < 2:
@@ -54,7 +48,7 @@ def cagr(navs: list[NavPoint], years: float) -> float | None:
     target = end.date - timedelta(days=years * _DAYS_PER_YEAR)
     if navs[0].date > target + timedelta(days=_WINDOW_GRACE_DAYS):
         return None
-    start = _nav_on_or_before(navs, target) or navs[0]
+    start = nav_on_or_before(navs, target) or navs[0]
     if start.nav <= 0:
         return None
     elapsed_years = (end.date - start.date).days / _DAYS_PER_YEAR
@@ -190,9 +184,9 @@ def rolling_consistency(
         window_end = start.date + timedelta(days=window_days)
         if window_end > fund_months[-1].date:
             break
-        fund_end = _nav_on_or_before(fund_months, window_end)
-        bench_start = _nav_on_or_before(bench_months, start.date)
-        bench_end = _nav_on_or_before(bench_months, window_end)
+        fund_end = nav_on_or_before(fund_months, window_end)
+        bench_start = nav_on_or_before(bench_months, start.date)
+        bench_end = nav_on_or_before(bench_months, window_end)
         if not (fund_end and bench_start and bench_end):
             continue
         if start.nav <= 0 or bench_start.nav <= 0:
