@@ -110,3 +110,40 @@ def test_cannot_see_another_users_goal():
     )
     gid = r.json()["id"]
     assert client.get(f"/api/v1/goals/{gid}", headers=other_headers).status_code == 404
+
+
+def test_education_goal_is_inflated_faster_than_a_car_goal():
+    """The goal type must reach the SIP maths — the router previously dropped
+    the inflation rate entirely and every goal compounded at 6%."""
+    db = SessionLocal()
+    u = User(
+        name="Infl",
+        phone="+910000000009",
+        email="inflation@example.com",
+        hashed_password="not-used",
+    )
+    db.add(u)
+    db.commit()
+    db.refresh(u)
+    headers = _auth_headers_for(u)
+    db.close()
+
+    def _create(goal_type: str) -> dict:
+        return client.post(
+            "/api/v1/goals",
+            json={
+                "goal_type": goal_type,
+                "goal_name": goal_type,
+                "target_amount": 2000000,
+                "target_date": "2041-01-01",
+                "years": 15,
+                "risk_profile": "moderate",
+            },
+            headers=headers,
+        ).json()
+
+    education, car = _create("education"), _create("car")
+    assert education["inflation_rate"] == 0.10
+    assert car["inflation_rate"] == 0.06
+    assert education["required_monthly_sip"] > car["required_monthly_sip"] * 1.5
+    assert "10%" in education["inflation_note"]

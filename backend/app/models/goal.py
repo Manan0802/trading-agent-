@@ -16,6 +16,9 @@ class Goal(Base):
     current_savings: Mapped[float] = mapped_column(default=0.0)
     target_date: Mapped[date]
     years: Mapped[float]
+    # Persisted rather than re-derived: the goal-type table can change, and a
+    # saved plan must stay reproducible from its own stored inputs.
+    inflation_rate: Mapped[float | None] = mapped_column(default=None)
     required_monthly_sip: Mapped[float | None] = mapped_column(default=None)
     equity_allocation: Mapped[int | None] = mapped_column(default=None)
     debt_allocation: Mapped[int | None] = mapped_column(default=None)

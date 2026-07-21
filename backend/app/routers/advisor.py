@@ -13,6 +13,7 @@ from app.services.advisor.asset_allocator import (
     recommended_products,
 )
 from app.services.advisor.fund_recommender import recommend_for_allocation
+from app.services.advisor.goal_inflation import inflation_for_goal, inflation_note
 from app.services.advisor.tax_advisor import generate_tax_saving_plan
 from app.services.llm.advisor_prompts import get_goal_explanation
 from app.services.marketdata.mutual_fund import MutualFundDataError
@@ -62,8 +63,19 @@ def create_goal(
     db: Session = Depends(get_db),
     user: User = Depends(current_active_user),
 ):
+    # The rate comes from the goal type unless the user overrode it: inflating
+    # an education target at headline CPI is what left these goals under-funded.
+    inflation_rate = (
+        body.inflation_rate
+        if body.inflation_rate is not None
+        else inflation_for_goal(body.goal_type)
+    )
     sip = calculate_required_sip(
-        body.target_amount, int(body.years), body.annual_return_rate, body.current_savings
+        body.target_amount,
+        int(body.years),
+        body.annual_return_rate,
+        body.current_savings,
+        inflation_rate,
     )
     alloc = get_allocation(body.years, body.risk_profile)
     explanation = get_goal_explanation(
@@ -79,6 +91,7 @@ def create_goal(
         current_savings=body.current_savings,
         target_date=body.target_date,
         years=body.years,
+        inflation_rate=inflation_rate,
         required_monthly_sip=sip["required_monthly_sip"],
         equity_allocation=alloc["equity"],
         debt_allocation=alloc["debt"],
