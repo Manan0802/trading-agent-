@@ -18,3 +18,7 @@ aiosqlite==0.22.1
 pyxirr==0.10.8
 mftool==3.3
 yfinance==1.5.1
+# Imported directly by services/advisor/fund_metrics.py. It currently arrives
+# transitively through yfinance, so a yfinance release that drops it, or a
+# numpy 3.0, would break fund scoring with no signal from this file.
+numpy>=2.0,<3.0
