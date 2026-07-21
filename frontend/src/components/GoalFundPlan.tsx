@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import { AlertTriangle } from 'lucide-react'
 import { api } from '@/lib/api'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatInr } from '@/lib/format'
+import { formatInr, plainProse } from '@/lib/format'
 
 type FundRecommendation = {
   asset_class: string
@@ -29,30 +28,38 @@ const ASSET_LABEL: Record<string, string> = {
   gold: 'Gold',
 }
 
-function FundCard({ fund }: { fund: FundRecommendation }) {
+function SectionHeading({ children }: { children?: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex flex-col">
-          <span className="font-medium leading-snug">{fund.scheme_name}</span>
-          <span className="text-xs text-muted-foreground">
-            {ASSET_LABEL[fund.asset_class] ?? fund.asset_class} · scheme {fund.scheme_code}
-          </span>
+    <div className="flex flex-col gap-1.5">
+      <h2 className="text-sm font-medium">What to actually buy</h2>
+      {children}
+    </div>
+  )
+}
+
+function FundEntry({ fund }: { fund: FundRecommendation }) {
+  return (
+    <li className="flex flex-col gap-1.5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-1">
+        <div className="flex flex-col gap-0.5">
+          <p className="font-medium leading-tight">{fund.scheme_name}</p>
+          <p className="text-xs text-muted-foreground">
+            {fund.category} &middot; scheme{' '}
+            <span className="tnum">{fund.scheme_code}</span> &middot; score{' '}
+            <span className="tnum">{fund.score.toFixed(0)}</span> of 100
+          </p>
         </div>
         <div className="flex flex-col items-end">
-          <span className="text-lg font-semibold tabular-nums">
+          <span className="num text-lg font-medium leading-none">
             {formatInr(fund.monthly_amount)}
           </span>
-          <span className="text-xs text-muted-foreground">per month</span>
+          <span className="mt-1 text-xs text-muted-foreground">per month</span>
         </div>
       </div>
-
-      <div className="flex items-center gap-2">
-        <Badge variant="secondary">Score {fund.score.toFixed(0)}/100</Badge>
-      </div>
-
-      <p className="text-sm leading-relaxed text-muted-foreground">{fund.rationale}</p>
-    </div>
+      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        {plainProse(fund.rationale)}
+      </p>
+    </li>
   )
 }
 
@@ -66,40 +73,51 @@ export function GoalFundPlan({ goalId }: { goalId: string }) {
 
   if (isLoading) {
     return (
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle className="text-sm text-muted-foreground">
-            Working out which funds to buy…
-          </CardTitle>
-          <CardDescription>
-            Pulling NAV history for the whole shortlist. This takes a moment the first time.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <Skeleton className="h-24 w-full rounded-lg" />
-          <Skeleton className="h-24 w-full rounded-lg" />
-        </CardContent>
-      </Card>
+      <section className="flex flex-col gap-4">
+        <SectionHeading>
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Pulling NAV history for the whole shortlist. This takes a moment the first
+            time.
+          </p>
+        </SectionHeading>
+        <div className="flex flex-col gap-4 border-y py-4">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      </section>
     )
   }
 
   if (isError) {
     const detail = (error as any)?.response?.data?.detail
     return (
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle className="text-sm text-muted-foreground">Fund plan</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-amber-600 dark:text-amber-400">
-            {detail ?? 'Fund data is temporarily unavailable. Please refresh to retry.'}
-          </p>
-        </CardContent>
-      </Card>
+      <section className="flex flex-col gap-4">
+        <SectionHeading />
+        <p className="flex max-w-3xl items-start gap-2 text-sm text-muted-foreground">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            {plainProse(
+              detail ??
+                'Fund data is not available right now, so we cannot name specific schemes. Refresh the page to try again; the allocation above still stands.',
+            )}
+          </span>
+        </p>
+      </section>
     )
   }
 
-  if (!data || data.recommendations.length === 0) return null
+  if (!data || data.recommendations.length === 0) {
+    return (
+      <section className="flex flex-col gap-4">
+        <SectionHeading />
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          No fund passed our screen for this allocation yet. The split above is still
+          what to aim for, so any low-cost Direct Growth fund in each asset class will
+          do the job until we can name one.
+        </p>
+      </section>
+    )
+  }
 
   const byClass = data.recommendations.reduce<Record<string, FundRecommendation[]>>(
     (acc, fund) => {
@@ -110,48 +128,48 @@ export function GoalFundPlan({ goalId }: { goalId: string }) {
   )
 
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle>What to actually buy</CardTitle>
-        <CardDescription>
-          Direct-Growth plans only — regular plans carry a distributor commission inside
-          the NAV for an otherwise identical portfolio. Buy these yourself on your broker.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        {Object.entries(byClass).map(([assetClass, funds]) => (
-          <div key={assetClass} className="flex flex-col gap-3">
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-sm font-medium">
-                {ASSET_LABEL[assetClass] ?? assetClass}
-              </h3>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {data.allocation[assetClass]}% ·{' '}
-                {formatInr(funds.reduce((sum, f) => sum + f.monthly_amount, 0))}/mo
-              </span>
-            </div>
-            {funds.map((fund) => (
-              <FundCard key={fund.scheme_code} fund={fund} />
-            ))}
-          </div>
-        ))}
-
-        {data.skipped.length > 0 && (
-          <div className="flex flex-col gap-1 border-t pt-3">
-            {data.skipped.map((s) => (
-              <p key={s.asset_class} className="text-xs text-muted-foreground">
-                <span className="font-medium">{ASSET_LABEL[s.asset_class] ?? s.asset_class}</span>{' '}
-                left out — {s.reason}
-              </p>
-            ))}
-          </div>
-        )}
-
-        <p className="border-t pt-3 text-xs text-muted-foreground">
-          Scores are our own, computed from public NAV history — not a licensed rating.
-          Past performance is not a promise of future returns.
+    <section className="flex flex-col gap-6">
+      <SectionHeading>
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          Direct Growth plans only. A regular plan of the same fund carries a
+          distributor commission inside the NAV, so you end up with less for an
+          otherwise identical portfolio. Buy these yourself on your broker.
         </p>
-      </CardContent>
-    </Card>
+      </SectionHeading>
+
+      {Object.entries(byClass).map(([assetClass, funds]) => (
+        <div key={assetClass} className="flex flex-col">
+          <div className="flex items-baseline justify-between gap-4 border-b pb-2">
+            <h3 className="text-sm font-medium">
+              {ASSET_LABEL[assetClass] ?? assetClass}
+            </h3>
+            <span className="num text-xs text-muted-foreground">
+              {data.allocation[assetClass]}% &middot;{' '}
+              {formatInr(funds.reduce((sum, f) => sum + f.monthly_amount, 0))}/mo
+            </span>
+          </div>
+          <ul className="divide-y">
+            {funds.map((fund) => (
+              <FundEntry key={fund.scheme_code} fund={fund} />
+            ))}
+          </ul>
+        </div>
+      ))}
+
+      <div className="flex flex-col gap-2 border-t pt-4">
+        {data.skipped.map((s) => (
+          <p key={s.asset_class} className="max-w-3xl text-sm text-muted-foreground">
+            <span className="font-medium">
+              {ASSET_LABEL[s.asset_class] ?? s.asset_class}
+            </span>{' '}
+            has no fund named here: {plainProse(s.reason)}
+          </p>
+        ))}
+        <p className="max-w-3xl text-xs text-muted-foreground">
+          Scores are our own, worked out from public NAV history, not a licensed
+          rating. Past performance is not a promise of future returns.
+        </p>
+      </div>
+    </section>
   )
 }

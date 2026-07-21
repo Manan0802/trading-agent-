@@ -53,24 +53,37 @@ class RecommendationResult:
 
 
 def _rationale(fund: ScoredFund, rank: int, peers: int) -> str:
+    """One telegraphic sentence per fact, so the readout scans without a legend.
+
+    Each part is a full sentence rather than a clause: joining fragments with
+    ". " produced sentences that began "beat its benchmark" and "gave up".
+    """
     m = fund.metrics
     parts = [f"Ranked {rank} of {peers} {fund.category.split(' - ')[-1]} funds"]
 
     if m.cagr_3y is not None:
-        parts.append(f"{m.cagr_3y:.1%} a year over 3 years")
+        parts.append(f"Returned {m.cagr_3y:.1%} a year over 3 years")
     if m.sortino is not None:
         parts.append(f"Sortino {m.sortino:.2f}")
     if m.consistency is not None:
-        parts.append(f"beat its benchmark in {m.consistency:.0%} of 3-year windows")
+        parts.append(
+            f"Beat its benchmark in {m.consistency:.0%} of rolling 3-year windows"
+        )
     if m.downside_capture is not None:
         if m.downside_capture < 0:
-            # The fund rose while the market fell — "gave up -60% of falls"
-            # would read as nonsense.
-            parts.append("tended to rise when the market fell")
+            # A negative capture means the fund rose while the market fell, so
+            # any phrasing built around a percentage of the fall is nonsense.
+            parts.append("Rose, on average, when the market fell")
         else:
-            parts.append(f"gave up {m.downside_capture:.0%} of market falls")
+            # Below 1.00 is the good case, and "gave up 40% of market falls"
+            # read as a loss rather than as the protection it describes.
+            qualifier = "only " if m.downside_capture < 1 else ""
+            parts.append(
+                f"Fell {qualifier}{m.downside_capture:.0%} as much as the market "
+                "in its down periods"
+            )
     if m.alpha is not None:
-        parts.append(f"{m.alpha:+.1%} annual alpha")
+        parts.append(f"Alpha {m.alpha:+.1%} a year")
     return ". ".join(parts) + "."
 
 

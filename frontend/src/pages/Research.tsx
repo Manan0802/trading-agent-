@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { AlertTriangle } from 'lucide-react'
 import {
   CartesianGrid,
   Line,
@@ -11,9 +12,10 @@ import {
 } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Metric, MetricRow } from '@/components/ui/metric'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -24,7 +26,15 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { formatInr, formatPercent, gainClass } from '@/lib/format'
+import {
+  NO_VALUE,
+  formatInr,
+  formatInrCompact,
+  formatPercent,
+  formatRatio,
+  gainClass,
+  plainProse,
+} from '@/lib/format'
 import {
   fetchCategoryRanking,
   fetchFund,
@@ -38,90 +48,133 @@ const ASSET_CLASSES = [
   { value: 'gold', label: 'Gold' },
 ]
 
-function MetricCell({ value, kind }: { value: number | null; kind: 'pct' | 'ratio' }) {
-  if (value === null) return <span className="text-muted-foreground">—</span>
-  if (kind === 'ratio') return <span className="tabular-nums">{value.toFixed(2)}</span>
-  return <span className="tabular-nums">{formatPercent(value, { signed: false })}</span>
+/**
+ * Caveats and failures both sit at the same weight: a quiet line with a mark
+ * beside it. Amber would be a second accent, and none of these are emergencies.
+ */
+function Notice({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex max-w-3xl items-start gap-2 text-sm text-muted-foreground">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <span>{children}</span>
+    </p>
+  )
 }
 
-function FundRow({ fund, rank, onOpen }: { fund: RankedFund; rank: number; onOpen: () => void }) {
+function FundRow({
+  fund,
+  rank,
+  isOpen,
+  onOpen,
+}: {
+  fund: RankedFund
+  rank: number
+  isOpen: boolean
+  onOpen: () => void
+}) {
   const m = fund.metrics
+
   return (
     <TableRow>
-      <TableCell className="text-muted-foreground tabular-nums">{rank}</TableCell>
-      <TableCell>
-        <button className="text-left hover:underline" onClick={onOpen}>
-          <span className="font-medium">{fund.scheme_name}</span>
+      <TableCell className="num text-muted-foreground">{rank}</TableCell>
+      <TableCell className="max-w-[24rem] py-3 whitespace-normal">
+        <button
+          className="text-left font-medium leading-tight underline-offset-4 hover:underline"
+          aria-expanded={isOpen}
+          onClick={onOpen}
+        >
+          {fund.scheme_name}
         </button>
+        <p className="mt-0.5 text-xs text-muted-foreground">{fund.category}</p>
       </TableCell>
       <TableCell className="text-right">
-        <Badge variant={fund.score >= 70 ? 'default' : 'secondary'}>
+        <Badge variant={fund.score >= 70 ? 'default' : 'secondary'} className="num">
           {fund.score.toFixed(0)}
         </Badge>
       </TableCell>
-      <TableCell className="text-right"><MetricCell value={m.cagr_3y} kind="pct" /></TableCell>
-      <TableCell className="text-right"><MetricCell value={m.sortino} kind="ratio" /></TableCell>
-      <TableCell className="text-right"><MetricCell value={m.consistency} kind="pct" /></TableCell>
-      <TableCell className="text-right">
-        <MetricCell value={m.downside_capture} kind="ratio" />
+      <TableCell className="num text-right">
+        {formatPercent(m.cagr_3y, { signed: false })}
       </TableCell>
-      <TableCell className={`text-right ${gainClass(m.alpha)}`}>
-        <MetricCell value={m.alpha} kind="pct" />
+      <TableCell className="num text-right text-muted-foreground">
+        {formatRatio(m.sortino)}
+      </TableCell>
+      <TableCell className="num text-right text-muted-foreground">
+        {formatPercent(m.consistency, { signed: false })}
+      </TableCell>
+      <TableCell className="num text-right text-muted-foreground">
+        {formatRatio(m.downside_capture)}
+      </TableCell>
+      <TableCell className={`num text-right ${gainClass(m.alpha)}`}>
+        {formatPercent(m.alpha)}
       </TableCell>
     </TableRow>
   )
 }
 
-function FundDetailPanel({ schemeCode, onClose }: { schemeCode: string; onClose: () => void }) {
+/**
+ * The one place a card earns its elevation on this page: it is a detail view
+ * opened on top of the list, and the border is what says so.
+ */
+function FundDetailPanel({
+  schemeCode,
+  onClose,
+}: {
+  schemeCode: string
+  onClose: () => void
+}) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['fund', schemeCode],
     queryFn: () => fetchFund(schemeCode),
   })
 
-  if (isLoading) return <Skeleton className="h-80 w-full rounded-xl" />
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col gap-6">
+          <Skeleton className="h-10 w-80" />
+          <Skeleton className="h-56 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </CardContent>
+      </Card>
+    )
+  }
+
   if (isError || !data) {
     return (
       <Card>
-        <CardContent className="py-6 text-sm text-destructive">
-          Couldn't load this fund.
+        <CardContent className="flex flex-col gap-3">
+          <Notice>
+            We could not load this fund's NAV history. Close this panel and open it
+            again, and if it keeps failing the AMFI feed is probably down.
+          </Notice>
+          <div>
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </CardContent>
       </Card>
     )
   }
 
   const m = data.metrics
-  const chart = data.nav_series.map((p) => ({ date: p.date, nav: p.nav }))
-
-  const rows: [string, string][] = [
-    ['1-year return', formatPercent(m.cagr_1y, { signed: false })],
-    ['3-year return', formatPercent(m.cagr_3y, { signed: false })],
-    ['5-year return', formatPercent(m.cagr_5y, { signed: false })],
-    ['Volatility', formatPercent(m.volatility, { signed: false })],
-    ['Sortino', m.sortino?.toFixed(2) ?? '—'],
-    ['Worst fall', formatPercent(m.max_drawdown, { signed: false })],
-    ['Alpha vs Nifty', m.alpha === null ? '—' : formatPercent(m.alpha)],
-    ['Downside capture', m.downside_capture?.toFixed(2) ?? '—'],
-    ['Beat benchmark', formatPercent(m.consistency, { signed: false })],
-  ]
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <CardTitle>{data.scheme_name}</CardTitle>
-            <CardDescription>
-              {data.fund_house} · {data.category}
-            </CardDescription>
-            <div className="flex items-center gap-2 pt-1">
-              {data.is_direct_growth ? (
-                <Badge variant="secondary">Direct Growth</Badge>
-              ) : (
-                <Badge variant="destructive">Regular plan</Badge>
-              )}
-              <span className="text-sm tabular-nums">
-                NAV {formatInr(data.latest_nav)}{' '}
-                <span className="text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div className="flex flex-col gap-1.5">
+            <h3 className="text-lg font-medium leading-tight">{data.scheme_name}</h3>
+            <p className="text-sm text-muted-foreground">
+              {data.fund_house} &middot; {data.category}
+            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
+              <Badge variant={data.is_direct_growth ? 'secondary' : 'destructive'}>
+                {data.is_direct_growth ? 'Direct Growth' : 'Regular plan'}
+              </Badge>
+              <span className="text-sm">
+                NAV <span className="tnum font-medium">{formatInr(data.latest_nav)}</span>{' '}
+                <span className="tnum text-xs text-muted-foreground">
                   on {data.latest_nav_date}
                 </span>
               </span>
@@ -132,53 +185,129 @@ function FundDetailPanel({ schemeCode, onClose }: { schemeCode: string; onClose:
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={chart} margin={{ left: 4, right: 4, top: 4, bottom: 4 }}>
-            <CartesianGrid stroke="var(--border)" vertical={false} />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-              tickFormatter={(d: string) => d.slice(0, 4)}
-              minTickGap={40}
-              stroke="var(--border)"
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-              width={48}
-              stroke="var(--border)"
-              domain={['auto', 'auto']}
-            />
-            <Tooltip
-              contentStyle={{
-                background: 'var(--popover)',
-                color: 'var(--popover-foreground)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)',
-                fontSize: 12,
-              }}
-              formatter={(v) => [formatInr(Number(v)), 'NAV'] as [string, string]}
-            />
-            <Line
-              type="monotone"
-              dataKey="nav"
-              stroke="var(--chart-1)"
-              strokeWidth={2}
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
 
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
-          {rows.map(([label, value]) => (
-            <div key={label} className="flex justify-between border-b py-1 text-sm">
-              <span className="text-muted-foreground">{label}</span>
-              <span className="tabular-nums">{value}</span>
-            </div>
-          ))}
-        </div>
+      <CardContent className="flex flex-col gap-8">
+        <section className="flex flex-col gap-3">
+          <h4 className="text-sm font-medium">NAV over time</h4>
+          <div className="h-56 w-full sm:h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={data.nav_series}
+                margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+              >
+                <CartesianGrid
+                  vertical={false}
+                  stroke="var(--border)"
+                  strokeDasharray="2 4"
+                />
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={48}
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  tickFormatter={(d: string) => d.slice(0, 4)}
+                />
+                <YAxis
+                  width={56}
+                  tickLine={false}
+                  axisLine={false}
+                  domain={['auto', 'auto']}
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  tickFormatter={(v: number) => formatInrCompact(v)}
+                />
+                <Tooltip
+                  cursor={{ stroke: 'var(--muted-foreground)', strokeWidth: 1 }}
+                  contentStyle={{
+                    background: 'var(--popover)',
+                    color: 'var(--popover-foreground)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: 12,
+                  }}
+                  formatter={(v) => [formatInr(Number(v)), 'NAV'] as [string, string]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="nav"
+                  stroke="var(--primary)"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        <MetricRow className="sm:grid-cols-3 lg:grid-cols-3 sm:[&>*:nth-child(3n+1)]:pl-0 sm:[&>*:nth-child(3n)]:border-r-0">
+          <Metric
+            label="1-year return"
+            value={formatPercent(m.cagr_1y, { signed: false })}
+            size="sm"
+          />
+          <Metric
+            label="3-year return"
+            value={formatPercent(m.cagr_3y, { signed: false })}
+            hint="Annualised, so it is comparable with the 1 and 5-year figures."
+            size="sm"
+          />
+          <Metric
+            label="5-year return"
+            value={formatPercent(m.cagr_5y, { signed: false })}
+            size="sm"
+          />
+          <Metric
+            label="Volatility"
+            value={formatPercent(m.volatility, { signed: false })}
+            hint="How much the NAV swings in a year. Higher means a bumpier ride."
+            size="sm"
+          />
+          <Metric
+            label="Sortino"
+            value={formatRatio(m.sortino)}
+            hint="Return per unit of downside risk. Higher is better."
+            size="sm"
+          />
+          <Metric
+            label="Worst fall"
+            value={formatPercent(m.max_drawdown, { signed: false })}
+            hint="The deepest peak-to-trough drop in the history we have."
+            size="sm"
+          />
+          <Metric
+            label="Alpha vs Nifty"
+            value={formatPercent(m.alpha)}
+            valueClassName={gainClass(m.alpha)}
+            hint="Return above what the index gave over the same period."
+            size="sm"
+          />
+          <Metric
+            label="Downside capture"
+            value={formatRatio(m.downside_capture)}
+            hint="Below 1.00 means the fund fell less than the market did."
+            size="sm"
+          />
+          <Metric
+            label="Beat the index"
+            value={formatPercent(m.consistency, { signed: false })}
+            hint="Share of rolling periods it finished ahead of the benchmark."
+            size="sm"
+          />
+        </MetricRow>
       </CardContent>
     </Card>
+  )
+}
+
+function FundsLoading() {
+  return (
+    <div className="flex flex-col gap-3">
+      <Skeleton className="h-5 w-40" />
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-11 w-full" />
+      ))}
+    </div>
   )
 }
 
@@ -193,7 +322,7 @@ function FundsTab() {
   })
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-wrap gap-2">
         {ASSET_CLASSES.map((c) => (
           <Button
@@ -214,67 +343,97 @@ function FundsTab() {
         <FundDetailPanel schemeCode={openFund} onClose={() => setOpenFund(null)} />
       )}
 
-      {isLoading && <Skeleton className="h-64 w-full rounded-xl" />}
+      {isLoading && <FundsLoading />}
 
       {isError && (
-        <Card>
-          <CardContent className="py-6 text-sm text-amber-600 dark:text-amber-400">
-            {(error as any)?.response?.data?.detail ??
-              'Fund data is temporarily unavailable. Please refresh to retry.'}
-          </CardContent>
-        </Card>
+        <Notice>
+          {plainProse(
+            (error as any)?.response?.data?.detail ??
+              'Fund data is not available right now. Refresh the page to try again, and if it keeps failing the AMFI feed is down rather than your connection.',
+          )}
+        </Notice>
       )}
 
-      {data && (
-        <>
-          <Card className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8">#</TableHead>
-                  <TableHead>Fund</TableHead>
-                  <TableHead className="text-right">Score</TableHead>
-                  <TableHead className="text-right">3y</TableHead>
-                  <TableHead className="text-right">Sortino</TableHead>
-                  <TableHead className="text-right">Beat bmk</TableHead>
-                  <TableHead className="text-right">Down cap</TableHead>
-                  <TableHead className="text-right">Alpha</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.ranked.map((f, i) => (
-                  <FundRow
-                    key={f.scheme_code}
-                    fund={f}
-                    rank={i + 1}
-                    onOpen={() => setOpenFund(f.scheme_code)}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+      {data && data.ranked.length === 0 && (
+        <Notice>
+          Nothing in this category could be scored yet. We need a few years of NAV
+          history per fund before a ranking means anything.
+        </Notice>
+      )}
 
-          <div className="flex flex-col gap-1.5">
-            <p className="text-xs text-muted-foreground">
+      {data && data.ranked.length > 0 && (
+        <>
+          <section className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+              <h2 className="text-sm font-medium">Ranked by our score, best first</h2>
+              <p className="text-xs text-muted-foreground">
+                Select a fund to see its full record.
+              </p>
+            </div>
+            <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-8">#</TableHead>
+                    <TableHead>Fund</TableHead>
+                    <TableHead className="text-right">Score</TableHead>
+                    <TableHead className="text-right">3y return</TableHead>
+                    <TableHead className="text-right">Sortino</TableHead>
+                    <TableHead className="text-right">Beat index</TableHead>
+                    <TableHead className="text-right">Down capture</TableHead>
+                    <TableHead className="text-right">Alpha</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.ranked.map((f, i) => (
+                    <FundRow
+                      key={f.scheme_code}
+                      fund={f}
+                      rank={i + 1}
+                      isOpen={openFund === f.scheme_code}
+                      onOpen={() =>
+                        setOpenFund(openFund === f.scheme_code ? null : f.scheme_code)
+                      }
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </section>
+
+          <div className="flex flex-col gap-3">
+            <p className="max-w-3xl text-sm text-muted-foreground">
               {data.benchmarked
-                ? `Scored against the ${data.benchmark_name}. Higher score is better; downside capture below 1.00 means the fund fell less than the market.`
-                : 'Not benchmarked against equities — a debt or gold fund is not trying to track the Nifty, so it is ranked on its own risk-adjusted record.'}
+                ? `Scored against the ${data.benchmark_name}. A higher score is better, and a downside capture below 1.00 means the fund fell less than the market did.`
+                : 'Not benchmarked against equities. A debt or gold fund is not trying to track the Nifty, so it is ranked on its own risk-adjusted record.'}
             </p>
+
             {data.benchmark_caveat && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                {data.benchmark_caveat}
+              <Notice>{plainProse(data.benchmark_caveat)}</Notice>
+            )}
+
+            {data.unscorable.length > 0 && (
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                Left out of the ranking:{' '}
+                {data.unscorable.map((u) => u.scheme_name).join(', ')}.{' '}
+                {plainProse(data.unscorable[0].reason)}.
               </p>
             )}
           </div>
-
-          {data.unscorable.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Left out: {data.unscorable.map((u) => u.scheme_name).join(', ')} —{' '}
-              {data.unscorable[0].reason.toLowerCase()}.
-            </p>
-          )}
         </>
       )}
+    </div>
+  )
+}
+
+function StockLoading() {
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="h-12 w-56" />
+      </div>
+      <Skeleton className="h-28 w-full" />
     </div>
   )
 }
@@ -290,37 +449,14 @@ function StocksTab() {
     retry: false,
   })
 
-  const rows: [string, string][] = data
-    ? [
-        ['Sector', data.sector ?? '—'],
-        ['Industry', data.industry ?? '—'],
-        ['P/E ratio', data.pe_ratio?.toFixed(1) ?? '—'],
-        ['EPS', data.eps ? formatInr(data.eps) : '—'],
-        ['Book value', data.book_value ? formatInr(data.book_value) : '—'],
-        [
-          'Market cap',
-          data.market_cap ? `${formatInr(data.market_cap / 1e7)} cr` : '—',
-        ],
-        [
-          'Dividend yield',
-          data.dividend_yield_pct !== null ? `${data.dividend_yield_pct}%` : '—',
-        ],
-        [
-          '52-week range',
-          data.week52_low && data.week52_high
-            ? `${formatInr(data.week52_low)} – ${formatInr(data.week52_high)}`
-            : '—',
-        ],
-      ]
-    : []
-
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-8">
       <form
-        className="flex items-end gap-2"
+        className="flex max-w-sm items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault()
           const t = input.trim().toUpperCase()
+          if (!t) return
           setTicker(t.includes('.') ? t : `${t}.NS`)
         }}
       >
@@ -336,44 +472,96 @@ function StocksTab() {
         <Button type="submit">Look up</Button>
       </form>
 
-      {isLoading && <Skeleton className="h-48 w-full rounded-xl" />}
+      {!ticker && (
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Type an NSE ticker to see the live price and the basic fundamentals. Plain
+          names work, so RELIANCE and TCS are enough; we add the .NS suffix for you.
+        </p>
+      )}
+
+      {isLoading && <StockLoading />}
 
       {isError && (
-        <Card>
-          <CardContent className="py-6 text-sm text-amber-600 dark:text-amber-400">
-            No data for that ticker. NSE tickers look like RELIANCE.NS or TCS.NS.
-          </CardContent>
-        </Card>
+        <Notice>
+          We found no data for that ticker. Check the spelling: NSE tickers look like
+          RELIANCE.NS or TCS.NS, and BSE-only listings are not covered.
+        </Notice>
       )}
 
       {data && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{data.name}</CardTitle>
-            <CardDescription>{data.ticker}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-5">
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-semibold tabular-nums">
-                {formatInr(data.price)}
-              </span>
-              <span className={`text-sm tabular-nums ${gainClass(data.day_change_pct)}`}>
-                {data.day_change_pct === null
-                  ? '—'
-                  : `${data.day_change_pct >= 0 ? '+' : '−'}${Math.abs(data.day_change_pct).toFixed(2)}% today`}
-              </span>
-            </div>
+        <div className="flex flex-col gap-8">
+          <header className="flex flex-col gap-1.5">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {data.name}
+            </h2>
+            <p className="num num-display text-4xl font-semibold leading-none sm:text-5xl">
+              {formatInr(data.price)}
+            </p>
+            <p className={`tnum text-sm ${gainClass(data.day_change_pct)}`}>
+              {data.day_change_pct === null
+                ? "Today's change is not available"
+                : `${data.day_change_pct >= 0 ? '+' : '−'}${Math.abs(
+                    data.day_change_pct,
+                  ).toFixed(2)}% today`}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              <span className="tnum">{data.ticker}</span>
+              {data.sector ? ` · ${data.sector}` : ''}
+              {data.industry ? ` · ${data.industry}` : ''}
+            </p>
+          </header>
 
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
-              {rows.map(([label, value]) => (
-                <div key={label} className="flex justify-between border-b py-1 text-sm">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="tabular-nums">{value}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+          <MetricRow className="sm:grid-cols-3 lg:grid-cols-3 sm:[&>*:nth-child(3n+1)]:pl-0 sm:[&>*:nth-child(3n)]:border-r-0">
+            <Metric
+              label="P/E ratio"
+              value={formatRatio(data.pe_ratio)}
+              hint="Rupees of price for each rupee of yearly earnings."
+              size="sm"
+            />
+            <Metric
+              label="Earnings per share"
+              value={formatInr(data.eps)}
+              hint="Profit over the last year, per share."
+              size="sm"
+            />
+            <Metric
+              label="Book value"
+              value={formatInr(data.book_value)}
+              hint="Net assets per share, from the balance sheet."
+              size="sm"
+            />
+            <Metric
+              label="Market cap"
+              value={
+                data.market_cap === null
+                  ? NO_VALUE
+                  : `${formatInr(data.market_cap / 1e7)} cr`
+              }
+              hint="Price times every share outstanding, in crore rupees."
+              size="sm"
+            />
+            <Metric
+              label="Dividend yield"
+              value={
+                data.dividend_yield_pct === null
+                  ? NO_VALUE
+                  : `${data.dividend_yield_pct}%`
+              }
+              hint="Dividend paid over the last year, against today's price."
+              size="sm"
+            />
+            <Metric
+              label="52-week range"
+              value={
+                data.week52_low !== null && data.week52_high !== null
+                  ? `${formatInr(data.week52_low)} to ${formatInr(data.week52_high)}`
+                  : NO_VALUE
+              }
+              hint="Where today's price sits against the last year."
+              size="sm"
+            />
+          </MetricRow>
+        </div>
       )}
     </div>
   )
@@ -381,24 +569,25 @@ function StocksTab() {
 
 export function Research() {
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Research</h1>
-        <p className="text-sm text-muted-foreground">
-          Fund scores are computed here from public NAV history — they are not a
-          licensed rating.
+    <div className="flex flex-col gap-8">
+      <header className="flex flex-col gap-1.5">
+        <h1 className="text-2xl font-semibold tracking-tight">Research</h1>
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          Fund scores here are worked out by NexTrade from public NAV history. They
+          are not a licensed rating, and nothing on this page is a recommendation to
+          buy.
         </p>
-      </div>
+      </header>
 
-      <Tabs defaultValue="funds">
+      <Tabs defaultValue="funds" className="gap-6">
         <TabsList>
           <TabsTrigger value="funds">Mutual funds</TabsTrigger>
           <TabsTrigger value="stocks">Stocks</TabsTrigger>
         </TabsList>
-        <TabsContent value="funds" className="pt-4">
+        <TabsContent value="funds">
           <FundsTab />
         </TabsContent>
-        <TabsContent value="stocks" className="pt-4">
+        <TabsContent value="stocks">
           <StocksTab />
         </TabsContent>
       </Tabs>

@@ -4,9 +4,8 @@ import { api } from '@/lib/api'
 import { AllocationPie } from '@/components/AllocationPie'
 import { GoalFundPlan } from '@/components/GoalFundPlan'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { formatInr } from '@/lib/format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { formatInr, plainProse } from '@/lib/format'
 
 type Goal = {
   id: string
@@ -21,6 +20,20 @@ type Goal = {
   status: string
 }
 
+function LoadingState() {
+  return (
+    <div className="flex flex-col gap-10">
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-12 w-56" />
+        <Skeleton className="h-4 w-80" />
+      </div>
+      <Skeleton className="h-44 w-full" />
+      <Skeleton className="h-32 w-full" />
+    </div>
+  )
+}
+
 export function GoalDetail() {
   const { id } = useParams()
   const { data, isLoading, isError } = useQuery<Goal>({
@@ -28,76 +41,71 @@ export function GoalDetail() {
     queryFn: async () => (await api.get(`/api/v1/goals/${id}`)).data,
   })
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-3xl animate-pulse px-4 py-10">
-        <div className="mb-4 h-8 w-64 rounded-md bg-muted" />
-        <div className="h-40 rounded-xl bg-muted" />
-      </div>
-    )
-  }
+  if (isLoading) return <LoadingState />
 
   if (isError || !data) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-10">
-        <p className="text-destructive">Couldn't load this goal. Please refresh.</p>
+      <div className="flex flex-col gap-2">
+        <h1 className="text-lg font-medium">Couldn't load this goal</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Either the goal no longer exists or the server did not respond. Refresh the
+          page, and if it keeps failing check that the API is running.
+        </p>
       </div>
     )
   }
 
+  const sip = data.required_monthly_sip
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">{data.goal_name}</h1>
-        <Badge variant={data.status === 'active' ? 'default' : 'secondary'}>
-          {data.status}
-        </Badge>
-      </div>
+    <div className="flex flex-col gap-10">
+      <header className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold tracking-tight">{data.goal_name}</h1>
+          <Badge variant={data.status === 'active' ? 'default' : 'secondary'}>
+            {data.status}
+          </Badge>
+        </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">
-              Projected monthly SIP
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold tabular-nums">
-              {data.required_monthly_sip != null ? formatInr(data.required_monthly_sip) : '—'}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Target {formatInr(data.target_amount)} in {data.years} years
-            </p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Monthly SIP
+          </p>
+          <p className="num num-display text-4xl font-semibold leading-none sm:text-5xl">
+            {formatInr(sip)}
+          </p>
+          <p className="tnum max-w-2xl text-sm text-muted-foreground">
+            {sip != null
+              ? `Invested every month, this is what reaches ${formatInr(
+                  data.target_amount,
+                )} in ${data.years} years at the returns we assume. It is a projection, not a promise.`
+              : `We have not worked out a monthly amount for this goal yet. The target is ${formatInr(
+                  data.target_amount,
+                )} in ${data.years} years.`}
+          </p>
+        </div>
+      </header>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">Asset allocation</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AllocationPie
-              equity={data.equity_allocation ?? 0}
-              debt={data.debt_allocation ?? 0}
-              gold={data.gold_allocation ?? 0}
-            />
-          </CardContent>
-        </Card>
-      </div>
+      <section className="flex flex-col gap-4">
+        <h2 className="text-sm font-medium">Where the money goes</h2>
+        <AllocationPie
+          equity={data.equity_allocation ?? 0}
+          debt={data.debt_allocation ?? 0}
+          gold={data.gold_allocation ?? 0}
+        />
+      </section>
 
       {data.llm_explanation && (
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">What this means</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-relaxed">{data.llm_explanation}</p>
-            <Separator className="my-3" />
-            <p className="text-xs text-muted-foreground">
-              All figures are projected estimates, not guaranteed returns.
-            </p>
-          </CardContent>
-        </Card>
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-medium">What this means</h2>
+          <p className="max-w-3xl text-sm leading-relaxed">
+            {plainProse(data.llm_explanation)}
+          </p>
+          <p className="max-w-3xl text-xs text-muted-foreground">
+            Every figure on this page is a projected estimate, not a guaranteed
+            return.
+          </p>
+        </section>
       )}
 
       {id && <GoalFundPlan goalId={id} />}
