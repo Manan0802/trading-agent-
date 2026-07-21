@@ -85,3 +85,12 @@ class PortfolioSummaryOut(BaseModel):
     has_pricing_errors: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class HistoryPointOut(BaseModel):
+    date: date
+    invested: float
+    portfolio_value: float
+    benchmark_value: float | None
+
+    model_config = ConfigDict(from_attributes=True)

@@ -7,6 +7,7 @@ import { AuthCallback } from '@/pages/AuthCallback'
 import { Portfolio } from '@/pages/Portfolio'
 import { Research } from '@/pages/Research'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { clearToken, isAuthenticated } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
@@ -30,23 +31,26 @@ function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-6">
-            <NavLink to={signedIn ? '/portfolio' : '/login'} className="text-base font-semibold">
+      <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+          <div className="flex items-center gap-8">
+            <NavLink
+              to={signedIn ? '/portfolio' : '/login'}
+              className="text-sm font-semibold tracking-tight"
+            >
               NexTrade
             </NavLink>
             {signedIn && (
-              <nav className="flex items-center gap-4">
+              <nav className="flex items-center gap-1">
                 {NAV.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
                     className={({ isActive }) =>
                       cn(
-                        'text-sm transition-colors',
+                        'rounded-md px-2.5 py-1.5 text-sm transition-colors',
                         isActive
-                          ? 'font-medium text-foreground'
+                          ? 'bg-secondary font-medium text-foreground'
                           : 'text-muted-foreground hover:text-foreground',
                       )
                     }
@@ -57,21 +61,24 @@ function Layout({ children }: { children: React.ReactNode }) {
               </nav>
             )}
           </div>
-          {signedIn && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                clearToken()
-                window.location.href = '/login'
-              }}
-            >
-              Sign out
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {signedIn && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  clearToken()
+                  window.location.href = '/login'
+                }}
+              >
+                Sign out
+              </Button>
+            )}
+          </div>
         </div>
       </header>
-      {children}
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">{children}</main>
     </div>
   )
 }

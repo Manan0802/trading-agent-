@@ -34,7 +34,21 @@ export function formatUnits(value: number | null | undefined): string {
 /** Tailwind classes for a number whose sign carries meaning. */
 export function gainClass(value: number | null | undefined): string {
   if (value === null || value === undefined) return 'text-muted-foreground'
-  if (value > 0) return 'text-emerald-600 dark:text-emerald-400'
-  if (value < 0) return 'text-red-600 dark:text-red-400'
+  if (value > 0) return 'text-gain'
+  if (value < 0) return 'text-loss'
   return 'text-muted-foreground'
+}
+
+/**
+ * Compact rupees for axis ticks and dense cells, in the Indian scale the user
+ * actually reads in: 1.2Cr and 45L, never 12M.
+ */
+export function formatInrCompact(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—'
+  const abs = Math.abs(value)
+  const sign = value < 0 ? '−' : ''
+  if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(abs >= 1e8 ? 0 : 2)}Cr`
+  if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(abs >= 1e6 ? 0 : 1)}L`
+  if (abs >= 1e3) return `${sign}₹${(abs / 1e3).toFixed(0)}k`
+  return `${sign}₹${abs.toFixed(0)}`
 }

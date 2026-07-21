@@ -2,12 +2,24 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 @custom-variant dark (&:is(.dark *));
 
+/* NexTrade reads as an instrument panel, not a consumer app: cool neutrals, a
+   single low-saturation accent that never competes with the gain/loss colours,
+   one tight radius everywhere, and monospaced tabular figures so columns of
+   rupees line up on the decimal. */
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+
+    /* Sign carries meaning here, so it gets its own tokens rather than being
+       spelled as a raw Tailwind colour at every call site. */
+    --color-gain: var(--gain);
+    --color-loss: var(--loss);
+
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -39,6 +51,7 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -49,82 +62,146 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    /* Off-white, not pure white: pure values flatten depth. */
+    --background: oklch(0.991 0.002 265);
+    --foreground: oklch(0.19 0.012 265);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
+    --card-foreground: oklch(0.19 0.012 265);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --popover-foreground: oklch(0.19 0.012 265);
+
+    /* One accent for the whole app: a deep, desaturated blue. Green and red
+       are reserved for gains and losses, so the accent must not read as
+       either. */
+    --primary: oklch(0.50 0.115 252);
+    --primary-foreground: oklch(0.99 0.002 265);
+
+    --secondary: oklch(0.965 0.004 265);
+    --secondary-foreground: oklch(0.28 0.014 265);
+    --muted: oklch(0.965 0.004 265);
+    --muted-foreground: oklch(0.505 0.014 265);
+    --accent: oklch(0.955 0.012 252);
+    --accent-foreground: oklch(0.34 0.075 252);
+    --destructive: oklch(0.545 0.196 27);
+
+    --gain: oklch(0.505 0.128 155);
+    --loss: oklch(0.535 0.196 27);
+
+    --border: oklch(0.905 0.005 265);
+    --input: oklch(0.895 0.006 265);
+    --ring: oklch(0.50 0.115 252);
+
+    /* Sequential rather than categorical: an allocation chart shows parts of
+       one whole, and a rainbow would imply the slices are unrelated. */
+    --chart-1: oklch(0.50 0.115 252);
+    --chart-2: oklch(0.61 0.095 245);
+    --chart-3: oklch(0.71 0.072 238);
+    --chart-4: oklch(0.80 0.050 232);
+    --chart-5: oklch(0.87 0.032 228);
+
+    --radius: 0.375rem;
+
+    --sidebar: oklch(0.975 0.003 265);
+    --sidebar-foreground: oklch(0.19 0.012 265);
+    --sidebar-primary: oklch(0.50 0.115 252);
+    --sidebar-primary-foreground: oklch(0.99 0.002 265);
+    --sidebar-accent: oklch(0.955 0.012 252);
+    --sidebar-accent-foreground: oklch(0.34 0.075 252);
+    --sidebar-border: oklch(0.905 0.005 265);
+    --sidebar-ring: oklch(0.50 0.115 252);
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    /* Off-black with a trace of blue, matching the light mode's neutral family
+       so the app does not change temperature when the theme flips. */
+    --background: oklch(0.165 0.010 265);
+    --foreground: oklch(0.955 0.003 265);
+    --card: oklch(0.205 0.011 265);
+    --card-foreground: oklch(0.955 0.003 265);
+    --popover: oklch(0.215 0.011 265);
+    --popover-foreground: oklch(0.955 0.003 265);
+
+    --primary: oklch(0.685 0.135 252);
+    --primary-foreground: oklch(0.165 0.010 265);
+
+    --secondary: oklch(0.262 0.012 265);
+    --secondary-foreground: oklch(0.955 0.003 265);
+    --muted: oklch(0.255 0.011 265);
+    --muted-foreground: oklch(0.685 0.013 265);
+    --accent: oklch(0.288 0.030 252);
+    --accent-foreground: oklch(0.855 0.055 252);
+    --destructive: oklch(0.685 0.175 25);
+
+    /* Lifted and slightly desaturated against the dark ground: the light-mode
+       green and red go muddy below 40% lightness on a dark background. */
+    --gain: oklch(0.735 0.145 157);
+    --loss: oklch(0.695 0.172 25);
+
+    --border: oklch(1 0 0 / 11%);
+    --input: oklch(1 0 0 / 16%);
+    --ring: oklch(0.685 0.135 252);
+
+    --chart-1: oklch(0.685 0.135 252);
+    --chart-2: oklch(0.615 0.110 246);
+    --chart-3: oklch(0.535 0.088 240);
+    --chart-4: oklch(0.455 0.066 234);
+    --chart-5: oklch(0.375 0.044 230);
+
+    --sidebar: oklch(0.195 0.011 265);
+    --sidebar-foreground: oklch(0.955 0.003 265);
+    --sidebar-primary: oklch(0.685 0.135 252);
+    --sidebar-primary-foreground: oklch(0.165 0.010 265);
+    --sidebar-accent: oklch(0.288 0.030 252);
+    --sidebar-accent-foreground: oklch(0.855 0.055 252);
+    --sidebar-border: oklch(1 0 0 / 11%);
+    --sidebar-ring: oklch(0.685 0.135 252);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
     @apply bg-background text-foreground;
-    }
+    font-feature-settings: 'kern', 'liga';
+  }
   html {
-    @apply font-sans;
-    }
+    @apply font-sans antialiased;
+  }
+}
+
+@layer components {
+  /* Every figure the user might compare against another figure. Tabular
+     numerals keep decimal points on a common vertical, which is the whole
+     reason a rupee column is readable at a glance. */
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: -0.02em;
+  }
+
+  /* Mono's comma occupies a full digit width, which reads as airy gaps at
+     display sizes. Indian grouping puts three commas in a lakh figure, so the
+     effect compounds. */
+  .num-display {
+    letter-spacing: -0.055em;
+  }
+
+  /* Figures inside a sentence: still aligned across rows, but set in the body
+     face, because a mono run mid-paragraph reads as source code. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

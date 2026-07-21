@@ -74,3 +74,14 @@ export async function addTransaction(holdingId: string, body: NewTransaction) {
 export async function deleteHolding(holdingId: string) {
   await api.delete(`/api/v1/portfolio/holdings/${holdingId}`)
 }
+
+export type HistoryPoint = {
+  date: string
+  invested: number
+  portfolio_value: number
+  benchmark_value: number | null
+}
+
+export async function fetchHistory(): Promise<HistoryPoint[]> {
+  return (await api.get('/api/v1/portfolio/history')).data
+}
