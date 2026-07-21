@@ -120,6 +120,19 @@ def test_category_ranking_lists_scored_and_unscorable_funds():
 def test_debt_category_is_reported_as_not_benchmarked():
     body = client.get("/api/v1/research/categories/debt", headers=_headers()).json()
     assert body["benchmarked"] is False
+    assert body["benchmark_name"] is None
+    assert body["benchmark_caveat"] is None
+
+
+def test_equity_ranking_names_its_benchmark_and_discloses_its_limits():
+    """Alpha against the Nifty 50 flatters Flexi Cap funds, which hold mid and
+    small caps the index excludes. The API must say so rather than present the
+    number bare."""
+    body = client.get("/api/v1/research/categories/equity", headers=_headers()).json()
+    assert body["benchmark_name"] == "Nifty 50"
+    caveat = body["benchmark_caveat"]
+    assert "large caps" in caveat
+    assert "Nifty 500" in caveat
 
 
 def test_unknown_asset_class_is_404():

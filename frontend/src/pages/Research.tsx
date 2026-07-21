@@ -254,11 +254,18 @@ function FundsTab() {
             </Table>
           </Card>
 
-          <p className="text-xs text-muted-foreground">
-            {data.benchmarked
-              ? 'Scored against the Nifty 50. Higher score is better; downside capture below 1.00 means the fund fell less than the market.'
-              : 'Not benchmarked against equities — a debt or gold fund is not trying to track the Nifty, so it is ranked on its own risk-adjusted record.'}
-          </p>
+          <div className="flex flex-col gap-1.5">
+            <p className="text-xs text-muted-foreground">
+              {data.benchmarked
+                ? `Scored against the ${data.benchmark_name}. Higher score is better; downside capture below 1.00 means the fund fell less than the market.`
+                : 'Not benchmarked against equities — a debt or gold fund is not trying to track the Nifty, so it is ranked on its own risk-adjusted record.'}
+            </p>
+            {data.benchmark_caveat && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {data.benchmark_caveat}
+              </p>
+            )}
+          </div>
 
           {data.unscorable.length > 0 && (
             <p className="text-xs text-muted-foreground">

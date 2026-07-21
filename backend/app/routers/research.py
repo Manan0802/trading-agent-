@@ -12,7 +12,12 @@ from app.schemas.research import (
 )
 from app.services.advisor import fund_metrics
 from app.services.advisor.fund_recommender import load_scored_universe
-from app.services.advisor.fund_universe import BENCHMARK_BY_ASSET_CLASS, UNIVERSE
+from app.services.advisor.fund_universe import (
+    BENCHMARK_BY_ASSET_CLASS,
+    BENCHMARK_CAVEAT,
+    BENCHMARK_NAME,
+    UNIVERSE,
+)
 from app.services.marketdata import mutual_fund, stock
 
 router = APIRouter(prefix="/api/v1/research", tags=["research"])
@@ -81,9 +86,12 @@ def rank_category(
     except mutual_fund.MutualFundDataError as exc:
         raise HTTPException(503, f"Fund data is temporarily unavailable ({exc})") from exc
 
+    benchmarked = BENCHMARK_BY_ASSET_CLASS.get(asset_class) is not None
     return CategoryRankingOut(
         asset_class=asset_class,
-        benchmarked=BENCHMARK_BY_ASSET_CLASS.get(asset_class) is not None,
+        benchmarked=benchmarked,
+        benchmark_name=BENCHMARK_NAME if benchmarked else None,
+        benchmark_caveat=BENCHMARK_CAVEAT if benchmarked else None,
         ranked=result.ranked,
         unscorable=result.unscorable,
     )

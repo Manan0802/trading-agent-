@@ -36,6 +36,8 @@ export type RankedFund = {
 export type CategoryRanking = {
   asset_class: string
   benchmarked: boolean
+  benchmark_name: string | null
+  benchmark_caveat: string | null
   ranked: RankedFund[]
   unscorable: { scheme_code: string; scheme_name: string; reason: string }[]
 }

@@ -65,6 +65,9 @@ class UnscorableFundOut(BaseModel):
 class CategoryRankingOut(BaseModel):
     asset_class: str
     benchmarked: bool
+    # Named, and its limits stated, so an alpha figure is never read bare.
+    benchmark_name: str | None
+    benchmark_caveat: str | None
     ranked: list[RankedFundOut]
     unscorable: list[UnscorableFundOut]
 
