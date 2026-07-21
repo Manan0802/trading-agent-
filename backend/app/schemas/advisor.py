@@ -30,3 +30,22 @@ class TaxRequest(BaseModel):
     # Basic salary, not CTC. Left None rather than guessed, because the
     # 80CCD(2) cap is a percentage of basic and a guess would be a made-up number.
     basic_salary: float | None = None
+
+
+class ExternalAssetIn(BaseModel):
+    name: str
+    amount: float
+    # Optional: inferred from the name when omitted, and the asset is skipped
+    # with a warning rather than guessed if inference fails.
+    asset_class: str | None = None
+
+
+class WholePortfolioRequest(BaseModel):
+    years: float
+    risk_profile: str
+    monthly_investable: float
+    # Everything owned outside this app — EPF, PPF, FDs, employer stock. The
+    # single biggest reason allocation advice goes wrong is that this is empty.
+    external_assets: list[ExternalAssetIn] = []
+    # Balances already tracked inside the app, by asset class.
+    tracked: dict[str, float] = {}

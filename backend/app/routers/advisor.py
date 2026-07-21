@@ -4,7 +4,13 @@ from app.auth.fastapi_users_app import current_active_user
 from app.database import get_db
 from app.models import Goal, User
 from app.schemas.goal import GoalCreate, GoalOut, GoalRecommendationsOut
-from app.schemas.advisor import SipRequest, RiskScoreRequest, AllocationRequest, TaxRequest
+from app.schemas.advisor import (
+    SipRequest,
+    RiskScoreRequest,
+    AllocationRequest,
+    TaxRequest,
+    WholePortfolioRequest,
+)
 from app.services.advisor.sip_calculator import calculate_required_sip
 from app.services.advisor.asset_allocator import (
     calculate_risk_score,
@@ -13,7 +19,12 @@ from app.services.advisor.asset_allocator import (
     recommended_products,
 )
 from app.services.advisor.fund_recommender import recommend_for_allocation
-from app.services.advisor.goal_inflation import inflation_for_goal, inflation_note
+from app.services.advisor.goal_inflation import inflation_for_goal
+from app.services.advisor.whole_portfolio import (
+    ExternalAsset,
+    classify_asset,
+    plan_new_money,
+)
 from app.services.advisor.tax_advisor import generate_tax_saving_plan
 from app.services.llm.advisor_prompts import get_goal_explanation
 from app.services.marketdata.mutual_fund import MutualFundDataError
@@ -55,6 +66,43 @@ def tax_saving(req: TaxRequest):
         other_deductions=req.other_deductions,
         basic_salary=req.basic_salary,
     )
+
+
+@router.post("/advisor/whole-portfolio")
+def whole_portfolio(req: WholePortfolioRequest):
+    """Where this month's money should go, given everything the user owns.
+
+    Separate from /asset-allocation, which answers the narrower question of what
+    the target mix should be. This one answers what to actually buy, and the
+    two differ sharply for anyone with a large EPF balance.
+    """
+    target = get_allocation(req.years, req.risk_profile)
+
+    assets: list[ExternalAsset] = []
+    unclassified: list[str] = []
+    for item in req.external_assets:
+        asset_class = item.asset_class or classify_asset(item.name)
+        if asset_class not in ("equity", "debt", "gold"):
+            unclassified.append(item.name)
+            continue
+        assets.append(
+            ExternalAsset(name=item.name, amount=item.amount, asset_class=asset_class)
+        )
+
+    existing = {c: float(req.tracked.get(c, 0.0)) for c in ("equity", "debt", "gold")}
+    for asset in assets:
+        existing[asset.asset_class] += asset.amount
+
+    plan = plan_new_money(target, existing, req.monthly_investable, assets)
+    return {
+        "target_mix": plan.target_mix,
+        "current_mix": plan.current_mix,
+        "monthly_allocation": plan.allocation,
+        "insights": plan.insights,
+        # Surfaced rather than silently dropped: an unclassified holding is
+        # missing from the mix, which the user needs to know to read the rest.
+        "unclassified_assets": unclassified,
+    }
 
 
 @router.post("/goals", response_model=GoalOut)
