@@ -46,7 +46,13 @@ def asset_allocation(req: AllocationRequest):
 @router.post("/advisor/tax-saving")
 def tax_saving(req: TaxRequest):
     return generate_tax_saving_plan(
-        req.annual_income, req.existing_80c, req.existing_80d, req.has_nps
+        req.annual_income,
+        req.existing_80c,
+        req.existing_80d,
+        req.has_nps,
+        is_salaried=req.is_salaried,
+        other_deductions=req.other_deductions,
+        basic_salary=req.basic_salary,
     )
 
 
