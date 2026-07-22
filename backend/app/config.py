@@ -10,7 +10,11 @@ class Settings(BaseSettings):
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_whatsapp_number: str = "whatsapp:+14155238886"
-    allowed_origins: str = "http://localhost:5173"
+    # Both spellings of the dev server. Vite prints one and the browser is
+    # often pointed at the other, and allowing only "localhost" meant the page
+    # rendered while every API call failed CORS, which looks like missing data
+    # rather than a misconfiguration.
+    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     jwt_secret: str = "dev-secret-change-in-production-min-32-chars"
     google_oauth_client_id: str = ""
