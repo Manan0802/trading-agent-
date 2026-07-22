@@ -5,9 +5,13 @@ lookup goes through a TTL cache — NAVs only change once a day, and the fund
 scorer will otherwise re-fetch the same schemes repeatedly.
 """
 
+import hashlib
+import json
+import os
 import time
 from dataclasses import dataclass
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote_plus
 
@@ -19,7 +23,18 @@ _CACHE_TTL_SECONDS = 6 * 60 * 60  # NAVs publish once daily, ~11 PM IST
 _MAX_ATTEMPTS = 3
 _RETRY_BACKOFF_SECONDS = 1.0
 
-_cache: dict[str, tuple[float, Any]] = {}
+_memory_cache: dict[str, tuple[float, Any]] = {}
+
+# Also cached on disk, because the universe grew from sixteen scheme codes to
+# several thousand and an in-memory cache is empty again after every restart.
+# That made a cold category take up to 38 seconds, which reads as "the page is
+# broken" rather than "the page is loading".
+_DISK_CACHE_DIR = Path(
+    os.environ.get(
+        "NEXTRADE_CACHE_DIR",
+        Path(__file__).resolve().parent.parent.parent.parent / ".navcache",
+    )
+)
 
 
 class MutualFundDataError(Exception):
@@ -59,7 +74,49 @@ class NavPoint:
 
 
 def clear_cache() -> None:
-    _cache.clear()
+    _memory_cache.clear()
+    try:
+        for entry in _DISK_CACHE_DIR.glob("*.json"):
+            entry.unlink()
+    except OSError:
+        # Nothing here is authoritative, so a cache we cannot clear is a
+        # nuisance rather than a failure.
+        pass
+
+
+def _cache_path(path: str) -> Path:
+    """A filename per request path.
+
+    Hashed because the path contains slashes and query strings, and a scheme
+    code alone would collide between /mf/{code} and its search results.
+    """
+    digest = hashlib.sha256(path.encode()).hexdigest()[:32]
+    return _DISK_CACHE_DIR / f"{digest}.json"
+
+
+def _read_disk(path: str, now: float) -> Any | None:
+    try:
+        entry = json.loads(_cache_path(path).read_text())
+        if now - entry["fetched_at"] < _CACHE_TTL_SECONDS:
+            return entry["payload"]
+    except (OSError, ValueError, KeyError):
+        # A missing file is the common case; a truncated one is what a killed
+        # process leaves behind. Both mean "fetch it again".
+        return None
+    return None
+
+
+def _write_disk(path: str, payload: Any, now: float) -> None:
+    try:
+        _DISK_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        target = _cache_path(path)
+        # Written beside the target and moved into place, so a process killed
+        # mid-write never leaves a half-file that looks valid.
+        tmp = target.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"fetched_at": now, "payload": payload}))
+        tmp.replace(target)
+    except OSError:
+        pass
 
 
 def _get_json(path: str) -> Any:
@@ -81,11 +138,19 @@ def _get_json(path: str) -> Any:
 
 def _get_json_cached(path: str) -> Any:
     now = time.time()
-    hit = _cache.get(path)
+
+    hit = _memory_cache.get(path)
     if hit is not None and now - hit[0] < _CACHE_TTL_SECONDS:
         return hit[1]
+
+    from_disk = _read_disk(path, now)
+    if from_disk is not None:
+        _memory_cache[path] = (now, from_disk)
+        return from_disk
+
     payload = _get_json(path)
-    _cache[path] = (now, payload)
+    _memory_cache[path] = (now, payload)
+    _write_disk(path, payload, now)
     return payload
 
 

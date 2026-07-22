@@ -101,12 +101,14 @@ def _split(amount: float, count: int) -> list[float]:
     return [top, amount - top]
 
 
-# The universe went from 16 hand-picked codes to a few hundred, and each fund
+# The universe went from 16 hand-picked codes to a few thousand, and each fund
 # needs its own NAV history. Fetched one at a time that took 49 seconds for a
 # single category: the cost is entirely network latency, not computation, so
-# the fetches overlap. Bounded because the free feed does not deserve a burst
-# of hundreds of concurrent requests.
-_FETCH_WORKERS = 8
+# the fetches overlap. Raised from 8 after measuring the large categories -
+# Index Funds holds 364 schemes, where 8 workers meant a 38-second first load.
+# Still bounded, because the free feed does not deserve an unlimited burst, and
+# every response is written to the disk cache so this is paid once per day.
+_FETCH_WORKERS = 24
 
 
 def score_codes(codes: list[str], benchmark_code: str | None) -> ScoringResult:

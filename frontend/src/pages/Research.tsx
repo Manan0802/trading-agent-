@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle } from 'lucide-react'
 import {
@@ -296,10 +296,31 @@ function FundDetailPanel({
   )
 }
 
+/**
+ * A category is scored by fetching every constituent fund's NAV history, and
+ * the largest holds 364 of them. Cached that is instant, but the first time
+ * anyone opens it the wait runs into double-digit seconds. A bare skeleton for
+ * that long reads as a broken page, so after a few seconds it says what it is
+ * waiting for.
+ */
 function FundsLoading() {
+  const [slow, setSlow] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 2500)
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
     <div className="flex flex-col gap-3">
-      <Skeleton className="h-5 w-40" />
+      {slow ? (
+        <p className="text-sm text-muted-foreground">
+          Fetching the NAV history of every fund in this category. The first look
+          at a category can take a few seconds; after that it is instant.
+        </p>
+      ) : (
+        <Skeleton className="h-5 w-64" />
+      )}
       {Array.from({ length: 6 }).map((_, i) => (
         <Skeleton key={i} className="h-11 w-full" />
       ))}
