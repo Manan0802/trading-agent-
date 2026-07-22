@@ -36,17 +36,13 @@ import {
   plainProse,
 } from '@/lib/format'
 import {
-  fetchCategoryRanking,
   fetchFund,
+  fetchCategoryFunds,
+  fetchFundCategories,
   fetchStock,
+  fetchStockUniverse,
   type RankedFund,
 } from '@/lib/research-api'
-
-const ASSET_CLASSES = [
-  { value: 'equity', label: 'Equity (Flexi Cap)' },
-  { value: 'debt', label: 'Debt (Corporate Bond)' },
-  { value: 'gold', label: 'Gold' },
-]
 
 /**
  * Caveats and failures both sit at the same weight: a quiet line with a mark
@@ -311,32 +307,62 @@ function FundsLoading() {
   )
 }
 
+/** "Equity Scheme - Small Cap Fund" is how SEBI writes it, not how anyone says it. */
+function shortCategory(category: string): string {
+  return category.split(' - ').slice(1).join(' - ') || category
+}
+
+function categoryGroup(category: string): string {
+  return category.split(' Scheme')[0]
+}
+
+const DEFAULT_CATEGORY = 'Equity Scheme - Flexi Cap Fund'
+
 function FundsTab() {
-  const [assetClass, setAssetClass] = useState('equity')
+  const [category, setCategory] = useState(DEFAULT_CATEGORY)
   const [openFund, setOpenFund] = useState<string | null>(null)
 
+  const { data: categories } = useQuery({
+    queryKey: ['fund-categories'],
+    queryFn: fetchFundCategories,
+  })
+
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['category', assetClass],
-    queryFn: () => fetchCategoryRanking(assetClass),
+    queryKey: ['fund-category', category],
+    queryFn: () => fetchCategoryFunds(category),
     retry: false,
   })
 
+  // Grouped by scheme type so the list reads as Equity / Debt / Hybrid rather
+  // than ninety alphabetical strings.
+  const grouped = (categories ?? []).reduce<Record<string, string[]>>((acc, c) => {
+    ;(acc[categoryGroup(c)] ??= []).push(c)
+    return acc
+  }, {})
+
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-wrap gap-2">
-        {ASSET_CLASSES.map((c) => (
-          <Button
-            key={c.value}
-            size="sm"
-            variant={assetClass === c.value ? 'default' : 'outline'}
-            onClick={() => {
-              setAssetClass(c.value)
-              setOpenFund(null)
-            }}
-          >
-            {c.label}
-          </Button>
-        ))}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="fund-category">Category</Label>
+        <select
+          id="fund-category"
+          className="h-9 w-full max-w-md rounded-md border bg-transparent px-2 text-sm"
+          value={category}
+          onChange={(e) => {
+            setCategory(e.target.value)
+            setOpenFund(null)
+          }}
+        >
+          {Object.entries(grouped).map(([group, items]) => (
+            <optgroup key={group} label={group}>
+              {items.map((c) => (
+                <option key={c} value={c}>
+                  {shortCategory(c)}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
       </div>
 
       {openFund && (
@@ -438,8 +464,119 @@ function StockLoading() {
   )
 }
 
+const STOCK_PAGE_SIZE = 60
+
+function StockBrowser({
+  selected,
+  onSelect,
+}: {
+  selected: string | null
+  onSelect: (ticker: string) => void
+}) {
+  const [index, setIndex] = useState('NIFTY 50')
+  const [industry, setIndustry] = useState<string>('')
+  const [query, setQuery] = useState('')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['stock-universe', index, industry, query],
+    queryFn: () =>
+      fetchStockUniverse({
+        index,
+        industry: industry || undefined,
+        q: query.trim() || undefined,
+        limit: STOCK_PAGE_SIZE,
+      }),
+  })
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="stock-search">Search</Label>
+          <Input
+            id="stock-search"
+            className="w-56"
+            placeholder="Reliance, TCS, Larsen"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="stock-index">Index</Label>
+          <select
+            id="stock-index"
+            className="h-9 rounded-md border bg-transparent px-2 text-sm"
+            value={index}
+            onChange={(e) => setIndex(e.target.value)}
+          >
+            {(data?.available_indices ?? ['NIFTY 50']).map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="stock-industry">Industry</Label>
+          <select
+            id="stock-industry"
+            className="h-9 rounded-md border bg-transparent px-2 text-sm"
+            value={industry}
+            onChange={(e) => setIndustry(e.target.value)}
+          >
+            <option value="">All industries</option>
+            {(data?.available_industries ?? []).map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {isLoading && <Skeleton className="h-64 w-full" />}
+
+      {data && data.stocks.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Nothing in {index} matches that. Try a wider index, or clear the industry
+          filter.
+        </p>
+      )}
+
+      {data && data.stocks.length > 0 && (
+        <>
+          <ul className="grid gap-x-6 border-t sm:grid-cols-2 lg:grid-cols-3">
+            {data.stocks.map((s) => (
+              <li key={s.symbol} className="border-b">
+                <button
+                  type="button"
+                  onClick={() => onSelect(s.ticker)}
+                  aria-current={selected === s.ticker}
+                  className={`flex w-full flex-col items-start gap-0.5 py-2.5 text-left transition-colors hover:text-primary ${
+                    selected === s.ticker ? 'text-primary' : ''
+                  }`}
+                >
+                  <span className="num text-sm font-medium">{s.symbol}</span>
+                  <span className="line-clamp-1 text-xs text-muted-foreground">
+                    {s.name}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted-foreground">
+            {/* Says what is hidden rather than implying the list is complete. */}
+            Showing <span className="tnum">{data.stocks.length}</span> of{' '}
+            <span className="tnum">{data.total}</span>. Narrow the search to see the
+            rest.
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
 function StocksTab() {
-  const [input, setInput] = useState('')
   const [ticker, setTicker] = useState<string | null>(null)
 
   const { data, isLoading, isError } = useQuery({
@@ -451,31 +588,13 @@ function StocksTab() {
 
   return (
     <div className="flex flex-col gap-8">
-      <form
-        className="flex max-w-sm items-end gap-2"
-        onSubmit={(e) => {
-          e.preventDefault()
-          const t = input.trim().toUpperCase()
-          if (!t) return
-          setTicker(t.includes('.') ? t : `${t}.NS`)
-        }}
-      >
-        <div className="flex flex-1 flex-col gap-1.5">
-          <Label htmlFor="ticker">NSE ticker</Label>
-          <Input
-            id="ticker"
-            placeholder="RELIANCE"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-          />
-        </div>
-        <Button type="submit">Look up</Button>
-      </form>
+      <StockBrowser selected={ticker} onSelect={setTicker} />
 
       {!ticker && (
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Type an NSE ticker to see the live price and the basic fundamentals. Plain
-          names work, so RELIANCE and TCS are enough; we add the .NS suffix for you.
+        <p className="max-w-2xl border-t pt-6 text-sm text-muted-foreground">
+          Pick a company to see its live price and fundamentals. These are raw
+          figures from the exchange feed, not a view on whether the stock is worth
+          owning.
         </p>
       )}
 

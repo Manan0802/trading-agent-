@@ -90,3 +90,22 @@ class StockFundamentalsOut(BaseModel):
     week52_low: float | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UniverseStockOut(BaseModel):
+    ticker: str
+    symbol: str
+    name: str
+    industry: str | None
+    indices: list[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StockUniverseOut(BaseModel):
+    stocks: list[UniverseStockOut]
+    # Total before the limit was applied, so the UI can say "showing 50 of 500"
+    # rather than implying the list is complete.
+    total: int
+    available_indices: list[str]
+    available_industries: list[str]

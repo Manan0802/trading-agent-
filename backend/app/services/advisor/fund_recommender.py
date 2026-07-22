@@ -5,6 +5,7 @@
 attached so the pick can be questioned.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -15,7 +16,12 @@ from app.services.advisor.fund_scorer import (
     ScoringResult,
     score_peer_group,
 )
-from app.services.advisor.fund_universe import BENCHMARK_BY_ASSET_CLASS, UNIVERSE
+from app.services.advisor.fund_catalogue import codes_for_category
+from app.services.advisor.fund_universe import (
+    BENCHMARK_BY_ASSET_CLASS,
+    UNIVERSE,
+    benchmark_for_category,
+)
 
 # Below this a monthly SIP is not worth splitting further — most funds set a
 # ₹500 or ₹1,000 minimum instalment.
@@ -95,28 +101,62 @@ def _split(amount: float, count: int) -> list[float]:
     return [top, amount - top]
 
 
-def load_scored_universe(asset_class: str) -> ScoringResult:
-    """Fetch and score the real fund universe for an asset class."""
+# The universe went from 16 hand-picked codes to a few hundred, and each fund
+# needs its own NAV history. Fetched one at a time that took 49 seconds for a
+# single category: the cost is entirely network latency, not computation, so
+# the fetches overlap. Bounded because the free feed does not deserve a burst
+# of hundreds of concurrent requests.
+_FETCH_WORKERS = 8
+
+
+def score_codes(codes: list[str], benchmark_code: str | None) -> ScoringResult:
+    """Fetch NAV history for each code and rank them against one another."""
     from app.services.advisor import fund_metrics
     from app.services.marketdata import mutual_fund
 
-    benchmark_code = BENCHMARK_BY_ASSET_CLASS.get(asset_class)
     benchmark = (
         mutual_fund.get_nav_history(benchmark_code) if benchmark_code else None
     )
-    funds = []
-    for code in UNIVERSE[asset_class]:
-        meta = mutual_fund.get_scheme_meta(code)
-        navs = mutual_fund.get_nav_history(code)
-        funds.append(
-            FundForScoring(
-                scheme_code=code,
-                scheme_name=meta.scheme_name,
-                category=meta.scheme_category,
-                metrics=fund_metrics.compute_metrics(navs, benchmark),
-            )
+
+    def load(code: str) -> FundForScoring | None:
+        try:
+            meta = mutual_fund.get_scheme_meta(code)
+            navs = mutual_fund.get_nav_history(code)
+        except mutual_fund.MutualFundDataError:
+            # One unreachable scheme should not take down a whole category.
+            # It drops out of the peer group, which score_peer_group already
+            # handles, rather than failing the request.
+            return None
+        return FundForScoring(
+            scheme_code=code,
+            scheme_name=meta.scheme_name,
+            category=meta.scheme_category,
+            metrics=fund_metrics.compute_metrics(navs, benchmark),
         )
+
+    with ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
+        # Ordered map, so the peer group is built in a stable order and two
+        # identical requests cannot rank tied funds differently.
+        funds = [f for f in pool.map(load, codes) if f is not None]
+
     return score_peer_group(funds)
+
+
+def load_scored_universe(asset_class: str) -> ScoringResult:
+    """The peer group behind a goal's allocation for one asset class."""
+    return score_codes(
+        UNIVERSE[asset_class], BENCHMARK_BY_ASSET_CLASS.get(asset_class)
+    )
+
+
+def score_category(category: str) -> ScoringResult:
+    """Every fund in a SEBI category, ranked against its own peers.
+
+    Separate from load_scored_universe because Research browses all ninety
+    categories while a goal allocates to only three.
+    """
+    benchmark_code, _ = benchmark_for_category(category)
+    return score_codes(codes_for_category(category), benchmark_code)
 
 
 def recommend_for_allocation(

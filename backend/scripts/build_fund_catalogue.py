@@ -38,6 +38,16 @@ _PAYOUT = re.compile(r"dividend|idcw|payout|reinvest|bonus", re.I)
 _WORKERS = 8
 _PAUSE_SECONDS = 0.02
 
+# Scheme codes verified by hand against AMFI, spanning three categories and
+# several fund houses. Used only as a completeness check on the crawl.
+_INTEGRITY_CODES = [
+    "122639",  # Parag Parikh Flexi Cap
+    "118955",  # HDFC Flexi Cap
+    "118814",  # Nippon India Corporate Bond
+    "119788",  # SBI Gold
+    "120716",  # UTI Nifty 50 Index, the benchmark
+]
+
 
 def candidates(client: httpx.Client) -> list[dict]:
     schemes = client.get(f"{BASE}/mf", timeout=120).json()
@@ -99,6 +109,21 @@ def main() -> int:
         by_category.setdefault(fund["category"], []).append(fund)
     for funds in by_category.values():
         funds.sort(key=lambda f: f["name"])
+
+    # mfapi's list endpoint has returned materially different totals between
+    # runs (75,372 schemes once, 37,689 minutes later), so a crawl that looks
+    # successful can still be built on half a list. The hand-verified codes are
+    # the canary: if any of them vanished, the source was incomplete and the
+    # existing catalogue is better than the one we just built.
+    present = {f["code"] for funds in by_category.values() for f in funds}
+    missing = [code for code in _INTEGRITY_CODES if code not in present]
+    if missing:
+        print(
+            f"\nRefusing to write: {len(missing)} known-good scheme codes are "
+            f"absent, so the source list was partial. Missing: {missing}",
+            file=sys.stderr,
+        )
+        return 1
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(by_category, indent=1, sort_keys=True))

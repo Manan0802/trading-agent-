@@ -71,3 +71,37 @@ export async function fetchFund(schemeCode: string): Promise<FundDetail> {
 export async function fetchStock(ticker: string): Promise<StockFundamentals> {
   return (await api.get(`/api/v1/research/stocks/${ticker}`)).data
 }
+
+export type UniverseStock = {
+  ticker: string
+  symbol: string
+  name: string
+  industry: string | null
+  indices: string[]
+}
+
+export type StockUniverse = {
+  stocks: UniverseStock[]
+  total: number
+  available_indices: string[]
+  available_industries: string[]
+}
+
+export async function fetchStockUniverse(params: {
+  index?: string
+  industry?: string
+  q?: string
+  limit?: number
+}): Promise<StockUniverse> {
+  return (await api.get('/api/v1/research/stocks', { params })).data
+}
+
+export async function fetchFundCategories(): Promise<string[]> {
+  return (await api.get('/api/v1/research/fund-categories')).data
+}
+
+export async function fetchCategoryFunds(category: string): Promise<CategoryRanking> {
+  return (
+    await api.get(`/api/v1/research/fund-categories/${encodeURIComponent(category)}`)
+  ).data
+}

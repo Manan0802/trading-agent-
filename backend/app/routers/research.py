@@ -9,16 +9,20 @@ from app.schemas.research import (
     FundDetailOut,
     FundSearchResultOut,
     StockFundamentalsOut,
+    StockUniverseOut,
+    UniverseStockOut,
 )
 from app.services.advisor import fund_metrics
-from app.services.advisor.fund_recommender import load_scored_universe
+from app.services.advisor.fund_catalogue import BROWSABLE_CATEGORIES, is_browsable
+from app.services.advisor.fund_recommender import load_scored_universe, score_category
 from app.services.advisor.fund_universe import (
     BENCHMARK_BY_ASSET_CLASS,
     BENCHMARK_CAVEAT,
     BENCHMARK_NAME,
     UNIVERSE,
+    benchmark_for_category,
 )
-from app.services.marketdata import mutual_fund, stock
+from app.services.marketdata import mutual_fund, stock, stock_universe
 
 router = APIRouter(prefix="/api/v1/research", tags=["research"])
 
@@ -94,6 +98,63 @@ def rank_category(
         benchmark_caveat=BENCHMARK_CAVEAT if benchmarked else None,
         ranked=result.ranked,
         unscorable=result.unscorable,
+    )
+
+
+@router.get("/fund-categories", response_model=list[str])
+def list_fund_categories(user: User = Depends(current_active_user)):
+    """Every SEBI category with enough funds to rank against each other."""
+    return BROWSABLE_CATEGORIES
+
+
+@router.get("/fund-categories/{category:path}", response_model=CategoryRankingOut)
+def rank_fund_category(
+    category: str,
+    user: User = Depends(current_active_user),
+):
+    """Every fund in one SEBI category, scored against its own peers.
+
+    Separate from /categories/{asset_class}, which serves the three classes a
+    goal allocates to. This one covers everything the catalogue holds.
+    """
+    if not is_browsable(category):
+        raise HTTPException(404, f"Unknown fund category: {category}")
+
+    benchmark_code, caveat = benchmark_for_category(category)
+    try:
+        result = score_category(category)
+    except mutual_fund.MutualFundDataError as exc:
+        raise HTTPException(503, f"Fund data is temporarily unavailable ({exc})") from exc
+
+    return CategoryRankingOut(
+        asset_class=category,
+        benchmarked=benchmark_code is not None,
+        benchmark_name=BENCHMARK_NAME if benchmark_code else None,
+        benchmark_caveat=caveat,
+        ranked=result.ranked,
+        unscorable=result.unscorable,
+    )
+
+
+@router.get("/stocks", response_model=StockUniverseOut)
+def browse_stocks(
+    index: str | None = None,
+    industry: str | None = None,
+    q: str | None = None,
+    limit: int = 100,
+    user: User = Depends(current_active_user),
+):
+    """The browsable NSE universe, from the committed index constituent lists.
+
+    Names only. Live prices and fundamentals are fetched per stock when one is
+    opened, because 751 yfinance calls is not a page anyone waits for.
+    """
+    matches = stock_universe.list_stocks(index=index, industry=industry, query=q)
+    return StockUniverseOut(
+        stocks=[UniverseStockOut.model_validate(s) for s in matches[:limit]],
+        total=len(matches),
+        available_indices=stock_universe.INDEX_CHOICES,
+        available_industries=stock_universe.industries(),
     )
 
 
