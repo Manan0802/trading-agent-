@@ -101,3 +101,26 @@ export async function fetchCostReview(yearsRemaining = 15): Promise<CostReview> 
     })
   ).data
 }
+
+export type Lever = {
+  key: string
+  title: string
+  annual_value: number
+  lifetime_value: number
+  detail: string
+  action: string
+}
+
+export type Levers = {
+  levers: Lever[]
+  years_remaining: number
+  portfolio_value: number
+}
+
+export async function fetchLevers(params: {
+  years_remaining?: number
+  annual_income?: number
+  monthly_sip?: number
+}): Promise<Levers> {
+  return (await api.get('/api/v1/portfolio/levers', { params })).data
+}

@@ -15,6 +15,8 @@ from app.schemas.portfolio import (
     TransactionOut,
     HistoryPointOut,
     CostReviewOut,
+    LeversOut,
+    LeverOut,
 )
 from app.services.advisor.fund_universe import BENCHMARK_SCHEME_CODE
 from app.services.marketdata import mutual_fund
@@ -23,6 +25,8 @@ from app.services.marketdata.pricing import get_current_price
 from app.services.portfolio.benchmark import compare_to_benchmark
 from app.services.advisor.fund_evidence import expense_ratios
 from app.services.portfolio.history import HoldingSeries, build_history
+from app.services.advisor.levers import rank_levers
+from app.services.advisor.tax_regime import compare_regimes
 from app.services.portfolio.holding_cost import cost_review
 from app.services.portfolio.fifo import TxnInput, apply_fifo
 from app.services.portfolio.valuation import HoldingInput, value_portfolio
@@ -221,6 +225,68 @@ def get_cost_review(
         )
 
     return CostReviewOut.model_validate(cost_review(priced, years_remaining))
+
+
+@router.get("/levers", response_model=LeversOut)
+def get_levers(
+    years_remaining: float = 15,
+    annual_income: float = 0,
+    monthly_sip: float = 0,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """Which decisions are actually worth money to this user, ranked.
+
+    Fund selection appears at zero rather than being left off: we measured it
+    and it does not work, and the zero is the point.
+    """
+    holdings = db.query(Holding).filter(Holding.user_id == user.id).all()
+    summary = value_portfolio(
+        [_to_input(h) for h in holdings], get_current_price, date.today()
+    )
+    values = {s.holding_id: (s.current_value or s.invested) for s in summary.holdings}
+
+    fees = expense_ratios()
+    priced = []
+    for holding in holdings:
+        entry = fees.get(holding.identifier) or {}
+        direct, regular = entry.get("direct_ter"), entry.get("regular_ter")
+        gap = (
+            (regular - direct) / 100
+            if direct is not None and regular is not None
+            else None
+        )
+        priced.append({"name": holding.name, "value": values.get(holding.id, 0.0), "ter_gap": gap})
+
+    review = cost_review(priced, years_remaining)
+    # The gap that matters is the one on the money actually sitting in regular
+    # plans, not an average across everything the user owns.
+    flagged_value = sum(f.value for f in review.flagged)
+    weighted_gap = (
+        sum(f.value * f.ter_gap for f in review.flagged) / flagged_value
+        if flagged_value > 0
+        else None
+    )
+
+    tax_saving = 0.0
+    if annual_income > 0:
+        tax_saving = compare_regimes(annual_income, is_salaried=True).saving
+
+    return LeversOut(
+        levers=[
+            LeverOut.model_validate(lever)
+            for lever in rank_levers(
+                portfolio_value=flagged_value,
+                annual_income=annual_income,
+                monthly_sip=monthly_sip,
+                years_remaining=years_remaining,
+                regular_plan_cost_gap=weighted_gap,
+                tax_saving=tax_saving,
+            )
+        ],
+        years_remaining=years_remaining,
+        portfolio_value=summary.total_current_value,
+    )
 
 
 @router.get("/history", response_model=list[HistoryPointOut])

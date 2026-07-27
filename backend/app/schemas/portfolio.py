@@ -110,6 +110,25 @@ class CostReviewOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class LeverOut(BaseModel):
+    key: str
+    title: str
+    annual_value: float
+    lifetime_value: float
+    detail: str
+    action: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LeversOut(BaseModel):
+    """Which decisions are worth money to this user, biggest first."""
+
+    levers: list[LeverOut]
+    years_remaining: float
+    portfolio_value: float
+
+
 class HistoryPointOut(BaseModel):
     date: date
     invested: float
