@@ -16,6 +16,8 @@ from app.schemas.portfolio import (
     HistoryPointOut,
     CostReviewOut,
     LeversOut,
+    OverlapOut,
+    OverlapPairOut,
     LeverOut,
 )
 from app.services.advisor.fund_universe import BENCHMARK_SCHEME_CODE
@@ -25,6 +27,7 @@ from app.services.marketdata.pricing import get_current_price
 from app.services.portfolio.benchmark import compare_to_benchmark
 from app.services.advisor.fund_evidence import expense_ratios
 from app.services.portfolio.history import HoldingSeries, build_history
+from app.services.advisor.fund_overlap import analyse_overlap
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
 from app.services.portfolio.holding_cost import cost_review
@@ -359,3 +362,45 @@ def get_portfolio_history(
         HistoryPointOut.model_validate(p)
         for p in build_history(series, benchmark_navs, date.today())
     ]
+
+
+@router.get("/overlap", response_model=OverlapOut)
+def get_overlap(
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """Whether the funds this user holds are actually different from each other.
+
+    The usual product here compares portfolio holdings. That is not buildable
+    honestly for Indian funds — there is no holdings feed — so this measures
+    what shared holdings are a proxy for: two funds are one position when they
+    move together, and NAV history says so directly.
+
+    Stocks are excluded rather than mixed in. A single company against a
+    diversified fund correlates for reasons that have nothing to do with
+    whether the pair is a duplicate.
+    """
+    holdings = [
+        h
+        for h in db.query(Holding).filter(Holding.user_id == user.id).all()
+        if h.asset_type == "MF"
+    ]
+
+    funds = []
+    unreachable: dict[str, str] = {}
+    for holding in holdings:
+        try:
+            funds.append(
+                (holding.identifier, holding.name, mutual_fund.get_nav_history(holding.identifier))
+            )
+        except MutualFundDataError as exc:
+            unreachable[holding.name] = f"NAV history could not be fetched ({exc})"
+
+    report = analyse_overlap(funds)
+    return OverlapOut(
+        pairs=[OverlapPairOut.model_validate(p) for p in report.pairs],
+        effective_positions=report.effective_positions,
+        counted=report.counted,
+        excluded={**report.excluded, **unreachable},
+        summary=report.summary,
+    )

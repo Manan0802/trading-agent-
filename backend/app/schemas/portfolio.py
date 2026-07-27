@@ -129,6 +129,37 @@ class LeversOut(BaseModel):
     portfolio_value: float
 
 
+class OverlapPairOut(BaseModel):
+    a: str
+    b: str
+    a_name: str
+    b_name: str
+    correlation: float
+    months: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OverlapOut(BaseModel):
+    """Whether the funds someone holds are actually different from each other.
+
+    Correlation of monthly returns rather than shared holdings: no holdings
+    feed exists for Indian funds, and moving together is what shared holdings
+    are a proxy for anyway.
+    """
+
+    pairs: list[OverlapPairOut]
+    # Roughly how many genuinely separate bets the holdings amount to. Four
+    # funds that all move together are one.
+    effective_positions: float | None
+    counted: int
+    # Funds left out, by name, with the reason. Never dropped silently.
+    excluded: dict[str, str]
+    summary: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class HistoryPointOut(BaseModel):
     date: date
     invested: float

@@ -122,6 +122,25 @@ export type Levers = {
  * to the horizon stored on the profile, and a default sent from here would
  * silently overwrite it.
  */
+export type Overlap = {
+  pairs: {
+    a: string
+    b: string
+    a_name: string
+    b_name: string
+    correlation: number
+    months: number
+  }[]
+  effective_positions: number | null
+  counted: number
+  excluded: Record<string, string>
+  summary: string
+}
+
+export async function fetchOverlap(): Promise<Overlap> {
+  return (await api.get('/api/v1/portfolio/overlap')).data
+}
+
 export async function fetchLevers(params: {
   years_remaining?: number
   monthly_sip?: number

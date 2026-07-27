@@ -3,6 +3,7 @@ import { AlertTriangle, Trash2 } from 'lucide-react'
 import { AddHoldingDialog } from '@/components/AddHoldingDialog'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
 import { CostReview } from '@/components/CostReview'
+import { FundOverlap } from '@/components/FundOverlap'
 import { Levers } from '@/components/Levers'
 import { PortfolioChart } from '@/components/PortfolioChart'
 import { Button } from '@/components/ui/button'
@@ -235,6 +236,8 @@ export function Portfolio() {
       <Levers />
 
       <CostReview />
+
+      <FundOverlap />
 
       {history && <PortfolioChart points={history} />}
 
