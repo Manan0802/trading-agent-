@@ -59,7 +59,9 @@ def analyse(ticker: str, *, with_promoter: bool = True) -> tuple[StockScore, Sto
             if fundamentals.dividend_yield_pct is not None
             else None
         ),
-        eps_ttm=fundamentals.eps,
+        # The statement's own latest year, not .info's TTM: the growth
+        # factor divides these two and they must come from one source.
+        eps_ttm=fundamentals.eps_reported,
         eps_prev=fundamentals.eps_previous_year,
         week52_high=fundamentals.week52_high,
         week52_low=fundamentals.week52_low,

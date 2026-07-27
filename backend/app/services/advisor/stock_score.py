@@ -133,9 +133,23 @@ def _score_roe(roe: float | None, median: float | None) -> Factor:
 
 
 def _score_eps_growth(ttm: float | None, previous: float | None) -> Factor:
-    if ttm is None or previous is None or previous == 0:
+    if ttm is None or previous is None:
         return _unknown("eps_growth", "earnings history")
-    growth = (ttm - previous) / abs(previous)
+    if previous <= 0:
+        # A percentage change measured from a loss is arithmetic without a
+        # meaning: -10 to +5 reads as "+150% growth" when what happened is a
+        # return to profit. Worth saying, not worth scoring.
+        if ttm > 0:
+            return Factor(
+                FACTOR_WEIGHTS["eps_growth"] * _NEUTRAL,
+                "Returned to profit after a loss-making year, so there is no "
+                "growth rate to measure",
+            )
+        return Factor(
+            FACTOR_WEIGHTS["eps_growth"] * 0.15,
+            "Lost money in both of the last two years",
+        )
+    growth = (ttm - previous) / previous
     # -50% scores nothing, +50% scores full marks.
     ratio = _clamp((growth + 0.5) / 1.0)
     return Factor(

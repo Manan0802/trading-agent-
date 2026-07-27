@@ -3,6 +3,8 @@ import pytest
 from app.services.advisor.stock_score import (
     FACTOR_WEIGHTS,
     StockInputs,
+    _score_dividend_yield,
+    _score_eps_growth,
     score_stock,
 )
 
@@ -125,3 +127,93 @@ def test_the_position_in_the_52_week_range_is_reported_not_scored_as_momentum():
     assert result.range_position is not None
     assert 0.9 < result.range_position <= 1.0
     assert "range" not in FACTOR_WEIGHTS
+
+
+class TestDividendUnitsMatch:
+    """The committed sector medians must be in the same unit the scorer feeds in.
+
+    They were not. yfinance returns dividendYield as a percentage (ITC comes
+    back as 5.64), the builder banded it as a fraction (0.0, 0.12), and so every
+    company that actually paid a dividend was thrown away as an outlier. The
+    surviving "median" was the median of near-zero yielders, and against a
+    target built from it a real payer scored 0.14 of the factor while a company
+    with nothing published scored the neutral 0.50.
+
+    Not publishing a dividend was worth more than paying one.
+    """
+
+    def test_committed_medians_are_fractions_not_percentages(self):
+        from app.services.advisor.stock_analysis import sector_benchmarks
+
+        yields = [
+            entry["dividend_yield"]
+            for entry in sector_benchmarks().values()
+            if entry.get("dividend_yield") is not None
+        ]
+        assert yields, "no sector has a dividend median at all"
+        # 0.05 would be 5% as a fraction and 0.05% as a percentage. No Indian
+        # sector medians 5%, so anything above this means the unit slipped.
+        assert max(yields) < 0.08, f"looks like percentages: {max(yields)}"
+        # And the old bug produced medians clustered near zero, so guard that
+        # end too: at least one sector must pay something recognisable.
+        assert max(yields) > 0.005, f"looks like the pre-fix garbage: {max(yields)}"
+
+    def test_paying_the_sector_median_beats_publishing_nothing(self):
+        """The invariant the bug broke. A typical payer must not score below the
+        neutral mark handed to a company we know nothing about."""
+        median = 0.015
+        paying = _score_dividend_yield(median, median)
+        nothing = _score_dividend_yield(None, median)
+        assert paying.score > nothing.score
+
+    def test_a_collapsed_price_masquerading_as_generosity_is_halved(self):
+        """A double-digit yield is usually the denominator falling, not the
+        numerator rising."""
+        rich = _score_dividend_yield(0.11, 0.015)
+        sane = _score_dividend_yield(0.03, 0.015)
+        assert rich.score < sane.score
+
+
+class TestEarningsGrowthCannotBeFabricated:
+    """The growth factor carries 25 of the 100 points, and it used to divide
+    `.info`'s trailing EPS by the income statement's prior year. For any company
+    with an ADR listing Yahoo serves those in different currencies: Infosys came
+    back as 78.17 against 0.76, a spurious +10,186% that clamped to full marks
+    and put it top of the screen with a score of 94.
+
+    The fix is upstream — both figures now come off the same statement — so what
+    is guarded here is the arithmetic that made a bad pair so damaging.
+    """
+
+    def test_a_percentage_change_measured_from_a_loss_is_not_scored_as_growth(self):
+        """-10 to +5 is a return to profit, not 150% growth."""
+        f = _score_eps_growth(5.0, -10.0)
+        assert "no growth rate" in f.detail
+        assert f.score == pytest.approx(FACTOR_WEIGHTS["eps_growth"] * 0.5)
+
+    def test_two_loss_making_years_score_badly_rather_than_neutrally(self):
+        f = _score_eps_growth(-5.0, -10.0)
+        assert f.score < FACTOR_WEIGHTS["eps_growth"] * 0.5
+        assert "Lost money" in f.detail
+
+    def test_a_missing_statement_scores_neutral_not_zero(self):
+        assert _score_eps_growth(None, 10.0).detail.startswith("Not published")
+        assert _score_eps_growth(10.0, None).detail.startswith("Not published")
+
+    def test_growth_is_measured_against_the_prior_year_signed_not_absolute(self):
+        """Dividing by abs(previous) let a negative base produce a positive
+        growth rate. Now a positive base is required before the ratio exists."""
+        assert _score_eps_growth(12.0, 10.0).detail == (
+            "Earnings per share +20% year on year"
+        )
+        assert _score_eps_growth(8.0, 10.0).detail == (
+            "Earnings per share -20% year on year"
+        )
+
+    def test_the_score_saturates_so_one_recovery_year_cannot_dominate(self):
+        """A cyclical rebounding 500% and one growing 50% both take full marks.
+        The screen says so in words; this is the arithmetic behind it."""
+        assert _score_eps_growth(60.0, 10.0).score == pytest.approx(
+            _score_eps_growth(11.0, 10.0).score * 2, rel=0.35
+        )
+        assert _score_eps_growth(60.0, 10.0).score == FACTOR_WEIGHTS["eps_growth"]

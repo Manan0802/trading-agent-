@@ -20,6 +20,7 @@ import json
 import statistics
 import sys
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yfinance as yf
@@ -27,18 +28,31 @@ import yfinance as yf
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "app" / "data" / "sector_benchmarks.json"
 
+_FETCH_WORKERS = 16
+
 # Below this a "median" is one or two companies having a strange year, so the
 # sector falls back to the all-market figure rather than inventing a peer group.
 _MIN_PEERS = 6
 
 # Ratios outside these bands are filing artefacts or loss-making years, not
 # valuations, and one of them drags a small sector's median badly.
+#
+# dividend_yield is banded in PERCENT because that is what yfinance returns
+# (ITC comes back as 5.64, meaning 5.64%). The band used to be (0.0, 0.12) — a
+# fraction-shaped band applied to percentages — so every company that actually
+# paid a dividend was discarded as an outlier and the surviving "median" was
+# the median of near-zero yielders. Downstream that made not publishing a
+# dividend score better than paying one. See _SCALE below.
 _BOUNDS = {
     "pe": (0.5, 200.0),
     "pb": (0.05, 40.0),
     "roe": (-1.0, 2.0),
-    "dividend_yield": (0.0, 0.12),
+    "dividend_yield": (0.0, 15.0),
 }
+
+# Written to disk in the unit the scorer compares against. The scorer receives
+# company yields as fractions, so the sector median must be a fraction too.
+_SCALE = {"dividend_yield": 0.01}
 
 
 def _clean(values: list[float], key: str) -> list[float]:
@@ -56,23 +70,28 @@ def main() -> int:
     by_sector: dict[str, dict[str, list]] = defaultdict(lambda: defaultdict(list))
     failures = 0
 
-    for i, stock in enumerate(sample, 1):
+    def fetch(entry: dict) -> dict | None:
         try:
-            info = yf.Ticker(stock["ticker"]).info
+            return yf.Ticker(entry["ticker"]).info
         except Exception:
-            failures += 1
-            continue
-        sector = info.get("sector")
-        if not sector:
-            failures += 1
-            continue
-        bucket = by_sector[sector]
-        bucket["pe"].append(info.get("trailingPE"))
-        bucket["pb"].append(info.get("priceToBook"))
-        bucket["roe"].append(info.get("returnOnEquity"))
-        bucket["dividend_yield"].append(info.get("dividendYield"))
-        if i % 50 == 0:
-            print(f"  {i}/{len(sample)} sampled, {len(by_sector)} sectors", flush=True)
+            return None
+
+    # Entirely network latency, so concurrency turns a ten-minute crawl into
+    # about a minute. Results are collected in the main thread, which keeps the
+    # sector buckets free of locks.
+    with ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
+        for i, info in enumerate(pool.map(fetch, sample), 1):
+            sector = info.get("sector") if info else None
+            if not sector:
+                failures += 1
+                continue
+            bucket = by_sector[sector]
+            bucket["pe"].append(info.get("trailingPE"))
+            bucket["pb"].append(info.get("priceToBook"))
+            bucket["roe"].append(info.get("returnOnEquity"))
+            bucket["dividend_yield"].append(info.get("dividendYield"))
+            if i % 50 == 0:
+                print(f"  {i}/{len(sample)} sampled, {len(by_sector)} sectors", flush=True)
 
     out: dict[str, dict] = {}
     all_values: dict[str, list[float]] = defaultdict(list)
@@ -82,13 +101,15 @@ def main() -> int:
             values = _clean(metrics[key], key)
             all_values[key].extend(values)
             if len(values) >= _MIN_PEERS:
-                entry[key] = round(statistics.median(values), 4)
+                entry[key] = round(
+                    statistics.median(values) * _SCALE.get(key, 1.0), 5
+                )
         entry["n"] = max(len(_clean(metrics[k], k)) for k in _BOUNDS)
         if entry["n"] >= _MIN_PEERS:
             out[sector] = entry
 
     out["_ALL"] = {
-        key: round(statistics.median(values), 4)
+        key: round(statistics.median(values) * _SCALE.get(key, 1.0), 5)
         for key, values in all_values.items()
         if len(values) >= _MIN_PEERS
     }

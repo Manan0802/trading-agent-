@@ -1,80 +1,86 @@
 {
  "Basic Materials": {
-  "dividend_yield": 0.06,
+  "dividend_yield": 0.0053,
   "n": 62,
-  "pb": 3.7326,
-  "pe": 31.8463,
-  "roe": 0.1509
+  "pb": 3.73258,
+  "pe": 31.84627,
+  "roe": 0.15087
  },
  "Communication Services": {
+  "dividend_yield": 0.0126,
   "n": 14,
-  "pb": 4.4046,
-  "pe": 41.1448,
-  "roe": 0.1379
+  "pb": 4.40462,
+  "pe": 41.14477,
+  "roe": 0.13786
  },
  "Consumer Cyclical": {
+  "dividend_yield": 0.005,
   "n": 67,
-  "pb": 6.1712,
-  "pe": 41.624,
-  "roe": 0.1419
+  "pb": 6.17119,
+  "pe": 41.62396,
+  "roe": 0.14194
  },
  "Consumer Defensive": {
+  "dividend_yield": 0.0106,
   "n": 27,
   "pb": 8.0237,
-  "pe": 49.31,
+  "pe": 49.30998,
   "roe": 0.1624
  },
  "Energy": {
+  "dividend_yield": 0.0422,
   "n": 15,
-  "pb": 1.916,
-  "pe": 10.86,
-  "roe": 0.1419
+  "pb": 1.91604,
+  "pe": 10.85995,
+  "roe": 0.14189
  },
  "Financial Services": {
-  "dividend_yield": 0.08,
+  "dividend_yield": 0.0091,
   "n": 97,
   "pb": 2.6827,
-  "pe": 22.2403,
+  "pe": 22.24035,
   "roe": 0.1463
  },
  "Healthcare": {
-  "dividend_yield": 0.085,
+  "dividend_yield": 0.0032,
   "n": 50,
-  "pb": 6.2945,
-  "pe": 48.1833,
-  "roe": 0.1488
+  "pb": 6.29452,
+  "pe": 48.18326,
+  "roe": 0.14876
  },
  "Industrials": {
-  "dividend_yield": 0.06,
+  "dividend_yield": 0.00525,
   "n": 88,
-  "pb": 6.0244,
+  "pb": 6.02436,
   "pe": 44.0956,
-  "roe": 0.1559
+  "roe": 0.15592
  },
  "Real Estate": {
+  "dividend_yield": 0.00375,
   "n": 11,
   "pb": 4.185,
   "pe": 35.1825,
-  "roe": 0.1041
+  "roe": 0.10408
  },
  "Technology": {
-  "dividend_yield": 0.055,
+  "dividend_yield": 0.01525,
   "n": 41,
   "pb": 5.4335,
-  "pe": 28.9914,
+  "pe": 28.99138,
   "roe": 0.1817
  },
  "Utilities": {
+  "dividend_yield": 0.0241,
   "n": 21,
-  "pb": 2.6723,
-  "pe": 29.5076,
-  "roe": 0.1194
+  "pb": 2.67229,
+  "pe": 29.50764,
+  "roe": 0.11941
  },
  "_ALL": {
-  "dividend_yield": 0.07,
+  "dividend_yield": 0.00695,
   "n": 468,
-  "pb": 4.737,
-  "pe": 36.0812,
-  "roe": 0.1483
+  "pb": 4.73703,
+  "pe": 36.08115,
+  "roe": 0.14832
  }
 }
