@@ -35,6 +35,12 @@
   "direct_ter": 0.14,
   "regular_ter": 0.51
  },
+ "118267": {
+  "amfi_name": "Canara Robeco Infrastructure",
+  "as_of": "2026-07-24",
+  "direct_ter": 1.11,
+  "regular_ter": 2.37
+ },
  "118269": {
   "amfi_name": "Canara Robeco Large Cap Fund",
   "as_of": "2026-07-24",
@@ -1073,6 +1079,12 @@
   "direct_ter": 0.54,
   "regular_ter": 1.19
  },
+ "119393": {
+  "amfi_name": "Bank of India Conservative Hybrid Fund",
+  "as_of": "2026-07-24",
+  "direct_ter": 1.18,
+  "regular_ter": 2.25
+ },
  "119400": {
   "amfi_name": "Baroda BNP Paribas Short Duration Fund",
   "as_of": "2026-07-24",
@@ -1397,6 +1409,12 @@
   "direct_ter": 0.7422,
   "regular_ter": 1.6522
  },
+ "119739": {
+  "amfi_name": "Kotak Bond Short Term Fund",
+  "as_of": "2026-07-20",
+  "direct_ter": 0.39,
+  "regular_ter": 1.12
+ },
  "119741": {
   "amfi_name": "Kotak Credit Risk Fund",
   "as_of": "2026-07-20",
@@ -1648,6 +1666,12 @@
   "as_of": "2026-07-20",
   "direct_ter": 0.7575,
   "regular_ter": 1.8375
+ },
+ "120154": {
+  "amfi_name": "Kotak Debt Hybrid Fund",
+  "as_of": "2026-07-20",
+  "direct_ter": 0.6114,
+  "regular_ter": 1.7514
  },
  "120158": {
   "amfi_name": "Kotak Large & Midcap Fund",
@@ -2555,6 +2579,12 @@
   "direct_ter": 0.42,
   "regular_ter": 1.38
  },
+ "123693": {
+  "amfi_name": "Kotak Banking and PSU Debt Fund",
+  "as_of": "2026-07-20",
+  "direct_ter": 0.4,
+  "regular_ter": 0.75
+ },
  "124175": {
   "amfi_name": "DSP Banking & PSU Debt Fund",
   "as_of": "2026-07-24",
@@ -2921,6 +2951,12 @@
   "direct_ter": 1.52,
   "regular_ter": 2.71
  },
+ "135654": {
+  "amfi_name": "Navi ELSS Tax Saver Fund",
+  "as_of": "2026-04-12",
+  "direct_ter": 0.53,
+  "regular_ter": 2.47
+ },
  "135677": {
   "amfi_name": "Navi Large & Midcap Fund",
   "as_of": "2026-07-26",
@@ -3118,6 +3154,12 @@
   "as_of": "2026-07-26",
   "direct_ter": 0.17,
   "regular_ter": 0.99
+ },
+ "141141": {
+  "amfi_name": "SUNDARAM LONG TERM MICRO CAP TAX ADVANTAGE SERIES V",
+  "as_of": "2026-07-26",
+  "direct_ter": 0.99,
+  "regular_ter": 1.21
  },
  "141564": {
   "amfi_name": "SUNDARAM LONG TERM MICRO CAP TAX ADVANTAGE FUND SERIES VI",
@@ -4199,6 +4241,12 @@
   "direct_ter": 0.2,
   "regular_ter": 0.45
  },
+ "148795": {
+  "amfi_name": "Edelweiss Nifty PSU Bond Plus SDL Apr 2026 50:50 Index Fund",
+  "as_of": "2026-04-30",
+  "direct_ter": 0.23,
+  "regular_ter": 0.43
+ },
  "148807": {
   "amfi_name": "Aditya Birla Sun Life Nifty Midcap 150 Index Fund",
   "as_of": "2026-07-26",
@@ -4216,6 +4264,12 @@
   "as_of": "2026-07-23",
   "direct_ter": 0.11,
   "regular_ter": 0.58
+ },
+ "148846": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP) Series 42 (1857 Days)",
+  "as_of": "2026-04-29",
+  "direct_ter": 0.15,
+  "regular_ter": 0.29
  },
  "148883": {
   "amfi_name": "Canara Robeco Focused Fund",
@@ -4265,6 +4319,12 @@
   "direct_ter": 0.43,
   "regular_ter": 1.07
  },
+ "148967": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP) Series 44 (1855 Days)",
+  "as_of": "2026-06-19",
+  "direct_ter": 0.17,
+  "regular_ter": 0.28
+ },
  "148978": {
   "amfi_name": "Kotak Nifty 50 Index Fund",
   "as_of": "2026-07-20",
@@ -4294,6 +4354,12 @@
   "as_of": "2026-07-24",
   "direct_ter": 3.02,
   "regular_ter": null
+ },
+ "148999": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP) Series 45 (1840 Days)",
+  "as_of": "2026-06-19",
+  "direct_ter": 0.13,
+  "regular_ter": 0.23
  },
  "149007": {
   "amfi_name": "TATA FLOATING RATE FUND",
@@ -4379,11 +4445,23 @@
   "direct_ter": 0.11,
   "regular_ter": 0.42
  },
+ "149129": {
+  "amfi_name": "Nippon India Fixed Maturity Plan - XLIII - Series 1",
+  "as_of": "2026-06-29",
+  "direct_ter": 0.15,
+  "regular_ter": 0.39
+ },
  "149134": {
   "amfi_name": "SBI Balanced Advantage Fund",
   "as_of": "2026-07-26",
   "direct_ter": 0.87,
   "regular_ter": 1.68
+ },
+ "149139": {
+  "amfi_name": "Kotak FMP Series 292",
+  "as_of": "2026-05-14",
+  "direct_ter": 0.08,
+  "regular_ter": 0.38
  },
  "149141": {
   "amfi_name": "Baroda BNP Paribas Business Cycle Fund",
@@ -4410,10 +4488,10 @@
   "regular_ter": 2.35
  },
  "149170": {
-  "amfi_name": "Mirae Asset S&P 500 Top 50 ETF Fund of Fund",
+  "amfi_name": "Mirae Asset S&P 500 Top 50 ETF",
   "as_of": "2026-07-26",
-  "direct_ter": 0.02,
-  "regular_ter": 0.42
+  "direct_ter": null,
+  "regular_ter": 0.66
  },
  "149174": {
   "amfi_name": "SBI Fixed Maturity Plan (FMP) - Series 50 (1843 Days)",
@@ -4474,6 +4552,12 @@
   "as_of": "2026-07-24",
   "direct_ter": 0.19,
   "regular_ter": 0.27
+ },
+ "149243": {
+  "amfi_name": "Axis Nifty AAA Bond Plus SDL Apr 2026 50:50 ETF FOF",
+  "as_of": "2026-04-30",
+  "direct_ter": 0.08,
+  "regular_ter": 0.21
  },
  "149247": {
   "amfi_name": "Edelweiss NIFTY PSU Bond Plus SDL Apr 2027 50:50 Index Fund",
@@ -4769,6 +4853,12 @@
   "direct_ter": 1.17,
   "regular_ter": 2.04
  },
+ "149822": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP) - Series 59 (1618 Days)",
+  "as_of": "2026-06-19",
+  "direct_ter": 0.27,
+  "regular_ter": 0.36
+ },
  "149826": {
   "amfi_name": "JM Overnight Fund",
   "as_of": "2026-07-26",
@@ -5057,6 +5147,12 @@
   "direct_ter": 0.84,
   "regular_ter": 2.32
  },
+ "150379": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP) - Series 66 (1361 Days)",
+  "as_of": "2026-04-09",
+  "direct_ter": 0.19,
+  "regular_ter": 0.28
+ },
  "150387": {
   "amfi_name": "Baroda BNP Paribas Flexi Cap Fund",
   "as_of": "2026-07-24",
@@ -5177,6 +5273,12 @@
   "direct_ter": 0.39,
   "regular_ter": 1.09
  },
+ "150547": {
+  "amfi_name": "HDFC FMP 1406D August 2022",
+  "as_of": "2026-06-30",
+  "direct_ter": 0.07,
+  "regular_ter": 0.33
+ },
  "150571": {
   "amfi_name": "Sundaram Flexicap Fund",
   "as_of": "2026-07-26",
@@ -5213,6 +5315,12 @@
   "direct_ter": 0.09,
   "regular_ter": 0.65
  },
+ "150624": {
+  "amfi_name": "Kotak Business Cycle Fund",
+  "as_of": "2026-07-20",
+  "direct_ter": 0.7927,
+  "regular_ter": 2.0827
+ },
  "150627": {
   "amfi_name": "Nippon India Fixed Maturity Plan - XLIV - Series 1",
   "as_of": "2026-07-24",
@@ -5236,6 +5344,12 @@
   "as_of": "2026-07-23",
   "direct_ter": 0.35,
   "regular_ter": 0.95
+ },
+ "150649": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP) - Series 68 (1302 Days)",
+  "as_of": "2026-04-15",
+  "direct_ter": 0.28,
+  "regular_ter": 0.38
  },
  "150659": {
   "amfi_name": "LIC MF Multi Cap Fund",
@@ -5278,6 +5392,12 @@
   "as_of": "2026-07-26",
   "direct_ter": 0.27,
   "regular_ter": 0.59
+ },
+ "150698": {
+  "amfi_name": "Aditya Birla Sun Life Crisil IBX Gilt-April 2026 Index Fund",
+  "as_of": "2026-05-01",
+  "direct_ter": 0.13,
+  "regular_ter": 0.37
  },
  "150702": {
   "amfi_name": "Aditya Birla Sun Life Crisil IBX 50:50 Gilt Plus SDL Apr 2028 Index Fund",
@@ -5334,16 +5454,22 @@
   "regular_ter": 0.37
  },
  "150737": {
-  "amfi_name": "HDFC Silver ETF Fund of Fund",
+  "amfi_name": "HDFC SILVER ETF",
   "as_of": "2026-07-24",
-  "direct_ter": 0.22,
-  "regular_ter": 0.56
+  "direct_ter": null,
+  "regular_ter": 0.5
  },
  "150738": {
   "amfi_name": "TATA NIFTY MIDCAP 150 MOMENTUM 50 INDEX FUND",
   "as_of": "2026-07-26",
   "direct_ter": 1.08,
   "regular_ter": 1.6
+ },
+ "150746": {
+  "amfi_name": "Bandhan CRISIL IBX Gilt April 2026 Index Fund",
+  "as_of": "2026-04-30",
+  "direct_ter": 0.19,
+  "regular_ter": 0.44
  },
  "150751": {
   "amfi_name": "Axis NASDAQ 100 US Specific Equity Passive FOF",
@@ -5362,6 +5488,12 @@
   "as_of": "2026-07-26",
   "direct_ter": 0.22,
   "regular_ter": 0.38
+ },
+ "150788": {
+  "amfi_name": "Mirae Asset Nifty AAA PSU Bond Plus SDL Apr 2026 50:50 Index Fund",
+  "as_of": "2026-04-30",
+  "direct_ter": 0.2,
+  "regular_ter": 0.45
  },
  "150792": {
   "amfi_name": "Mirae Asset CRISIL IBX Gilt Index - April 2033 Index Fund",
@@ -5447,6 +5579,12 @@
   "direct_ter": 0.09,
   "regular_ter": 0.27
  },
+ "150885": {
+  "amfi_name": "DSP FMP Series - 268 - 1281 Days",
+  "as_of": "2026-05-29",
+  "direct_ter": 0.15,
+  "regular_ter": 0.43
+ },
  "150892": {
   "amfi_name": "Edelweiss Nifty Smallcap 250 Index Fund",
   "as_of": "2026-07-26",
@@ -5471,6 +5609,12 @@
   "direct_ter": 0.2,
   "regular_ter": 0.4
  },
+ "150919": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP)-Series 72 (1239 Days)",
+  "as_of": "2026-04-13",
+  "direct_ter": 0.11,
+  "regular_ter": 0.22
+ },
  "150920": {
   "amfi_name": "Nippon India Nifty G-Sec Jun 2036 Maturity Index Fund",
   "as_of": "2026-07-24",
@@ -5482,6 +5626,36 @@
   "as_of": "2026-07-23",
   "direct_ter": 0.48,
   "regular_ter": 1.15
+ },
+ "150932": {
+  "amfi_name": "Nippon India Fixed Maturity Plan - XLIV - Series 4",
+  "as_of": "2026-04-13",
+  "direct_ter": 0.09,
+  "regular_ter": 0.29
+ },
+ "150938": {
+  "amfi_name": "Aditya Birla Sun Life Crisil IBX 60:40 SDL+ AAA PSU APR 2026 Index Fund",
+  "as_of": "2026-05-01",
+  "direct_ter": 0.2,
+  "regular_ter": null
+ },
+ "150950": {
+  "amfi_name": "ICICI Prudential Fixed Maturity Plan - Series 88 - 1226 Days Plan F",
+  "as_of": "2026-04-16",
+  "direct_ter": 0.1,
+  "regular_ter": 0.34
+ },
+ "150963": {
+  "amfi_name": "UTI Fixed Term Income Fund - Series XXXV-II (1223 Days)",
+  "as_of": "2026-04-15",
+  "direct_ter": 0.21,
+  "regular_ter": 0.53
+ },
+ "150984": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP)-Series 73 (1226 Days)",
+  "as_of": "2026-04-16",
+  "direct_ter": 0.13,
+  "regular_ter": 0.23
  },
  "150989": {
   "amfi_name": "Bharat Bond ETF FOF - April 2033",
@@ -5615,6 +5789,12 @@
   "direct_ter": 0.43,
   "regular_ter": 0.81
  },
+ "151174": {
+  "amfi_name": "Kotak FMP Series 300",
+  "as_of": "2026-04-15",
+  "direct_ter": 0.11,
+  "regular_ter": 0.21
+ },
  "151179": {
   "amfi_name": "Axis Long Duration Fund",
   "as_of": "2026-07-24",
@@ -5638,6 +5818,12 @@
   "as_of": "2026-07-24",
   "direct_ter": 0.16,
   "regular_ter": 0.41
+ },
+ "151186": {
+  "amfi_name": "Aditya Birla Sun Life Fixed Term Plan - Series UB (1224 days)",
+  "as_of": "2026-04-22",
+  "direct_ter": 0.07,
+  "regular_ter": 0.16
  },
  "151190": {
   "amfi_name": "quant Overnight Fund",
@@ -5680,6 +5866,12 @@
   "as_of": "2026-07-24",
   "direct_ter": 0.19,
   "regular_ter": 0.42
+ },
+ "151252": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP)-Series 74 (1243 Days)",
+  "as_of": "2026-05-29",
+  "direct_ter": 0.13,
+  "regular_ter": 0.23
  },
  "151273": {
   "amfi_name": "TATA NIFTY G-SEC DEC 2029 INDEX FUND",
@@ -5729,11 +5921,35 @@
   "direct_ter": 0.28,
   "regular_ter": 0.62
  },
+ "151316": {
+  "amfi_name": "Kotak FMP Series 305",
+  "as_of": "2026-05-03",
+  "direct_ter": 0.1,
+  "regular_ter": 0.25
+ },
  "151329": {
   "amfi_name": "DSP CRISIL-IBX 50:50 Gilt Plus SDL - April 2033 Index Fund",
   "as_of": "2026-07-24",
   "direct_ter": 0.15,
   "regular_ter": 0.4
+ },
+ "151341": {
+  "amfi_name": "UTI Fixed Term Income Fund - Series XXXV-III (1176 days)",
+  "as_of": "2026-04-15",
+  "direct_ter": 0.19,
+  "regular_ter": 0.52
+ },
+ "151351": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP)-Series 76 (1221 Days)",
+  "as_of": "2026-05-29",
+  "direct_ter": 0.22,
+  "regular_ter": 0.33
+ },
+ "151364": {
+  "amfi_name": "UTI NIFTY SDL Plus AAA PSU Bond Apr 2026 75:25 Index Fund",
+  "as_of": "2026-04-30",
+  "direct_ter": 0.22,
+  "regular_ter": 0.46
  },
  "151365": {
   "amfi_name": "Edelweiss CRISIL IBX 50:50 Gilt Plus SDL Short Duration Index Fund",
@@ -5807,6 +6023,12 @@
   "direct_ter": 0.12,
   "regular_ter": 0.22
  },
+ "151451": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP)-Series 78 (1170 Days)",
+  "as_of": "2026-05-05",
+  "direct_ter": 0.22,
+  "regular_ter": 0.33
+ },
  "151456": {
   "amfi_name": "HDFC Nifty SDL Oct 2026 Index Fund",
   "as_of": "2026-07-24",
@@ -5867,6 +6089,12 @@
   "direct_ter": 0.21,
   "regular_ter": 0.37
  },
+ "151501": {
+  "amfi_name": "Axis Fixed Term Plan - Series 112 (1143 Days)",
+  "as_of": "2026-04-16",
+  "direct_ter": 0.13,
+  "regular_ter": 0.38
+ },
  "151523": {
   "amfi_name": "UTI Long Duration Fund",
   "as_of": "2026-07-24",
@@ -5878,6 +6106,12 @@
   "as_of": "2026-07-26",
   "direct_ter": 0.09,
   "regular_ter": 0.15
+ },
+ "151559": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP) - Series 79 (1130 Days)",
+  "as_of": "2026-04-16",
+  "direct_ter": 0.22,
+  "regular_ter": 0.33
  },
  "151562": {
   "amfi_name": "Aditya Birla Sun Life Nifty SDL SEP 2027 Index Fund",
@@ -5934,16 +6168,34 @@
   "regular_ter": 0.28
  },
  "151603": {
-  "amfi_name": "Kotak Silver ETF Fund of Fund",
+  "amfi_name": "Kotak Silver ETF",
   "as_of": "2026-07-20",
-  "direct_ter": 0.2787,
-  "regular_ter": 0.6487
+  "direct_ter": null,
+  "regular_ter": 0.35
+ },
+ "151639": {
+  "amfi_name": "SBI Fixed Maturity Plan (FMP)-Series 81 (1157 Days)",
+  "as_of": "2026-06-01",
+  "direct_ter": 0.22,
+  "regular_ter": 0.33
  },
  "151649": {
   "amfi_name": "Kotak Nifty Smallcap 50 Index Fund",
   "as_of": "2026-07-20",
   "direct_ter": 0.3284,
   "regular_ter": 0.9084
+ },
+ "151674": {
+  "amfi_name": "Nippon India Fixed Maturity Plan - XLV - Series 4",
+  "as_of": "2026-04-15",
+  "direct_ter": 0.07,
+  "regular_ter": 0.28
+ },
+ "151681": {
+  "amfi_name": "Kotak FMP Series 308",
+  "as_of": "2026-04-27",
+  "direct_ter": 0.2,
+  "regular_ter": 0.52
  },
  "151691": {
   "amfi_name": "Mirae Asset Nifty SDL June 2028 Index Fund",
@@ -6282,10 +6534,10 @@
   "regular_ter": 1.41
  },
  "152183": {
-  "amfi_name": "DSP Gold ETF Fund of Fund",
+  "amfi_name": "DSP GOLD ETF",
   "as_of": "2026-07-24",
-  "direct_ter": 0.63,
-  "regular_ter": 0.98
+  "direct_ter": 0.45,
+  "regular_ter": null
  },
  "152189": {
   "amfi_name": "quant Momentum Fund",
@@ -6389,6 +6641,12 @@
   "direct_ter": 0.64,
   "regular_ter": 2.15
  },
+ "152354": {
+  "amfi_name": "Motilal Oswal Large Cap Fund",
+  "as_of": "2026-07-24",
+  "direct_ter": 0.97,
+  "regular_ter": 2.11
+ },
  "152365": {
   "amfi_name": "ICICI Prudential Nifty50 Value 20 Index Fund",
   "as_of": "2026-07-23",
@@ -6456,10 +6714,10 @@
   "regular_ter": 2.22
  },
  "152459": {
-  "amfi_name": "Mirae Asset Nifty Smallcap 250 Momentum Quality 100 ETF Fund of Fund",
+  "amfi_name": "Mirae Asset Nifty Smallcap 250 Momentum Quality 100 ETF",
   "as_of": "2026-07-26",
-  "direct_ter": 0.07,
-  "regular_ter": 0.6
+  "direct_ter": null,
+  "regular_ter": 0.86
  },
  "152462": {
   "amfi_name": "Kotak Technology Fund",
@@ -6576,10 +6834,10 @@
   "regular_ter": 1.14
  },
  "152645": {
-  "amfi_name": "Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF Fund of Fund",
+  "amfi_name": "Mirae Asset Nifty Midsmallcap400 Momentum Quality 100 ETF",
   "as_of": "2026-07-26",
-  "direct_ter": 0.04,
-  "regular_ter": 0.62
+  "direct_ter": null,
+  "regular_ter": 0.77
  },
  "152651": {
   "amfi_name": "Motilal Oswal Multi Cap Fund",
@@ -6684,10 +6942,10 @@
   "regular_ter": 1.12
  },
  "152735": {
-  "amfi_name": "SBI Silver ETF Fund of Fund",
+  "amfi_name": "SBI Silver ETF",
   "as_of": "2026-07-26",
-  "direct_ter": 0.32,
-  "regular_ter": 0.65
+  "direct_ter": null,
+  "regular_ter": 0.41
  },
  "152739": {
   "amfi_name": "Franklin India Multi Cap Fund",
@@ -6984,10 +7242,10 @@
   "regular_ter": 1.8
  },
  "153007": {
-  "amfi_name": "Mirae Asset Gold ETF Fund of Fund",
+  "amfi_name": "Mirae Asset Gold ETF",
   "as_of": "2026-07-26",
-  "direct_ter": 0.1,
-  "regular_ter": 0.69
+  "direct_ter": null,
+  "regular_ter": 0.35
  },
  "153015": {
   "amfi_name": "SBI Nifty India Consumption Index Fund",
@@ -7212,10 +7470,10 @@
   "regular_ter": 2.07
  },
  "153192": {
-  "amfi_name": "Mirae Asset Nifty India New Age Consumption ETF Fund of Fund",
+  "amfi_name": "Mirae Asset Nifty India New Age Consumption ETF",
   "as_of": "2026-07-26",
-  "direct_ter": 0.11,
-  "regular_ter": 0.56
+  "direct_ter": null,
+  "regular_ter": 0.4
  },
  "153196": {
   "amfi_name": "Mirae Asset Small Cap Fund",
@@ -7380,16 +7638,16 @@
   "regular_ter": 0.3551
  },
  "153380": {
-  "amfi_name": "Mirae Asset BSE 200 Equal Weight ETF Fund of Fund",
+  "amfi_name": "Mirae Asset BSE 200 Equal Weight ETF",
   "as_of": "2026-07-26",
-  "direct_ter": 0.11,
-  "regular_ter": 0.63
+  "direct_ter": null,
+  "regular_ter": 0.5
  },
  "153385": {
-  "amfi_name": "Mirae Asset BSE Select IPO ETF Fund of Fund",
+  "amfi_name": "Mirae Asset BSE Select IPO ETF",
   "as_of": "2026-07-26",
-  "direct_ter": 0.11,
-  "regular_ter": 0.63
+  "direct_ter": null,
+  "regular_ter": 0.48
  },
  "153389": {
   "amfi_name": "Bandhan CRISIL-IBX 10:90 Gilt Plus SDL Index - Dec 2029 Fund",
@@ -7500,10 +7758,10 @@
   "regular_ter": 3.13
  },
  "153487": {
-  "amfi_name": "DSP Silver ETF Fund of Fund",
+  "amfi_name": "DSP SILVER ETF",
   "as_of": "2026-07-24",
-  "direct_ter": 0.58,
-  "regular_ter": 0.99
+  "direct_ter": 0.4,
+  "regular_ter": null
  },
  "153497": {
   "amfi_name": "Edelweiss BSE Internet Economy Index Fund",
@@ -7955,6 +8213,12 @@
   "direct_ter": 0.11,
   "regular_ter": 0.7
  },
+ "154123": {
+  "amfi_name": "Sundaram Income Plus Arbitrage Active FoF",
+  "as_of": "2026-07-26",
+  "direct_ter": 0.38,
+  "regular_ter": 0.63
+ },
  "154129": {
   "amfi_name": "Bandhan Gold ETF FOF",
   "as_of": "2026-07-26",
@@ -8027,6 +8291,12 @@
   "direct_ter": 0.21,
   "regular_ter": 0.76
  },
+ "154240": {
+  "amfi_name": "Axis Fixed Maturity Plan - Series 129 (108 Days)",
+  "as_of": "2026-06-11",
+  "direct_ter": 0.06,
+  "regular_ter": 0.21
+ },
  "154244": {
   "amfi_name": "LIC MF Technology Fund",
   "as_of": "2026-07-26",
@@ -8075,11 +8345,17 @@
   "direct_ter": 0.4603,
   "regular_ter": 1.1203
  },
- "154295": {
-  "amfi_name": "HSBC GOLD ETF FUND OF FUND",
-  "as_of": "2026-07-26",
+ "154292": {
+  "amfi_name": "Axis Fixed Maturity Plan - Series 130 (92 Days)",
+  "as_of": "2026-06-11",
   "direct_ter": 0.06,
-  "regular_ter": 0.45
+  "regular_ter": 0.21
+ },
+ "154295": {
+  "amfi_name": "HSBC GOLD ETF",
+  "as_of": "2026-07-26",
+  "direct_ter": 0.62,
+  "regular_ter": null
  },
  "154308": {
   "amfi_name": "HDFC CRISIL-IBX Financial Services 9-12 Months Debt Index Fund",

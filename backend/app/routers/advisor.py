@@ -3,7 +3,13 @@ from sqlalchemy.orm import Session
 from app.auth.fastapi_users_app import current_active_user
 from app.database import get_db
 from app.models import Goal, User
-from app.schemas.goal import GoalCreate, GoalOut, GoalRecommendationsOut
+from app.schemas.goal import (
+    GoalCreate,
+    GoalOut,
+    GoalRecommendationsOut,
+    FundRecommendationOut,
+    SkippedAssetClassOut,
+)
 from app.schemas.advisor import (
     SipRequest,
     RiskScoreRequest,
@@ -18,7 +24,7 @@ from app.services.advisor.asset_allocator import (
     get_allocation,
     recommended_products,
 )
-from app.services.advisor.fund_recommender import recommend_for_allocation
+from app.services.advisor.goal_fund_plan import build_fund_plan
 from app.services.advisor.goal_inflation import inflation_for_goal
 from app.services.advisor.whole_portfolio import (
     ExternalAsset,
@@ -193,10 +199,10 @@ def get_goal_recommendations(
         "gold": goal.gold_allocation or 0,
     }
     try:
-        result = recommend_for_allocation(
+        plan = build_fund_plan(
             allocation,
             monthly_sip=goal.required_monthly_sip or 0,
-            return_skipped=True,
+            years=int(goal.years) if goal.years else None,
         )
     except MutualFundDataError as exc:
         raise HTTPException(
@@ -207,6 +213,9 @@ def get_goal_recommendations(
         goal_id=goal.id,
         monthly_sip=goal.required_monthly_sip or 0,
         allocation=allocation,
-        recommendations=result.recommendations,
-        skipped=result.skipped,
+        recommendations=[
+            FundRecommendationOut.model_validate(p) for p in plan.picks
+        ],
+        skipped=[SkippedAssetClassOut.model_validate(s) for s in plan.skipped],
+        annual_commission_avoided=plan.annual_commission_avoided,
     )

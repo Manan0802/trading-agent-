@@ -27,12 +27,21 @@ ASSET_CLASS_CATEGORY = {
 _GOLD_CATEGORY = "Other Scheme - FoF Domestic"
 
 
-def _gold_codes() -> list[str]:
+def gold_funds() -> list:
+    """Gold fund-of-funds, as catalogue entries.
+
+    Silver is excluded as well: a gold-and-silver fund is a different exposure
+    from the one the allocation asked for.
+    """
     return [
-        f.code
+        f
         for f in funds_matching(_GOLD_CATEGORY, "gold")
         if "silver" not in f.name.lower()
     ]
+
+
+def _gold_codes() -> list[str]:
+    return [f.code for f in gold_funds()]
 
 
 UNIVERSE: dict[str, list[str]] = {

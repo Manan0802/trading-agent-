@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.auth.fastapi_users_app import current_active_user
 from app.models import User
 from app.schemas.research import (
-    CategoryRankingOut,
     FundDetailOut,
     FundSearchResultOut,
     StockFundamentalsOut,
@@ -27,14 +26,7 @@ from app.services.advisor.fund_evidence import build_evidence
 from app.services.advisor.fund_score import evidence_strength
 from app.services.advisor.stock_analysis import analyse as analyse_stock
 from app.services.advisor.fund_catalogue import BROWSABLE_CATEGORIES, is_browsable
-from app.services.advisor.fund_recommender import load_scored_universe, score_category
-from app.services.advisor.fund_universe import (
-    BENCHMARK_BY_ASSET_CLASS,
-    BENCHMARK_CAVEAT,
-    BENCHMARK_NAME,
-    UNIVERSE,
-    benchmark_for_category,
-)
+from app.services.advisor.fund_universe import BENCHMARK_BY_ASSET_CLASS
 from app.services.marketdata import mutual_fund, stock, stock_universe
 
 router = APIRouter(prefix="/api/v1/research", tags=["research"])
@@ -110,31 +102,6 @@ def _evidence_out(evidence) -> "FundEvidenceOut | None":
     )
 
 
-@router.get("/categories/{asset_class}", response_model=CategoryRankingOut)
-def rank_category(
-    asset_class: str,
-    user: User = Depends(current_active_user),
-):
-    """Every fund we track in a category, scored against each other."""
-    if asset_class not in UNIVERSE:
-        raise HTTPException(404, f"Unknown asset class: {asset_class}")
-
-    try:
-        result = load_scored_universe(asset_class)
-    except mutual_fund.MutualFundDataError as exc:
-        raise HTTPException(503, f"Fund data is temporarily unavailable ({exc})") from exc
-
-    benchmarked = BENCHMARK_BY_ASSET_CLASS.get(asset_class) is not None
-    return CategoryRankingOut(
-        asset_class=asset_class,
-        benchmarked=benchmarked,
-        benchmark_name=BENCHMARK_NAME if benchmarked else None,
-        benchmark_caveat=BENCHMARK_CAVEAT if benchmarked else None,
-        ranked=result.ranked,
-        unscorable=result.unscorable,
-    )
-
-
 @router.get("/fund-categories", response_model=list[str])
 def list_fund_categories(user: User = Depends(current_active_user)):
     """Every SEBI category with enough funds to rank against each other."""
@@ -192,35 +159,6 @@ def rank_category_v2(
             )
             for r in result.ranked
         ],
-    )
-
-
-@router.get("/fund-categories/{category:path}", response_model=CategoryRankingOut)
-def rank_fund_category(
-    category: str,
-    user: User = Depends(current_active_user),
-):
-    """Every fund in one SEBI category, scored against its own peers.
-
-    Separate from /categories/{asset_class}, which serves the three classes a
-    goal allocates to. This one covers everything the catalogue holds.
-    """
-    if not is_browsable(category):
-        raise HTTPException(404, f"Unknown fund category: {category}")
-
-    benchmark_code, caveat = benchmark_for_category(category)
-    try:
-        result = score_category(category)
-    except mutual_fund.MutualFundDataError as exc:
-        raise HTTPException(503, f"Fund data is temporarily unavailable ({exc})") from exc
-
-    return CategoryRankingOut(
-        asset_class=category,
-        benchmarked=benchmark_code is not None,
-        benchmark_name=BENCHMARK_NAME if benchmark_code else None,
-        benchmark_caveat=caveat,
-        ranked=result.ranked,
-        unscorable=result.unscorable,
     )
 
 

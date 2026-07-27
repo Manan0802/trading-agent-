@@ -40,6 +40,52 @@ class CategoryRanking:
     priced: int
 
 
+def rank_codes(
+    label: str,
+    entries: list,
+    *,
+    monthly_sip: float | None = None,
+    years: int | None = None,
+) -> CategoryRanking:
+    """Rank an explicit set of funds against each other.
+
+    Needed because not every asset class is a SEBI category. Gold funds sit
+    inside "Other Scheme - FoF Domestic" alongside overseas-equity and silver
+    funds, so the gold sleeve is a named subset rather than a category.
+    """
+    if not entries:
+        return CategoryRanking(category=label, ranked=[], unscorable=[], priced=0)
+
+    def load(entry):
+        try:
+            navs = mutual_fund.get_nav_history(entry.code)
+        except mutual_fund.MutualFundDataError:
+            return None
+        return build_evidence(entry.code, entry.name, entry.category, navs)
+
+    with ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
+        evidence = [e for e in pool.map(load, entries) if e is not None]
+
+    result = score_peer_group_v2(evidence)
+    total = len(result.ranked)
+    return CategoryRanking(
+        category=label,
+        ranked=[
+            RankedFund(
+                rank=i,
+                fund=fund,
+                verdict=build_verdict(
+                    fund.evidence, rank=i, peers=total,
+                    monthly_sip=monthly_sip, years=years,
+                ),
+            )
+            for i, fund in enumerate(result.ranked, start=1)
+        ],
+        unscorable=result.unscorable,
+        priced=sum(1 for f in result.ranked if f.evidence.regular_ter is not None),
+    )
+
+
 def rank_category(
     category: str,
     *,
@@ -52,40 +98,9 @@ def rank_category(
     rupees over the user's own horizon; the ranking itself does not depend on
     them, so an anonymous Research page and a specific goal see the same order.
     """
-    catalogue = funds_in_category(category)
-    if not catalogue:
-        return CategoryRanking(category=category, ranked=[], unscorable=[], priced=0)
-
-    def load(entry):
-        try:
-            navs = mutual_fund.get_nav_history(entry.code)
-        except mutual_fund.MutualFundDataError:
-            # One unreachable scheme drops out of its peer group rather than
-            # failing the whole category.
-            return None
-        return build_evidence(entry.code, entry.name, entry.category, navs)
-
-    with ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
-        # Ordered map, so a tie is broken identically on every request.
-        evidence = [e for e in pool.map(load, catalogue) if e is not None]
-
-    result = score_peer_group_v2(evidence)
-    total = len(result.ranked)
-
-    ranked = [
-        RankedFund(
-            rank=i,
-            fund=fund,
-            verdict=build_verdict(
-                fund.evidence, rank=i, peers=total, monthly_sip=monthly_sip, years=years
-            ),
-        )
-        for i, fund in enumerate(result.ranked, start=1)
-    ]
-
-    return CategoryRanking(
-        category=category,
-        ranked=ranked,
-        unscorable=result.unscorable,
-        priced=sum(1 for f in result.ranked if f.evidence.regular_ter is not None),
+    return rank_codes(
+        category,
+        funds_in_category(category),
+        monthly_sip=monthly_sip,
+        years=years,
     )

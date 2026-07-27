@@ -7,12 +7,8 @@ from app.database import Base, SessionLocal, engine
 from app.main import app
 from app.models import User
 from app.routers import advisor as advisor_router
-from app.services.advisor.fund_metrics import FundMetrics
-from app.services.advisor.fund_recommender import (
-    FundRecommendation,
-    RecommendationResult,
-    SkippedAssetClass,
-)
+from app.services.advisor.fund_verdict import Verdict
+from app.services.advisor.goal_fund_plan import FundPick, FundPlan, SkippedClass
 
 client = TestClient(app)
 settings = get_settings()
@@ -39,29 +35,36 @@ def _user_headers() -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _fake_recommendations(allocation, monthly_sip, **kwargs):
-    return RecommendationResult(
-        recommendations=[
-            FundRecommendation(
+def _fake_plan(allocation, monthly_sip, **kwargs):
+    return FundPlan(
+        picks=[
+            FundPick(
                 asset_class="equity",
+                rank=1,
                 scheme_code="122639",
                 scheme_name="Parag Parikh Flexi Cap Fund - Direct Plan - Growth",
                 category="Equity Scheme - Flexi Cap Fund",
                 monthly_amount=monthly_sip * 0.65,
-                score=98.0,
-                rationale="Ranked 1 of 9 Flexi Cap Fund funds. 14.6% a year over 3 years.",
-                metrics=FundMetrics(cagr_3y=0.146, sortino=1.4),
+                score=81.0,
+                direct_ter=0.0063,
+                regular_ter=0.0128,
+                verdict=Verdict(
+                    headline=(
+                        "Across 1,414 possible three-year holding periods, this fund "
+                        "never lost money."
+                    ),
+                    points=["Ranked 1 of 34 Flexi Cap funds."],
+                ),
             )
         ],
-        skipped=[SkippedAssetClass(asset_class="gold", reason="below the minimum")],
+        skipped=[SkippedClass(asset_class="gold", reason="below the minimum")],
+        annual_commission_avoided=1268.0,
     )
 
 
 @pytest.fixture(autouse=True)
 def _offline_recommender(monkeypatch):
-    monkeypatch.setattr(
-        advisor_router, "recommend_for_allocation", _fake_recommendations
-    )
+    monkeypatch.setattr(advisor_router, "build_fund_plan", _fake_plan)
 
 
 def _create_goal(headers) -> str:
@@ -99,7 +102,12 @@ def test_goal_returns_named_funds_with_amounts():
     assert fund["scheme_name"].startswith("Parag Parikh")
     assert fund["scheme_code"] == "122639"
     assert fund["monthly_amount"] > 0
-    assert "Ranked 1 of 9" in fund["rationale"]
+    # The reasoning is a verdict now, not a rationale string: a rank on its own
+    # cannot be questioned, but "never lost money across 1,414 windows" can.
+    assert "1,414" in fund["verdict"]["headline"]
+    assert fund["rank"] == 1
+    assert fund["direct_ter"] < fund["regular_ter"]
+    assert body["annual_commission_avoided"] > 0
 
 
 def test_asset_classes_that_were_skipped_are_disclosed():
@@ -123,7 +131,7 @@ def test_a_data_source_outage_returns_503_not_a_crash(monkeypatch):
     def failing(*args, **kwargs):
         raise MutualFundDataError("mfapi.in unreachable")
 
-    monkeypatch.setattr(advisor_router, "recommend_for_allocation", failing)
+    monkeypatch.setattr(advisor_router, "build_fund_plan", failing)
 
     headers = _user_headers()
     goal_id = _create_goal(headers)

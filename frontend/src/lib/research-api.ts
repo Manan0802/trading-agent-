@@ -1,17 +1,5 @@
 import { api } from '@/lib/api'
 
-export type FundMetrics = {
-  cagr_1y: number | null
-  cagr_3y: number | null
-  cagr_5y: number | null
-  volatility: number | null
-  sortino: number | null
-  max_drawdown: number | null
-  alpha: number | null
-  downside_capture: number | null
-  consistency: number | null
-}
-
 export type FundEvidence = {
   history_years: number | null
   evidence_strength: number
@@ -33,24 +21,6 @@ export type FundDetail = {
   nav_series: { date: string; nav: number }[]
 }
 
-export type RankedFund = {
-  scheme_code: string
-  scheme_name: string
-  category: string
-  score: number
-  breakdown: Record<string, number>
-  metrics: FundMetrics
-}
-
-export type CategoryRanking = {
-  asset_class: string
-  benchmarked: boolean
-  benchmark_name: string | null
-  benchmark_caveat: string | null
-  ranked: RankedFund[]
-  unscorable: { scheme_code: string; scheme_name: string; reason: string }[]
-}
-
 export type StockFundamentals = {
   ticker: string
   name: string
@@ -69,9 +39,6 @@ export type StockFundamentals = {
   week52_low: number | null
 }
 
-export async function fetchCategoryRanking(assetClass: string): Promise<CategoryRanking> {
-  return (await api.get(`/api/v1/research/categories/${assetClass}`)).data
-}
 
 export async function fetchFund(schemeCode: string): Promise<FundDetail> {
   return (await api.get(`/api/v1/research/funds/${schemeCode}`)).data
@@ -109,10 +76,19 @@ export async function fetchFundCategories(): Promise<string[]> {
   return (await api.get('/api/v1/research/fund-categories')).data
 }
 
-export async function fetchCategoryFunds(category: string): Promise<CategoryRanking> {
-  return (
-    await api.get(`/api/v1/research/fund-categories/${encodeURIComponent(category)}`)
-  ).data
+
+/** Still returned by the fund-detail endpoint; the panel uses volatility and
+ * the worst fall from it. The ranking itself no longer reads any of it. */
+export type FundMetrics = {
+  cagr_1y: number | null
+  cagr_3y: number | null
+  cagr_5y: number | null
+  volatility: number | null
+  sortino: number | null
+  max_drawdown: number | null
+  alpha: number | null
+  downside_capture: number | null
+  consistency: number | null
 }
 
 export type Window = {

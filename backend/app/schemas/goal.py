@@ -42,14 +42,26 @@ class GoalOut(BaseModel):
         return inflation_note(self.goal_type)
 
 
+class VerdictOut(BaseModel):
+    headline: str
+    points: list[str]
+    caveat: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class FundRecommendationOut(BaseModel):
     asset_class: str
+    # Where this fund sits in its own category, so the pick can be questioned.
+    rank: int
     scheme_code: str
     scheme_name: str
     category: str
     monthly_amount: float
     score: float
-    rationale: str
+    direct_ter: float | None
+    regular_ter: float | None
+    verdict: VerdictOut
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -67,3 +79,6 @@ class GoalRecommendationsOut(BaseModel):
     allocation: dict[str, int]
     recommendations: list[FundRecommendationOut]
     skipped: list[SkippedAssetClassOut]
+    # Rupees a year the plan avoids by recommending direct plans only, where
+    # both plans of a picked fund are published by AMFI.
+    annual_commission_avoided: float | None = None
