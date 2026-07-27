@@ -85,3 +85,19 @@ export type HistoryPoint = {
 export async function fetchHistory(): Promise<HistoryPoint[]> {
   return (await api.get('/api/v1/portfolio/history')).data
 }
+
+export type CostReview = {
+  annual_cost: number
+  lifetime_cost: number
+  flagged: { name: string; value: number; ter_gap: number; annual_cost: number }[]
+  unpriced: string[]
+  summary: string
+}
+
+export async function fetchCostReview(yearsRemaining = 15): Promise<CostReview> {
+  return (
+    await api.get('/api/v1/portfolio/cost-review', {
+      params: { years_remaining: yearsRemaining },
+    })
+  ).data
+}

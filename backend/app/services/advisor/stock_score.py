@@ -13,7 +13,7 @@ scores half marks, so a thinly-covered small cap is neither rewarded nor
 punished for our data rather than its business.
 
 What is deliberately not here: price momentum, RSI, MACD and delivery
-percentage. Delivery is no longer obtainable — NSE's endpoint returns 403 — and
+percentage. Delivery is no longer obtainable, NSE's endpoint returns 403, and
 the rest are trading signals. For someone deciding what to own for years, a
 14-day oscillator is noise with a decimal point.
 """

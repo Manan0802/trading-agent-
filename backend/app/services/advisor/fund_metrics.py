@@ -132,7 +132,7 @@ def alpha(
     benchmark: list[NavPoint],
     risk_free_rate: float = DEFAULT_RISK_FREE_RATE,
 ) -> float | None:
-    """Annualised CAPM alpha — return beyond what the fund's market exposure explains."""
+    """Annualised CAPM alpha, return beyond what the fund's market exposure explains."""
     f, b = _aligned_returns(fund, benchmark)
     if f.size < _MIN_MONTHS:
         return None

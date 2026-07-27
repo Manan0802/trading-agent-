@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Trash2 } from 'lucide-react'
 import { AddHoldingDialog } from '@/components/AddHoldingDialog'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
+import { CostReview } from '@/components/CostReview'
 import { PortfolioChart } from '@/components/PortfolioChart'
 import { Button } from '@/components/ui/button'
 import { Metric, MetricRow } from '@/components/ui/metric'
@@ -229,6 +230,8 @@ export function Portfolio() {
       </MetricRow>
 
       <BenchmarkVerdict />
+
+      <CostReview />
 
       {history && <PortfolioChart points={history} />}
 

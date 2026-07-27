@@ -37,7 +37,7 @@ class GoalOut(BaseModel):
     @computed_field
     @property
     def inflation_note(self) -> str:
-        """Why this goal uses this rate — a number the user cannot interrogate
+        """Why this goal uses this rate, a number the user cannot interrogate
         is a number they cannot trust."""
         return inflation_note(self.goal_type)
 

@@ -98,7 +98,7 @@ def _build_insights(
             if len(names) > 1
             else "".join(names)
         )
-        holdings = f" — mostly {joined}" if joined else ""
+        holdings = f", mostly {joined}" if joined else ""
         insights.append(
             f"Your {asset_class} is already {current[asset_class]:.0f}% of "
             f"everything you own{holdings}, against a {target[asset_class]:.0f}% "
@@ -118,7 +118,7 @@ def _build_insights(
             insights.append(
                 f"{asset.name} alone is {asset.amount / total:.0%} of your "
                 "portfolio. If this is employer stock, your salary and your "
-                "savings ride on the same single company — the two fail "
+                "savings ride on the same single company, the two fail "
                 "together, which is exactly when you can least afford it."
             )
 

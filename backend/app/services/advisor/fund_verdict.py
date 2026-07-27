@@ -115,7 +115,7 @@ def build_verdict(
                 gross = _sip_future_value(monthly_sip, years, assumed_return)
                 net = _sip_future_value(monthly_sip, years, assumed_return - gap)
                 line += (
-                    f" — about ₹{gross - net:,.0f} on ₹{monthly_sip:,.0f} a month "
+                    f", about ₹{gross - net:,.0f} on ₹{monthly_sip:,.0f} a month "
                     f"over {years} years"
                 )
             line += "."

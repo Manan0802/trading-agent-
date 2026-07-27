@@ -206,7 +206,7 @@ def get_goal_recommendations(
         )
     except MutualFundDataError as exc:
         raise HTTPException(
-            503, f"Fund data is temporarily unavailable — please retry ({exc})"
+            503, f"Fund data is temporarily unavailable, please retry ({exc})"
         ) from exc
 
     return GoalRecommendationsOut(

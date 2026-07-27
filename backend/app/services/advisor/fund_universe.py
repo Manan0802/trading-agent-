@@ -71,7 +71,7 @@ BENCHMARK_NAME = "Nifty 50"
 BENCHMARK_CAVEAT = (
     "Measured against the Nifty 50, which holds only large caps. Flexi Cap "
     "funds also hold mid and small caps, so alpha here reads about 1-1.7 "
-    "percentage points higher than it would against the Nifty 500 — the "
+    "percentage points higher than it would against the Nifty 500, the "
     "textbook benchmark, which has no index fund old enough to use yet."
 )
 

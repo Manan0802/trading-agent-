@@ -6,7 +6,7 @@ figure is filed quarterly with the exchanges; Screener publishes it in a table
 we can parse.
 
 Best-effort throughout. A company we cannot resolve returns an empty history,
-which the scorer treats as "no promoter signal" rather than as a bad signal —
+which the scorer treats as "no promoter signal" rather than as a bad signal , 
 many of India's largest listed companies genuinely have no promoter at all.
 """
 

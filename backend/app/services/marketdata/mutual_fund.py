@@ -120,7 +120,7 @@ def _write_disk(path: str, payload: Any, now: float) -> None:
 
 
 def _get_json(path: str) -> Any:
-    """Fetch with a short retry — mfapi.in intermittently drops connections."""
+    """Fetch with a short retry, mfapi.in intermittently drops connections."""
     last_error: Exception | None = None
     for attempt in range(_MAX_ATTEMPTS):
         try:
@@ -211,7 +211,7 @@ def get_latest_nav(scheme_code: str) -> NavPoint:
 
 
 def nav_on_or_before(navs: list[NavPoint], target: date) -> NavPoint | None:
-    """The NAV in force on a date — NAVs are not published on holidays.
+    """The NAV in force on a date, NAVs are not published on holidays.
 
     Returns None if the series starts after the date, which means the fund did
     not exist yet and the caller must not pretend otherwise.

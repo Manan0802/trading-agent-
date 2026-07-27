@@ -1,6 +1,6 @@
 """Answers "would I have done better just buying the index?".
 
-The comparison mirrors the user's real cashflows — the same rupees on the same
+The comparison mirrors the user's real cashflows, the same rupees on the same
 dates — into the benchmark, then values that hypothetical holding today. Both
 sides therefore share an identical cashflow timeline, which is what makes the
 two XIRRs comparable: any difference is fund selection, not timing.

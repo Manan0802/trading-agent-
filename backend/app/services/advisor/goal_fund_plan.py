@@ -75,8 +75,8 @@ def _rank_asset_class(
 ) -> tuple[CategoryRanking | None, str]:
     """The peer group for one asset class, and the label to report it under.
 
-    Gold is not a SEBI category — its funds live inside "Other Scheme - FoF
-    Domestic" beside overseas-equity and silver funds — so it is ranked as a
+    Gold is not a SEBI category, its funds live inside "Other Scheme - FoF
+    Domestic" beside overseas-equity and silver funds, so it is ranked as a
     named subset instead.
     """
     if asset_class == "gold":

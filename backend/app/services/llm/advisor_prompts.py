@@ -18,6 +18,6 @@ def get_goal_explanation(goal_data: dict, sip_result: dict, allocation: dict) ->
         f"Aapka goal '{goal_data['goal_name']}' ke liye projected monthly SIP "
         f"Rs {sip_result['required_monthly_sip']:,.0f} hai, {goal_data['years']} saal ke liye. "
         f"Paisa {allocation['equity']}% equity, {allocation['debt']}% debt, {allocation['gold']}% gold "
-        f"mein lagega. Ye projected hai, guaranteed nahi — market ke hisaab se badal sakta hai. "
+        f"mein lagega. Ye projected hai, guaranteed nahi, market ke hisaab se badal sakta hai. "
         f"Disciplined raho, har mahine invest karo. 📈"
     )

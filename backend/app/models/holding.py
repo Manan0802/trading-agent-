@@ -7,7 +7,7 @@ from app.database import Base
 
 
 class Holding(Base):
-    """One instrument the user owns — a mutual fund scheme or a listed stock.
+    """One instrument the user owns, a mutual fund scheme or a listed stock.
 
     `identifier` is the key we fetch live prices with: an AMFI scheme code for
     MF holdings, a yfinance ticker (e.g. RELIANCE.NS) for stocks.

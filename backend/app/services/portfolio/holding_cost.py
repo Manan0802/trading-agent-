@@ -141,5 +141,5 @@ def _summarise(review: CostReview, years: float) -> str:
         f"₹{review.annual_cost:,.0f} a year in distributor commission for the "
         f"identical portfolio.{lifetime} Switching to the direct plan of the "
         "same fund is a redemption and a fresh purchase, so it realises capital "
-        "gains — worth checking against the saving before you move."
+        "gains, worth checking against the saving before you move."
     )

@@ -93,7 +93,7 @@ def generate_tax_saving_plan(
         employer_nps_note = (
             f"Worth up to {nps_cap_rate:.0%} of your basic salary and it is the "
             "only deduction that still works in the new regime. Enter your basic "
-            "(not CTC) to see the rupee figure — guessing it would be inventing "
+            "(not CTC) to see the rupee figure, guessing it would be inventing "
             "a number. Ask HR whether they can route part of your CTC here."
         )
     else:
@@ -103,7 +103,7 @@ def generate_tax_saving_plan(
         )
         employer_nps_note = (
             f"{nps_cap_rate:.0%} of your ₹{basic_salary:,.0f} basic. This is a "
-            "CTC restructure, not extra money out of your pocket — but it is "
+            "CTC restructure, not extra money out of your pocket, but it is "
             "locked until 60, so only take it if you would have invested it anyway."
         )
 
@@ -158,7 +158,7 @@ def generate_tax_saving_plan(
         "ELSS / PPF / EPF top-up",
         "80C",
         max(0.0, SECTION_80C_CAP - existing_80c),
-        "ELSS has the shortest lock-in at three years, but it is equity — do not "
+        "ELSS has the shortest lock-in at three years, but it is equity, do not "
         "use it for money you need inside five.",
     )
     _add(

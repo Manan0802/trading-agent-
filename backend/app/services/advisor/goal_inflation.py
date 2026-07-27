@@ -28,7 +28,7 @@ _GOAL_INFLATION: dict[str, tuple[float, str]] = {
     "home": (
         0.07,
         "Property prices track construction costs and land, which have run "
-        "slightly ahead of CPI. Highly city-specific — if you are buying in a "
+        "slightly ahead of CPI. Highly city-specific, if you are buying in a "
         "metro, treat this as a floor.",
     ),
     "retirement": (
@@ -56,7 +56,7 @@ _GOAL_INFLATION: dict[str, tuple[float, str]] = {
 _FALLBACK_NOTE = (
     "No goal-specific series applies, so this uses general inflation. If this "
     "goal is really education or healthcare spending under another name, "
-    "reclassify it — those inflate much faster."
+    "reclassify it, those inflate much faster."
 )
 
 

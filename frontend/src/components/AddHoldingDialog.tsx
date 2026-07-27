@@ -107,7 +107,7 @@ export function AddHoldingDialog() {
             <p className="text-xs text-muted-foreground">
               {assetType === 'MF'
                 ? 'This is what we fetch the daily NAV with.'
-                : 'NSE tickers end in .NS — this is what we fetch the live price with.'}
+                : 'NSE tickers end in .NS, which is what we fetch the live price with.'}
             </p>
           </div>
 

@@ -4,14 +4,23 @@ import { api } from '@/lib/api'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatInr, plainProse } from '@/lib/format'
 
+type Verdict = {
+  headline: string
+  points: string[]
+  caveat: string | null
+}
+
 type FundRecommendation = {
   asset_class: string
+  rank: number
   scheme_code: string
   scheme_name: string
   category: string
   monthly_amount: number
   score: number
-  rationale: string
+  direct_ter: number | null
+  regular_ter: number | null
+  verdict: Verdict
 }
 
 type GoalRecommendations = {
@@ -20,6 +29,7 @@ type GoalRecommendations = {
   allocation: Record<string, number>
   recommendations: FundRecommendation[]
   skipped: { asset_class: string; reason: string }[]
+  annual_commission_avoided: number | null
 }
 
 const ASSET_LABEL: Record<string, string> = {
@@ -44,9 +54,9 @@ function FundEntry({ fund }: { fund: FundRecommendation }) {
         <div className="flex flex-col gap-0.5">
           <p className="font-medium leading-tight">{fund.scheme_name}</p>
           <p className="text-xs text-muted-foreground">
-            {fund.category} &middot; scheme{' '}
-            <span className="tnum">{fund.scheme_code}</span> &middot; score{' '}
-            <span className="tnum">{fund.score.toFixed(0)}</span> of 100
+            Ranked <span className="tnum">{fund.rank}</span> in{' '}
+            {fund.category.split(' - ').slice(1).join(' - ') || fund.category}
+            {' '}&middot; score <span className="tnum">{fund.score.toFixed(0)}</span> of 100
           </p>
         </div>
         <div className="flex flex-col items-end">
@@ -56,9 +66,25 @@ function FundEntry({ fund }: { fund: FundRecommendation }) {
           <span className="mt-1 text-xs text-muted-foreground">per month</span>
         </div>
       </div>
-      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        {plainProse(fund.rationale)}
+      <p className="max-w-3xl text-sm leading-relaxed">
+        {plainProse(fund.verdict.headline)}
       </p>
+      <ul className="flex max-w-3xl flex-col gap-1">
+        {fund.verdict.points.map((point) => (
+          <li key={point} className="flex gap-2 text-sm text-muted-foreground">
+            <span aria-hidden className="text-muted-foreground/50">
+              &middot;
+            </span>
+            <span>{plainProse(point)}</span>
+          </li>
+        ))}
+      </ul>
+      {fund.verdict.caveat && (
+        <p className="flex max-w-3xl items-start gap-2 text-sm text-muted-foreground">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>{plainProse(fund.verdict.caveat)}</span>
+        </p>
+      )}
     </li>
   )
 }
@@ -134,6 +160,16 @@ export function GoalFundPlan({ goalId }: { goalId: string }) {
           Direct Growth plans only. A regular plan of the same fund carries a
           distributor commission inside the NAV, so you end up with less for an
           otherwise identical portfolio. Buy these yourself on your broker.
+          {data.annual_commission_avoided !== null && (
+            <>
+              {' '}
+              On this plan that is worth{' '}
+              <span className="tnum font-medium text-foreground">
+                {formatInr(data.annual_commission_avoided)}
+              </span>{' '}
+              a year at today&rsquo;s balance, and more as it grows.
+            </>
+          )}
         </p>
       </SectionHeading>
 

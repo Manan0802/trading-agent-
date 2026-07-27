@@ -160,7 +160,7 @@ def compare_regimes(
         rationale = (
             f"The old regime is cheaper by ₹{saving:,.0f} because your "
             f"₹{deductions:,.0f} of deductions exceed the "
-            f"₹{breakeven:,.0f} breakeven. Keep claiming them — but check "
+            f"₹{breakeven:,.0f} breakeven. Keep claiming them, but check "
             "each one is an investment you would hold anyway."
             if breakeven is not None
             else f"The old regime is cheaper by ₹{saving:,.0f}."

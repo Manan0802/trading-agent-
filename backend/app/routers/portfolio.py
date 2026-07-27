@@ -170,7 +170,7 @@ def get_benchmark_comparison(
         benchmark_navs = get_benchmark_navs() if transactions else []
     except MutualFundDataError as exc:
         raise HTTPException(
-            503, f"Benchmark data is temporarily unavailable — please retry ({exc})"
+            503, f"Benchmark data is temporarily unavailable, please retry ({exc})"
         ) from exc
 
     return BenchmarkComparisonOut.model_validate(
