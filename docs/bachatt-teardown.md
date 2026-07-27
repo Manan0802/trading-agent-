@@ -510,3 +510,192 @@ distributor. We are not one, so:
 - **Delivery %**: not available — NSE now returns 403. Their scorer allocates 9
   of 100 points to it and silently scores every stock `4.5/9` when the fetch
   fails, which is worth knowing before copying the weight table.
+
+---
+
+# Part 3 — The internal API, the allocation logic, and the stock pipeline
+
+Probed live 2026-07-27 with permission from the owner.
+
+## 3.1 What `investment.bachatt.app` actually returns
+
+```
+GET /fund-schemes/v2/internal/get-funds   → 200, 827 KB, 191 entries, no auth header
+```
+
+Per entry, the fields that matter:
+
+| Path | Example |
+|---|---|
+| `value.scheme.min_sip_amount` | 250.0 |
+| `value.scheme.min_weekly_amount` | 250.0 |
+| `value.scheme.min_lumpsum_amount` | 5000.0 |
+| `value.scheme.expense_ratio` | "1.56%" |
+| `value.scheme.display_values` | "Fund Size: ₹40,807 Cr" |
+| `value.scheme.exit_load` / `exit_load_details` | "0% after 1 year onwards" + prose |
+| `value.scheme.lock_in_period`, `risk`, `amc` | |
+| `value.past_performance`, `value.returns` | |
+| `status`, `investmentMode`, `productSubCategory` | ACTIVE / BOTH / FLEXI_CAP |
+
+Composition: **151 ACTIVE of 191**. Products: 164 WEALTH, 19 GOLD_AND_SILVER,
+8 INSTA_FD. Modes: 188 BOTH, 2 SIP-only, 1 lumpsum-only.
+
+This single feed is what powers the repair loop, and it is the one thing in
+their stack that is genuinely hard to replicate — not because the algorithm is
+clever, but because being a distributor gets you the data.
+
+## 3.2 The finding that defines our position
+
+**Every fund Bachatt distributes is a Regular plan. Zero Direct.**
+
+```
+DIRECT   0
+REGULAR  129   (explicit "REGULAR PLAN" in the scheme name)
+OTHER     62   (no plan word; none are Direct)
+```
+
+Matching their 151 active funds against AMFI's published TER for the *same
+scheme's* Direct plan — 125 matched:
+
+```
+What they charge (Regular) : median 1.42%
+Same fund, Direct plan     : median 0.63%
+ANNUAL DRAG                : median 0.60pp   mean 0.62pp
+```
+
+Widest gaps:
+
+```
+2.45% vs 0.85% Direct  = 1.60pp   Kotak Transportation & Logistics
+2.45% vs 0.90% Direct  = 1.55pp   Kotak Energy Opportunities
+2.40% vs 0.85% Direct  = 1.55pp   Invesco India Consumption
+2.21% vs 0.68% Direct  = 1.53pp   Invesco India Business Cycle
+2.01% vs 0.58% Direct  = 1.43pp   Mirae Asset Flexi Cap
+```
+
+What 0.60pp costs on an ordinary SIP — ₹15,000/month, 15 years, 12% gross:
+
+```
+Direct  : ₹75,68,640
+Regular : ₹71,48,080
+difference: ₹4,20,560
+```
+
+This is not a criticism of their product. A distributor earns from regular
+plans; that is the business model, and it is disclosed. But it is the structural
+line between a **distributor** and an **advisor**, and NexTrade is the second
+thing. Our `fund_universe.py` already recommends Direct-Growth only. What we
+should add is the number: for any fund a user holds, show what the regular plan
+costs them per year and over their remaining horizon, computed from AMFI's own
+published TER. Nobody can show that number and sell regular plans at the same
+time.
+
+## 3.3 The API surface — 77 endpoints
+
+Grouped by what they do:
+
+- **Fund data** (18): search, rank, categories, AMCs, per-ISIN returns, period
+  returns, bulk returns, recent NAV, AUM history, expansion, grade-batch,
+  compare-by-name.
+- **Analysis** (6): `/analyze`, by-ISINs, by-name, breakdown-by-name,
+  `/why-this-fund`, `/fund-filters`.
+- **Allocation** (7): `/optimize`, `/portfolio-plan`, `/portfolio/schedule`
+  + v2 + v3, `/portfolio/suggestions`, `/investment/suggestions`.
+- **Simulation** (5): `/sip-simulation` + v2, `/backtest` + start + status.
+- **Baskets** (8): CRUD, generate, template-stats, user baskets, basket-sim-nav.
+- **Signals** (6): `/market-regime`, `/gold-silver-signal` ×3, `/top-funds`,
+  `/top-funds-weekly`.
+- **Stocks** (5): score, score-by-name, search, sectors, sector-top.
+- **News** (3), **auth/admin** (6), **whitelist sync** (2), health.
+
+## 3.4 Where the allocation weights actually come from
+
+The chain is: **basket template → slot candidates → optimizer → repair →
+distribute**.
+
+1. `config/portfolio_baskets.py` defines the basket as *slots*, not funds:
+   MAXX = {Equity 1, Sectoral 1, Flexi/Multi 1, Gold 1, Silver 1};
+   BALANCED = {Large Cap 1, Large&Mid 1, Index 1, Gold 1, Liquid 1}.
+2. Each slot is filled by the top `bachatt_fund_score` fund in that category
+   that clears the pre-filter minimum (`pre_filter_threshold_for`: for SIP the
+   daily amount itself, for lumpsum 10% of the total).
+3. Per-slot weight bounds: `MAX_WEIGHT_DEFAULT 0.40`, `MAX_WEIGHT_COMMODITY
+   0.20`, `MIN_WEIGHT_DEBT 0.10`.
+4. `utils/strategy_bounds.py` supplies the *risk-profile* bounds:
+
+   ```
+   conservative  Liquid 40-80  Debt 10-40  Equity  0-20  Gold 0-20
+   balanced      Liquid 10-60  Debt 10-40  Equity 10-40  Gold 5-20
+   aggressive    Liquid  0-30  Debt  0-40  Equity 30-80  Gold 5-20
+   ```
+
+5. SLSQP optimises inside those bounds, then the momentum/drawdown tactical
+   overlay adjusts, then repair enforces minimums.
+
+**A real bug worth not copying:** `detect_fund_category` classifies a fund by
+**keyword-matching its name**, iterating a dict whose first match wins. An
+"Equity Savings Fund" contains "equity" and is classified Equity, so it receives
+30-80% bounds in an aggressive profile — when it is a hybrid holding roughly a
+third in equity. A "Balanced Advantage" fund matches on 'advantage' → Hybrid
+only because Hybrid happens to be checked after Equity fails. We hold the real
+SEBI `category`/`sub_category` for all 4,957 funds in our catalogue and never
+need to guess from a name.
+
+## 3.5 The stock pipeline, end to end
+
+```
+sector_map_full.csv  →  sector_symbol_map  (symbol, sector, industry, market_cap,
+                                            cap_bucket)
+```
+
+`load_sector_map.py` assigns `cap_bucket` by **SEBI rank over the loaded
+universe**: top 100 = large, 101-250 = mid, rest = small. We can reproduce this
+exactly from our own 751-name NSE Total Market list.
+
+`update_sector_benchmarks.py` computes the **median** P/E, P/B and ROE per
+sector from yfinance across a balanced large+mid basket, and takes dividend
+yield from NSE separately because yfinance's is unreliable (returns 13% for
+banks). Its docstring carries the sharpest data lesson in the repo: NSE's
+`allIndices` P/E is **market-cap weighted**, so Nifty IT reads ~21 because TCS
+and Infosys dominate the weight — using it would make mid-cap IT at P/E 28-32
+look expensive when it is sitting at the sector median.
+
+`score_sector_stocks.py` then scores every Nifty 500 name nightly — ~35 minutes,
+1.5s sleep between stocks to spare Screener.in and NSE — and upserts into
+`sector_scores` with the full `score_json`, so the API only ever reads a row.
+
+Per stock, `score_stock()`:
+
+- yfinance calls are serialised behind a lock (yfinance's session is not
+  thread-safe); delivery and promoter fetches run in parallel beside them.
+- 10 factors scored, each returning `(score, human-readable detail)`.
+- Split into `fundamental` (pe, eps_growth, roe, pb, div_yield = 50 pts) and
+  `technical` (rsi, macd, ema_trend, delivery, support = 50 pts).
+- Bonus/penalty layer appended as named `adjustments`, each with its points.
+- `base_total`, `adjustment_total` and the clamped `total` are all returned
+  separately, so the adjustment is never hidden inside the score.
+
+**Delivery % is dead.** NSE's `quote-equity` endpoint returns 403 today, so
+`_fetch_nse_delivery` returns None and `_score_delivery` awards
+`weight × 0.5` = 4.5 of 9 to every stock. Both `_check_price_delivery_correlation`
+adjustments are also permanently silent. That is 9% of their stock score and
+three of their nine adjustment rules currently inert.
+
+**Promoter holding works** — Screener.in, verified: Reliance
+`[50.01, 50.0, 50.0, 50.48]` over the last four quarters. `_check_promoter_holding`
+flags a ≥2pp move either way. Our own research already identified governance as
+India's dominant equity risk, so this is the adjustment worth having.
+
+## 3.6 What this changes in our plan
+
+Three things move up:
+
+1. **Direct-vs-Regular cost disclosure.** Highest value per line of code in the
+   whole plan, uses a public API, and is something a distributor cannot ship.
+2. **SEBI category over keyword matching** for allocation bounds. We already
+   have the data; using it removes a whole class of misclassification.
+3. **Sector-median benchmarks computed by us**, not weighted index P/E, before
+   any stock scoring lands.
+
+And one thing moves down: **delivery %** was going to be a 9-point factor. It is
+not obtainable. The weight redistributes to the factors that do resolve.
