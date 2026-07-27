@@ -14,6 +14,26 @@ if [ ! -x backend/venv/bin/uvicorn ]; then
   exit 1
 fi
 
+# Refuse to start on top of something already holding a port. This is not
+# paranoia about bind errors: binding 0.0.0.0:8000 SUCCEEDS while another
+# process holds 127.0.0.1:8000, and the more specific bind then wins every
+# localhost request. Both servers look healthy, the browser silently talks to
+# the wrong application, and every route 404s for no visible reason. Failing
+# loudly here costs a second; the silent version cost an hour.
+for port in 8000 5173; do
+  holders=$(lsof -ti TCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+  if [ -n "$holders" ]; then
+    echo "Port $port is already taken:" >&2
+    # Full command line, not lsof's 9-character COMMAND column: "Python" does
+    # not tell you which project you are about to fight with.
+    ps -o pid=,command= -p $(echo "$holders" | paste -sd, -) >&2
+    echo >&2
+    echo "Stop it first, or NexTrade will start cleanly and serve nothing:" >&2
+    echo "  kill $(echo "$holders" | paste -sd' ' -)" >&2
+    exit 1
+  fi
+done
+
 # Kill both halves when this script exits, so a stray API process does not keep
 # port 8000 and make the next run fail with a confusing bind error.
 pids=()
