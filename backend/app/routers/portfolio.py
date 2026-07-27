@@ -14,13 +14,16 @@ from app.schemas.portfolio import (
     TransactionCreate,
     TransactionOut,
     HistoryPointOut,
+    CostReviewOut,
 )
 from app.services.advisor.fund_universe import BENCHMARK_SCHEME_CODE
 from app.services.marketdata import mutual_fund
 from app.services.marketdata.mutual_fund import MutualFundDataError, NavPoint
 from app.services.marketdata.pricing import get_current_price
 from app.services.portfolio.benchmark import compare_to_benchmark
+from app.services.advisor.fund_evidence import expense_ratios
 from app.services.portfolio.history import HoldingSeries, build_history
+from app.services.portfolio.holding_cost import cost_review
 from app.services.portfolio.fifo import TxnInput, apply_fifo
 from app.services.portfolio.valuation import HoldingInput, value_portfolio
 
@@ -178,6 +181,46 @@ def get_benchmark_comparison(
             valuation_date=valuation_date,
         )
     )
+
+
+@router.get("/cost-review", response_model=CostReviewOut)
+def get_cost_review(
+    years_remaining: float = 15,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """What the regular-plan funds in this portfolio cost against their direct
+    equivalents.
+
+    Both plans own the identical portfolio; the difference is a distributor
+    commission taken out of the regular plan's NAV every day, and AMFI publishes
+    both figures. Only funds we can actually price are counted.
+    """
+    holdings = db.query(Holding).filter(Holding.user_id == user.id).all()
+    summary = value_portfolio(
+        [_to_input(h) for h in holdings], get_current_price, date.today()
+    )
+    values = {s.holding_id: (s.current_value or s.invested) for s in summary.holdings}
+
+    fees = expense_ratios()
+    priced = []
+    for holding in holdings:
+        entry = fees.get(holding.identifier) or {}
+        direct, regular = entry.get("direct_ter"), entry.get("regular_ter")
+        gap = (
+            (regular - direct) / 100
+            if direct is not None and regular is not None
+            else None
+        )
+        priced.append(
+            {
+                "name": holding.name,
+                "value": values.get(holding.id, 0.0),
+                "ter_gap": gap,
+            }
+        )
+
+    return CostReviewOut.model_validate(cost_review(priced, years_remaining))
 
 
 @router.get("/history", response_model=list[HistoryPointOut])

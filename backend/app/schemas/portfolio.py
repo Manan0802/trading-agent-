@@ -87,6 +87,29 @@ class PortfolioSummaryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class FlaggedHoldingOut(BaseModel):
+    name: str
+    value: float
+    ter_gap: float
+    annual_cost: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CostReviewOut(BaseModel):
+    """What the regular-plan holdings in a portfolio cost their owner."""
+
+    annual_cost: float
+    lifetime_cost: float
+    flagged: list[FlaggedHoldingOut]
+    # Regular plans AMFI publishes no direct-plan TER for, so the cost is
+    # unknown rather than averaged.
+    unpriced: list[str]
+    summary: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class HistoryPointOut(BaseModel):
     date: date
     invested: float
