@@ -37,7 +37,10 @@ class Verdict:
 
 
 def _short_category(category: str) -> str:
-    return category.split(" - ")[-1] if " - " in category else category
+    """"Equity Scheme - Large Cap Fund" -> "Large Cap". The trailing "Fund" is
+    dropped because the sentence supplies its own."""
+    label = category.split(" - ")[-1] if " - " in category else category
+    return label.removesuffix(" Fund").strip()
 
 
 def _sip_future_value(monthly: float, years: int, annual_rate: float) -> float:

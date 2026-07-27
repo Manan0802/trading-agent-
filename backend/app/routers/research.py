@@ -11,8 +11,14 @@ from app.schemas.research import (
     StockFundamentalsOut,
     StockUniverseOut,
     UniverseStockOut,
+    CategoryRankingV2Out,
+    RankedFundV2Out,
+    UnscorableFundOut,
+    VerdictOut,
+    WindowOut,
 )
 from app.services.advisor import fund_metrics
+from app.services.advisor.category_ranking import rank_category as build_category_ranking
 from app.services.advisor.fund_catalogue import BROWSABLE_CATEGORIES, is_browsable
 from app.services.advisor.fund_recommender import load_scored_universe, score_category
 from app.services.advisor.fund_universe import (
@@ -105,6 +111,60 @@ def rank_category(
 def list_fund_categories(user: User = Depends(current_active_user)):
     """Every SEBI category with enough funds to rank against each other."""
     return BROWSABLE_CATEGORIES
+
+
+@router.get("/fund-rankings/{category:path}", response_model=CategoryRankingV2Out)
+def rank_category_v2(
+    category: str,
+    monthly_sip: float | None = None,
+    years: int | None = None,
+    user: User = Depends(current_active_user),
+):
+    """Every fund in a SEBI category, ranked on the shape of its record.
+
+    `monthly_sip` and `years` only price the direct-vs-regular commission gap
+    in rupees over the caller's horizon; the ranking itself does not depend on
+    them, so an anonymous browse and a specific goal see the same order.
+    """
+    if not is_browsable(category):
+        raise HTTPException(404, f"Unknown fund category: {category}")
+
+    try:
+        result = build_category_ranking(category, monthly_sip=monthly_sip, years=years)
+    except mutual_fund.MutualFundDataError as exc:
+        raise HTTPException(503, f"Fund data is temporarily unavailable ({exc})") from exc
+
+    return CategoryRankingV2Out(
+        category=result.category,
+        priced=result.priced,
+        unscorable=[UnscorableFundOut.model_validate(u) for u in result.unscorable],
+        ranked=[
+            RankedFundV2Out(
+                rank=r.rank,
+                scheme_code=r.fund.scheme_code,
+                scheme_name=r.fund.scheme_name,
+                category=r.fund.category,
+                score=r.fund.score,
+                breakdown=r.fund.breakdown,
+                evidence_strength=r.fund.evidence_strength,
+                history_years=(
+                    round(r.fund.evidence.history_years, 1)
+                    if r.fund.evidence.history_years is not None
+                    else None
+                ),
+                windows={
+                    k: WindowOut.model_validate(v)
+                    for k, v in r.fund.evidence.windows.items()
+                },
+                volatility=r.fund.evidence.volatility,
+                max_drawdown=r.fund.evidence.max_drawdown,
+                direct_ter=r.fund.evidence.direct_ter,
+                regular_ter=r.fund.evidence.regular_ter,
+                verdict=VerdictOut.model_validate(r.verdict),
+            )
+            for r in result.ranked
+        ],
+    )
 
 
 @router.get("/fund-categories/{category:path}", response_model=CategoryRankingOut)

@@ -109,3 +109,48 @@ class StockUniverseOut(BaseModel):
     total: int
     available_indices: list[str]
     available_industries: list[str]
+
+
+class WindowOut(BaseModel):
+    """One rolling-window length, summarised over every overlapping window."""
+
+    mean: float
+    worst: float
+    share_positive: float
+    count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VerdictOut(BaseModel):
+    headline: str
+    points: list[str]
+    caveat: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RankedFundV2Out(BaseModel):
+    rank: int
+    scheme_code: str
+    scheme_name: str
+    category: str
+    score: float
+    breakdown: dict[str, float]
+    # How far the record can be trusted to describe more than one market, 0-1.
+    evidence_strength: float
+    history_years: float | None
+    windows: dict[str, WindowOut]
+    volatility: float | None
+    max_drawdown: float | None
+    direct_ter: float | None
+    regular_ter: float | None
+    verdict: VerdictOut
+
+
+class CategoryRankingV2Out(BaseModel):
+    category: str
+    ranked: list[RankedFundV2Out]
+    unscorable: list[UnscorableFundOut]
+    # How many funds we can price the direct-vs-regular gap for.
+    priced: int
