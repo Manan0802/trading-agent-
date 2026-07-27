@@ -16,6 +16,9 @@ from app.schemas.advisor import (
     AllocationRequest,
     TaxRequest,
     WholePortfolioRequest,
+    ProfileUpdate,
+    ProfileOut,
+    TaxComparisonOut,
 )
 from app.services.advisor.sip_calculator import calculate_required_sip
 from app.services.advisor.asset_allocator import (
@@ -32,6 +35,7 @@ from app.services.advisor.whole_portfolio import (
     plan_new_money,
 )
 from app.services.advisor.tax_advisor import generate_tax_saving_plan
+from app.services.advisor.tax_regime import compare_regimes
 from app.services.llm.advisor_prompts import get_goal_explanation
 from app.services.marketdata.mutual_fund import MutualFundDataError
 
@@ -109,6 +113,72 @@ def whole_portfolio(req: WholePortfolioRequest):
         # missing from the mix, which the user needs to know to read the rest.
         "unclassified_assets": unclassified,
     }
+
+
+def _profile_out(user: User) -> ProfileOut:
+    """The stored situation, plus the answer the income was collected for."""
+    tax = None
+    if user.annual_income and user.annual_income > 0:
+        comparison = compare_regimes(
+            user.annual_income,
+            is_salaried=user.is_salaried,
+            deductions=(user.existing_80c or 0)
+            + (user.existing_80d or 0)
+            + (user.other_deductions or 0),
+        )
+        tax = TaxComparisonOut(
+            recommended=comparison.recommended,
+            new_regime_tax=comparison.new_regime_tax,
+            old_regime_tax=comparison.old_regime_tax,
+            saving=comparison.saving,
+            breakeven_deductions=comparison.breakeven_deductions,
+            rationale=comparison.rationale,
+        )
+    return ProfileOut(
+        annual_income=user.annual_income,
+        basic_salary=user.basic_salary,
+        monthly_expenses=user.monthly_expenses,
+        is_salaried=user.is_salaried,
+        existing_80c=user.existing_80c or 0.0,
+        existing_80d=user.existing_80d or 0.0,
+        other_deductions=user.other_deductions or 0.0,
+        years_to_goal=user.years_to_goal,
+        tax=tax,
+    )
+
+
+@router.get("/profile", response_model=ProfileOut)
+def get_profile(user: User = Depends(current_active_user)):
+    """What we know about this person's situation, and nothing invented.
+
+    A new profile comes back empty rather than defaulted: putting a confident
+    rupee figure on the tax lever from a number nobody supplied would be worse
+    than showing no figure at all.
+    """
+    return _profile_out(user)
+
+
+@router.patch("/profile", response_model=ProfileOut)
+def update_profile(
+    body: ProfileUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """Partial update: fields left out keep their stored value, so the form can
+    be filled in over time rather than all at once."""
+    # Re-read in this request's session. The authenticated user arrives on the
+    # auth session, and writing it through a second one raises rather than
+    # silently picking a winner.
+    stored = db.get(User, user.id)
+    if stored is None:
+        raise HTTPException(404, "User not found")
+
+    for field, value in body.model_dump(exclude_unset=True).items():
+        if value is not None:
+            setattr(stored, field, value)
+    db.commit()
+    db.refresh(stored)
+    return _profile_out(stored)
 
 
 @router.post("/goals", response_model=GoalOut)

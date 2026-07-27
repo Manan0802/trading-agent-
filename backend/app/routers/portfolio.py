@@ -229,8 +229,7 @@ def get_cost_review(
 
 @router.get("/levers", response_model=LeversOut)
 def get_levers(
-    years_remaining: float = 15,
-    annual_income: float = 0,
+    years_remaining: float | None = None,
     monthly_sip: float = 0,
     db: Session = Depends(get_db),
     user: User = Depends(current_active_user),
@@ -240,6 +239,11 @@ def get_levers(
     Fund selection appears at zero rather than being left off: we measured it
     and it does not work, and the zero is the point.
     """
+    # The horizon and the income come from the stored profile unless the caller
+    # overrides the horizon, so the biggest lever we can price is not silently
+    # zero just because the query string was empty.
+    horizon = years_remaining if years_remaining is not None else (user.years_to_goal or 15)
+
     holdings = db.query(Holding).filter(Holding.user_id == user.id).all()
     summary = value_portfolio(
         [_to_input(h) for h in holdings], get_current_price, date.today()
@@ -258,7 +262,7 @@ def get_levers(
         )
         priced.append({"name": holding.name, "value": values.get(holding.id, 0.0), "ter_gap": gap})
 
-    review = cost_review(priced, years_remaining)
+    review = cost_review(priced, horizon)
     # The gap that matters is the one on the money actually sitting in regular
     # plans, not an average across everything the user owns.
     flagged_value = sum(f.value for f in review.flagged)
@@ -269,22 +273,28 @@ def get_levers(
     )
 
     tax_saving = 0.0
-    if annual_income > 0:
-        tax_saving = compare_regimes(annual_income, is_salaried=True).saving
+    if user.annual_income and user.annual_income > 0:
+        tax_saving = compare_regimes(
+            user.annual_income,
+            is_salaried=user.is_salaried,
+            deductions=(user.existing_80c or 0)
+            + (user.existing_80d or 0)
+            + (user.other_deductions or 0),
+        ).saving
 
     return LeversOut(
         levers=[
             LeverOut.model_validate(lever)
             for lever in rank_levers(
                 portfolio_value=flagged_value,
-                annual_income=annual_income,
+                annual_income=user.annual_income or 0,
                 monthly_sip=monthly_sip,
-                years_remaining=years_remaining,
+                years_remaining=horizon,
                 regular_plan_cost_gap=weighted_gap,
                 tax_saving=tax_saving,
             )
         ],
-        years_remaining=years_remaining,
+        years_remaining=horizon,
         portfolio_value=summary.total_current_value,
     )
 
