@@ -4,6 +4,7 @@ from app.services.advisor.tax_regime import (
     NEW_REGIME_REBATE_LIMIT,
     compare_regimes,
     compute_tax,
+    regime_switch_saving,
 )
 
 
@@ -91,3 +92,37 @@ def test_breakeven_deduction_is_reported():
         deductions=result.breakeven_deductions,
     )
     assert at_breakeven.saving < 1000
+
+
+def test_someone_already_on_the_cheaper_regime_is_told_the_switch_is_worth_nothing():
+    """The whole reason this function exists. The new regime is the statutory
+    default, so most users are already in it and the full new-versus-old gap is
+    a saving they have had for years — not one we can offer them."""
+    saving = regime_switch_saving(
+        2_400_000, current="new", is_salaried=True, deductions=0
+    )
+    assert saving == 0.0
+
+    # And the gap itself is real, which is what makes the zero meaningful
+    # rather than an artefact of the two bills being equal.
+    assert compare_regimes(2_400_000, is_salaried=True, deductions=0).saving > 200_000
+
+
+def test_someone_stuck_on_the_dearer_regime_is_quoted_the_real_gap():
+    comparison = compare_regimes(2_400_000, is_salaried=True, deductions=0)
+    saving = regime_switch_saving(
+        2_400_000, current="old", is_salaried=True, deductions=0
+    )
+    assert saving == pytest.approx(comparison.saving)
+    assert saving > 0
+
+
+def test_heavy_deductions_flip_which_direction_the_switch_pays():
+    """A big home loan and full 80C can make the old regime the right one, and
+    then it is the person on the new regime who is leaving money behind."""
+    assert regime_switch_saving(
+        2_500_000, current="old", is_salaried=True, deductions=850_000
+    ) == 0.0
+    assert regime_switch_saving(
+        2_500_000, current="new", is_salaried=True, deductions=850_000
+    ) > 0

@@ -54,10 +54,12 @@ export function Profile() {
   const { data, isLoading } = useQuery({ queryKey: ['profile'], queryFn: fetchProfile })
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [salaried, setSalaried] = useState(true)
+  const [regime, setRegime] = useState<'new' | 'old'>('new')
 
   useEffect(() => {
     if (!data) return
     setSalaried(data.is_salaried)
+    setRegime(data.current_tax_regime === 'old' ? 'old' : 'new')
     setDraft(
       Object.fromEntries(
         FIELDS.map((f) => [f.key, data[f.key] === null ? '' : String(data[f.key])]),
@@ -74,7 +76,10 @@ export function Profile() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    const patch: Record<string, unknown> = { is_salaried: salaried }
+    const patch: Record<string, unknown> = {
+      is_salaried: salaried,
+      current_tax_regime: regime,
+    }
     for (const f of FIELDS) {
       const raw = draft[f.key]
       if (raw !== undefined && raw !== '') patch[f.key] = Number(raw)
@@ -138,6 +143,25 @@ export function Profile() {
           </select>
           <p className="text-xs text-muted-foreground">
             Salaried gets a standard deduction, which changes the comparison.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="regime">Regime you are in today</Label>
+          <select
+            id="regime"
+            className="h-9 rounded-md border bg-transparent px-2 text-sm"
+            value={regime}
+            onChange={(e) => setRegime(e.target.value === 'old' ? 'old' : 'new')}
+          >
+            <option value="new">New regime</option>
+            <option value="old">Old regime</option>
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Which one you are actually in, not the one you should be in. New is the
+            default since FY2023-24, so if you never filed a declaration with your
+            employer, you are in it. This decides whether switching is worth money to
+            you or whether you already have the saving.
           </p>
         </div>
 

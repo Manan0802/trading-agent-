@@ -142,6 +142,7 @@ def _profile_out(user: User) -> ProfileOut:
         existing_80c=user.existing_80c or 0.0,
         existing_80d=user.existing_80d or 0.0,
         other_deductions=user.other_deductions or 0.0,
+        current_tax_regime=user.current_tax_regime,
         years_to_goal=user.years_to_goal,
         tax=tax,
     )

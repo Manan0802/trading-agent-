@@ -26,6 +26,11 @@ class User(SQLAlchemyBaseUserTable[str], Base):
     other_deductions: Mapped[float] = mapped_column(default=0.0)
     existing_80c: Mapped[float] = mapped_column(default=0.0)
     existing_80d: Mapped[float] = mapped_column(default=0.0)
+    # Which regime they are actually in today, not which one we recommend.
+    # Defaults to "new" because that is the statutory default since FY2023-24:
+    # anyone who never filed a declaration is already in it, and pricing their
+    # tax lever as though they were in the old one invents a saving.
+    current_tax_regime: Mapped[str] = mapped_column(default="new")
     # Years until the money is needed. Drives every lifetime figure we show.
     years_to_goal: Mapped[float | None] = mapped_column(default=None)
 

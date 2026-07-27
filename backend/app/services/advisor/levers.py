@@ -35,6 +35,25 @@ class Lever:
     action: str
 
 
+def _inr(amount: float) -> str:
+    """Rupees grouped the Indian way: 2,45,700, not 245,700.
+
+    Python's `,` format spec groups in thousands throughout, which reads as a
+    typo to anyone in India once the figure passes a lakh.
+    """
+    whole = f"{abs(amount):.0f}"
+    if len(whole) > 3:
+        head, tail = whole[:-3], whole[-3:]
+        groups = []
+        while len(head) > 2:
+            groups.insert(0, head[-2:])
+            head = head[:-2]
+        if head:
+            groups.insert(0, head)
+        whole = ",".join([*groups, tail])
+    return f"{'-' if amount < 0 else ''}₹{whole}"
+
+
 def _compounded_saving(value: float, gap: float, years: float) -> float:
     """What a fee saving is worth by the end, not what it sums to along the way.
 
@@ -63,8 +82,17 @@ def rank_levers(
     years_remaining: float,
     regular_plan_cost_gap: float | None,
     tax_saving: float,
+    tax_regime_gap: float = 0.0,
+    current_regime: str = "new",
 ) -> list[Lever]:
-    """Every lever we can price for this user, biggest first."""
+    """Every lever we can price for this user, biggest first.
+
+    `tax_saving` is what switching regime is worth *from the one they are
+    already in*, so it is zero for the majority who are on the new regime by
+    default. `tax_regime_gap` is what the two regimes differ by at all, which
+    is what separates "you already made this call correctly" from "there is no
+    call to make here".
+    """
     levers: list[Lever] = []
 
     if regular_plan_cost_gap and regular_plan_cost_gap > 0:
@@ -96,24 +124,48 @@ def rank_levers(
         )
 
     if tax_saving > 0:
+        other = "new" if current_regime == "old" else "old"
         levers.append(
             Lever(
                 key="tax_regime",
-                title="Be in the cheaper tax regime",
+                title=f"Move to the {other} tax regime",
                 annual_value=round(tax_saving, 2),
                 # Not compounded: the saving is only invested and growing if the
                 # user actually invests it, and assuming they do would be
                 # inventing a behaviour.
                 lifetime_value=round(tax_saving * max(years_remaining, 0), 2),
                 detail=(
-                    "A slab calculation, not a forecast. The new regime has been "
-                    "the default since FY2023-24 and its wider slabs usually beat "
-                    "the deductions the old one allows."
+                    f"You told us you are on the {current_regime} regime. On your "
+                    f"income and the deductions you claim, the {other} one costs "
+                    "less. This is a slab calculation, not a forecast."
                 ),
                 action=(
-                    "Declare the cheaper regime with your employer at the start "
+                    f"Declare the {other} regime with your employer at the start "
                     "of the financial year, and recheck it if your rent or home "
                     "loan changes."
+                ),
+            )
+        )
+    elif annual_income > 0 and tax_regime_gap > 0:
+        # Shown at zero rather than omitted, for the same reason fund selection
+        # is: a lever already pulled is worth knowing about, and without this
+        # line the page reads as though nothing about tax was ever checked.
+        levers.append(
+            Lever(
+                key="tax_regime",
+                title="Be in the cheaper tax regime",
+                annual_value=0.0,
+                lifetime_value=0.0,
+                detail=(
+                    f"Already done. You are on the {current_regime} regime, and on "
+                    f"your numbers it costs {_inr(tax_regime_gap)} a year less "
+                    "than the alternative. Worth nothing more because you are "
+                    "already collecting it."
+                ),
+                action=(
+                    "Leave it alone, and recheck after any change to your rent, "
+                    "home loan or 80C — a large enough deduction can flip which "
+                    "regime wins."
                 ),
             )
         )

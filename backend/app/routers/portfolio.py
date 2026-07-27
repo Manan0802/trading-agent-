@@ -26,7 +26,7 @@ from app.services.portfolio.benchmark import compare_to_benchmark
 from app.services.advisor.fund_evidence import expense_ratios
 from app.services.portfolio.history import HoldingSeries, build_history
 from app.services.advisor.levers import rank_levers
-from app.services.advisor.tax_regime import compare_regimes
+from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
 from app.services.portfolio.holding_cost import cost_review
 from app.services.portfolio.fifo import TxnInput, apply_fifo
 from app.services.portfolio.valuation import HoldingInput, value_portfolio
@@ -272,15 +272,29 @@ def get_levers(
         else None
     )
 
+    # Priced from the regime the user is actually in, not from the worse of the
+    # two. Most people are on the new one by default and have already banked
+    # this saving; telling them they could earn it again would be a lie the
+    # size of the biggest number on the page.
     tax_saving = 0.0
+    regime_gap = 0.0
     if user.annual_income and user.annual_income > 0:
-        tax_saving = compare_regimes(
+        deductions = (
+            (user.existing_80c or 0)
+            + (user.existing_80d or 0)
+            + (user.other_deductions or 0)
+        )
+        regime_gap = compare_regimes(
             user.annual_income,
             is_salaried=user.is_salaried,
-            deductions=(user.existing_80c or 0)
-            + (user.existing_80d or 0)
-            + (user.other_deductions or 0),
+            deductions=deductions,
         ).saving
+        tax_saving = regime_switch_saving(
+            user.annual_income,
+            user.current_tax_regime,
+            is_salaried=user.is_salaried,
+            deductions=deductions,
+        )
 
     return LeversOut(
         levers=[
@@ -292,6 +306,8 @@ def get_levers(
                 years_remaining=horizon,
                 regular_plan_cost_gap=weighted_gap,
                 tax_saving=tax_saving,
+                tax_regime_gap=regime_gap,
+                current_regime=user.current_tax_regime,
             )
         ],
         years_remaining=horizon,

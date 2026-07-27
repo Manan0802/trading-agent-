@@ -174,3 +174,24 @@ def compare_regimes(
         rationale=rationale,
         breakeven_deductions=breakeven,
     )
+
+
+def regime_switch_saving(
+    annual_income: float,
+    current: Regime,
+    *,
+    is_salaried: bool = False,
+    deductions: float = 0.0,
+) -> float:
+    """What changing regime is worth *from where the taxpayer already is*.
+
+    Zero when they are already in the cheaper one, and that is the common case
+    rather than the exception: the new regime has been the statutory default
+    since FY2023-24, so anyone who never filed a declaration is in it. Quoting
+    them the full new-versus-old gap would bill them for a saving they have had
+    all along, which is the difference between an advisor and a brochure.
+    """
+    comparison = compare_regimes(
+        annual_income, is_salaried=is_salaried, deductions=deductions
+    )
+    return 0.0 if comparison.recommended == current else comparison.saving

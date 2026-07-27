@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -69,6 +71,9 @@ class ProfileUpdate(BaseModel):
     # HRA, home loan interest, 80E, 80G. Without it the old regime looks worse
     # than it is for anyone paying rent or a mortgage.
     other_deductions: float | None = Field(default=None, ge=0)
+    # Which regime they are in today, not the one we recommend. Defaults to
+    # "new" on the model because that is the statutory default since FY2023-24.
+    current_tax_regime: Literal["new", "old"] | None = None
     years_to_goal: float | None = Field(default=None, ge=0)
 
 
@@ -89,6 +94,7 @@ class ProfileOut(BaseModel):
     existing_80c: float
     existing_80d: float
     other_deductions: float
+    current_tax_regime: str
     years_to_goal: float | None
     # The answer the income was collected for, so it does not need a second call.
     tax: TaxComparisonOut | None = None

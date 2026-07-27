@@ -42,6 +42,7 @@ export type Profile = {
   existing_80c: number
   existing_80d: number
   other_deductions: number
+  current_tax_regime: 'new' | 'old'
   years_to_goal: number | null
   tax: TaxComparison | null
 }
