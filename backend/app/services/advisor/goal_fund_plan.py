@@ -53,6 +53,16 @@ class SkippedClass:
     reason: str
 
 
+@dataclass(frozen=True)
+class Reallocation:
+    """A sleeve too small to place, and where its money went instead."""
+
+    asset_class: str
+    amount: float
+    moved_to: dict[str, float]
+    note: str
+
+
 @dataclass
 class FundPlan:
     picks: list[FundPick] = field(default_factory=list)
@@ -60,14 +70,83 @@ class FundPlan:
     # Rupees a year the plan avoids by being direct-only, where both plans of a
     # picked fund are published. None when none of them are.
     annual_commission_avoided: float | None = None
+    # Where the plan had to depart from the target mix to stay placeable.
+    reallocations: list[Reallocation] = field(default_factory=list)
+    # The mix actually being bought, which is the target only when nothing had
+    # to move. Reported because a plan that quietly differs from the allocation
+    # it claims to implement is worse than one that says it differs.
+    actual_mix: dict[str, float] = field(default_factory=dict)
 
 
 def _split(amount: float, count: int) -> list[float]:
-    """Weight the top pick more heavily, and make the parts add back exactly."""
+    """Weight the top pick more heavily, and make the parts add back exactly.
+
+    The weighting is abandoned when it would push the smaller instalment below
+    what a fund will accept. It used to be applied unconditionally, so a sleeve
+    of ₹1,000 became ₹600 and ₹400 — and the ₹400 SIP was rejected at the
+    counter, after the guard above had already checked that an even ₹500 split
+    would clear.
+    """
     if count == 1:
         return [amount]
     top = round(amount * _TOP_SHARE)
+    if amount - top < MIN_MONTHLY_SIP:
+        # The even split is known to clear: the caller only reaches count=2
+        # once amount / 2 is at or above the minimum.
+        smaller = round(amount / 2)
+        return [amount - smaller, smaller]
     return [top, amount - top]
+
+
+def _placeable_allocation(
+    allocation: dict[str, float], monthly_sip: float
+) -> tuple[dict[str, float], list[Reallocation]]:
+    """Drop sleeves too small to invest, and give their money to the rest.
+
+    A goal that puts 10% in gold on a ₹4,000 SIP is asking for a ₹400 monthly
+    instalment, which no fund will take. Leaving it out is right; leaving the
+    ₹400 uninvested is not, and that is what used to happen — the money simply
+    stopped existing between the allocation and the plan.
+
+    Dropping the smallest sleeve raises every other, which can rescue a second
+    sleeve that was itself below the line, so this repeats until what remains
+    is placeable. The survivors keep their weights relative to each other, so
+    a 65/25 equity/debt split stays 65/25 after gold leaves rather than
+    drifting toward whichever happened to be larger.
+    """
+    live = {k: v for k, v in allocation.items() if v > 0}
+    moves: list[Reallocation] = []
+
+    while len(live) > 1:
+        total = sum(live.values())
+        amounts = {k: monthly_sip * v / total for k, v in live.items()}
+        too_small = {k: a for k, a in amounts.items() if a < MIN_MONTHLY_SIP}
+        if not too_small:
+            break
+
+        # Smallest first: it is the one least likely to be rescued by the
+        # others growing, and dropping it may lift the rest above the line.
+        victim = min(too_small, key=lambda k: amounts[k])
+        freed = amounts[victim]
+        del live[victim]
+
+        remaining = sum(live.values())
+        moved_to = {k: round(freed * v / remaining, 2) for k, v in live.items()}
+        moves.append(
+            Reallocation(
+                asset_class=victim,
+                amount=round(freed, 2),
+                moved_to=moved_to,
+                note=(
+                    f"₹{freed:,.0f} a month is below the ₹{MIN_MONTHLY_SIP:,.0f} "
+                    f"minimum a fund will accept, so the {victim} sleeve is not "
+                    "bought and its money goes to the rest of the plan in "
+                    "proportion. Your mix differs from the target because of it."
+                ),
+            )
+        )
+
+    return live, moves
 
 
 def _rank_asset_class(
@@ -107,12 +186,18 @@ def build_fund_plan(
     commission = 0.0
     priced_any = False
 
-    for asset_class, percent in allocation.items():
-        if percent <= 0:
-            continue
+    live, plan.reallocations = _placeable_allocation(allocation, monthly_sip)
+    for move in plan.reallocations:
+        plan.skipped.append(SkippedClass(move.asset_class, move.note))
 
-        class_amount = monthly_sip * percent / 100
+    live_total = sum(live.values())
+    for asset_class, percent in live.items():
+        # Re-based on what survived, so the freed money is actually spent
+        # rather than quietly falling out of the plan.
+        class_amount = monthly_sip * percent / live_total
         if class_amount < MIN_MONTHLY_SIP:
+            # Only reachable when a single sleeve holds everything and the whole
+            # SIP is under the minimum. Nothing to redistribute to.
             plan.skipped.append(
                 SkippedClass(
                     asset_class,
@@ -160,4 +245,23 @@ def build_fund_plan(
                 commission += (regular - direct) * amount * 12
 
     plan.annual_commission_avoided = round(commission, 2) if priced_any else None
+
+    placed = sum(p.monthly_amount for p in plan.picks)
+    plan.actual_mix = (
+        {
+            asset_class: round(
+                sum(
+                    p.monthly_amount
+                    for p in plan.picks
+                    if p.asset_class == asset_class
+                )
+                / placed
+                * 100,
+                1,
+            )
+            for asset_class in dict.fromkeys(p.asset_class for p in plan.picks)
+        }
+        if placed > 0
+        else {}
+    )
     return plan

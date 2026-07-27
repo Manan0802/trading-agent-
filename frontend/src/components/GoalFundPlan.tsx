@@ -23,6 +23,13 @@ type FundRecommendation = {
   verdict: Verdict
 }
 
+type Reallocation = {
+  asset_class: string
+  amount: number
+  moved_to: Record<string, number>
+  note: string
+}
+
 type GoalRecommendations = {
   goal_id: string
   monthly_sip: number
@@ -30,6 +37,10 @@ type GoalRecommendations = {
   recommendations: FundRecommendation[]
   skipped: { asset_class: string; reason: string }[]
   annual_commission_avoided: number | null
+  // Where the plan left the target mix to stay buyable, and what is actually
+  // being bought. The two differ whenever a sleeve was too small to place.
+  reallocations: Reallocation[]
+  actual_mix: Record<string, number>
 }
 
 const ASSET_LABEL: Record<string, string> = {
@@ -179,8 +190,21 @@ export function GoalFundPlan({ goalId }: { goalId: string }) {
             <h3 className="text-sm font-medium">
               {ASSET_LABEL[assetClass] ?? assetClass}
             </h3>
+            {/* The share actually being bought, not the target. Showing the
+                target beside the real rupee figure made the two contradict
+                each other whenever a sleeve had to be dropped: "65% ·
+                ₹4,333/mo" out of a ₹6,000 SIP is not 65% of anything. */}
             <span className="num text-xs text-muted-foreground">
-              {data.allocation[assetClass]}% &middot;{' '}
+              {(data.actual_mix[assetClass] ?? data.allocation[assetClass]).toFixed(0)}%
+              {data.actual_mix[assetClass] !== undefined &&
+                Math.abs(data.actual_mix[assetClass] - data.allocation[assetClass]) >=
+                  1 && (
+                  <span className="text-muted-foreground/70">
+                    {' '}
+                    (target {data.allocation[assetClass]}%)
+                  </span>
+                )}{' '}
+              &middot;{' '}
               {formatInr(funds.reduce((sum, f) => sum + f.monthly_amount, 0))}/mo
             </span>
           </div>
@@ -193,14 +217,37 @@ export function GoalFundPlan({ goalId }: { goalId: string }) {
       ))}
 
       <div className="flex flex-col gap-2 border-t pt-4">
-        {data.skipped.map((s) => (
-          <p key={s.asset_class} className="max-w-3xl text-sm text-muted-foreground">
+        {/* Money that could not be placed where the allocation wanted it is
+            named, along with where it went. Silently dropping it would leave
+            the user investing less than their own SIP. */}
+        {data.reallocations.map((r) => (
+          <p key={r.asset_class} className="max-w-3xl text-sm text-muted-foreground">
             <span className="font-medium">
-              {ASSET_LABEL[s.asset_class] ?? s.asset_class}
+              {ASSET_LABEL[r.asset_class] ?? r.asset_class}
             </span>{' '}
-            has no fund named here: {plainProse(s.reason)}
+            is not bought:{' '}
+            <span className="tnum">{formatInr(r.amount)}</span> a month is under
+            what a fund will accept, so it goes to{' '}
+            {Object.entries(r.moved_to)
+              .map(
+                ([to, amount]) =>
+                  `${ASSET_LABEL[to] ?? to} (${formatInr(amount)})`,
+              )
+              .join(' and ')}{' '}
+            instead. Every rupee of your SIP is still invested, but the mix above
+            is not the one the goal asked for.
           </p>
         ))}
+        {data.skipped
+          .filter((s) => !data.reallocations.some((r) => r.asset_class === s.asset_class))
+          .map((s) => (
+            <p key={s.asset_class} className="max-w-3xl text-sm text-muted-foreground">
+              <span className="font-medium">
+                {ASSET_LABEL[s.asset_class] ?? s.asset_class}
+              </span>{' '}
+              has no fund named here: {plainProse(s.reason)}
+            </p>
+          ))}
         <p className="max-w-3xl text-xs text-muted-foreground">
           Scores are our own, worked out from public NAV history, not a licensed
           rating. Past performance is not a promise of future returns.

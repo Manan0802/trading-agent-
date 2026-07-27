@@ -88,7 +88,10 @@ export function GoalDetail() {
       </header>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-medium">Where the money goes</h2>
+        {/* Not "where the money goes": a sleeve too small to place is dropped
+            and its share redistributed, so what is actually bought can differ
+            from this. The plan below is the one that reports what happens. */}
+        <h2 className="text-sm font-medium">The mix this goal aims for</h2>
         <AllocationPie
           equity={data.equity_allocation ?? 0}
           debt={data.debt_allocation ?? 0}

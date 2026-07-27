@@ -8,6 +8,7 @@ from app.schemas.goal import (
     GoalOut,
     GoalRecommendationsOut,
     FundRecommendationOut,
+    ReallocationOut,
     SkippedAssetClassOut,
 )
 from app.schemas.advisor import (
@@ -289,4 +290,8 @@ def get_goal_recommendations(
         ],
         skipped=[SkippedAssetClassOut.model_validate(s) for s in plan.skipped],
         annual_commission_avoided=plan.annual_commission_avoided,
+        reallocations=[
+            ReallocationOut.model_validate(r) for r in plan.reallocations
+        ],
+        actual_mix=plan.actual_mix,
     )

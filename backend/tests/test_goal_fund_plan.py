@@ -115,3 +115,110 @@ def test_an_empty_category_is_skipped_with_a_reason_rather_than_dropped_silently
 
 def test_the_minimum_is_stated_where_it_bites():
     assert MIN_MONTHLY_SIP >= 500
+
+
+class TestEveryInstalmentCanActuallyBePlaced:
+    """A plan is only advice if the user can carry it out. Two ways it could
+    produce an instalment no fund would accept, and one way it could quietly
+    stop investing part of the SIP."""
+
+    def test_the_weighted_split_never_drops_a_fund_below_the_minimum(self):
+        """The guard checked an even split and the code then applied 60/40. A
+        ₹1,000 sleeve became ₹600 and ₹400, and the ₹400 SIP was rejected at
+        the counter."""
+        plan = build_fund_plan(
+            {"equity": 100.0}, monthly_sip=1000.0, ranker=_fake_ranker
+        )
+        assert len(plan.picks) == 2
+        for pick in plan.picks:
+            assert pick.monthly_amount >= MIN_MONTHLY_SIP, pick
+        assert sum(p.monthly_amount for p in plan.picks) == pytest.approx(1000.0)
+
+    @pytest.mark.parametrize("sip", [1000.0, 1100.0, 1200.0, 1249.0, 2000.0, 7333.0])
+    def test_no_instalment_anywhere_is_below_what_a_fund_accepts(self, sip):
+        plan = build_fund_plan(
+            {"equity": 65.0, "debt": 25.0, "gold": 10.0},
+            monthly_sip=sip,
+            ranker=_fake_ranker,
+        )
+        for pick in plan.picks:
+            assert pick.monthly_amount >= MIN_MONTHLY_SIP, (sip, pick)
+
+    def test_a_sleeve_too_small_to_buy_hands_its_money_to_the_rest(self):
+        """10% of a ₹4,000 SIP is ₹400 of gold, which no fund will take. Leaving
+        gold out is right; leaving the ₹400 uninvested is not, and that is what
+        used to happen."""
+        plan = build_fund_plan(
+            {"equity": 65.0, "debt": 25.0, "gold": 10.0},
+            monthly_sip=4000.0,
+            ranker=_fake_ranker,
+        )
+        assert sum(p.monthly_amount for p in plan.picks) == pytest.approx(4000.0)
+        assert not any(p.asset_class == "gold" for p in plan.picks)
+
+        move = next(m for m in plan.reallocations if m.asset_class == "gold")
+        assert move.amount == pytest.approx(400.0)
+        assert sum(move.moved_to.values()) == pytest.approx(400.0)
+
+    def test_the_survivors_keep_their_weights_relative_to_each_other(self):
+        """65/25 stays 65/25 after gold leaves, rather than drifting toward
+        whichever sleeve happened to be bigger."""
+        plan = build_fund_plan(
+            {"equity": 65.0, "debt": 25.0, "gold": 10.0},
+            monthly_sip=4000.0,
+            ranker=_fake_ranker,
+        )
+        assert plan.actual_mix["equity"] == pytest.approx(65 / 90 * 100, abs=0.2)
+        assert plan.actual_mix["debt"] == pytest.approx(25 / 90 * 100, abs=0.2)
+
+    def test_the_departure_from_target_is_reported_not_hidden(self):
+        plan = build_fund_plan(
+            {"equity": 65.0, "debt": 25.0, "gold": 10.0},
+            monthly_sip=4000.0,
+            ranker=_fake_ranker,
+        )
+        assert plan.reallocations
+        assert "gold" in plan.skipped[0].reason
+        assert "differs from the target" in plan.reallocations[0].note
+
+    def test_dropping_one_sleeve_rescues_another_that_was_also_too_small(self):
+        """The reason the repair is a loop and not a filter.
+
+        On a ₹6,000 SIP this mix asks for ₹360 of gold and ₹480 of debt, and
+        both are under the ₹500 line. Judged once, both would be dropped and
+        the plan would be equity-only. Dropping gold first lifts debt to ₹511,
+        which is placeable — so debt survives and the goal keeps the ballast it
+        was allocated.
+        """
+        plan = build_fund_plan(
+            {"equity": 86.0, "debt": 8.0, "gold": 6.0},
+            monthly_sip=6000.0,
+            ranker=_fake_ranker,
+        )
+        classes = {p.asset_class for p in plan.picks}
+        assert "gold" not in classes
+        assert "debt" in classes
+
+        debt = sum(p.monthly_amount for p in plan.picks if p.asset_class == "debt")
+        assert debt >= MIN_MONTHLY_SIP
+        assert debt == pytest.approx(6000 * 8 / 94, abs=1)
+        assert [m.asset_class for m in plan.reallocations] == ["gold"]
+        assert sum(p.monthly_amount for p in plan.picks) == pytest.approx(6000.0)
+
+    def test_a_mix_that_all_fits_is_left_exactly_alone(self):
+        plan = build_fund_plan(
+            {"equity": 65.0, "debt": 25.0, "gold": 10.0},
+            monthly_sip=20000.0,
+            ranker=_fake_ranker,
+        )
+        assert plan.reallocations == []
+        assert plan.actual_mix["equity"] == pytest.approx(65.0, abs=0.2)
+        assert plan.actual_mix["gold"] == pytest.approx(10.0, abs=0.2)
+
+    def test_a_sip_too_small_for_anything_says_so_rather_than_inventing_a_plan(self):
+        plan = build_fund_plan(
+            {"equity": 100.0}, monthly_sip=300.0, ranker=_fake_ranker
+        )
+        assert plan.picks == []
+        assert plan.skipped
+        assert "below" in plan.skipped[0].reason

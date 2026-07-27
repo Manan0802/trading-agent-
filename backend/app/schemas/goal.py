@@ -73,6 +73,15 @@ class SkippedAssetClassOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ReallocationOut(BaseModel):
+    asset_class: str
+    amount: float
+    moved_to: dict[str, float]
+    note: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class GoalRecommendationsOut(BaseModel):
     goal_id: str
     monthly_sip: float
@@ -82,3 +91,8 @@ class GoalRecommendationsOut(BaseModel):
     # Rupees a year the plan avoids by recommending direct plans only, where
     # both plans of a picked fund are published by AMFI.
     annual_commission_avoided: float | None = None
+    # Where the plan had to leave the target mix to stay buyable, and the mix
+    # that is actually being bought. Sent because a plan quietly differing from
+    # the allocation it claims to implement is worse than one that says so.
+    reallocations: list[ReallocationOut] = []
+    actual_mix: dict[str, float] = {}
