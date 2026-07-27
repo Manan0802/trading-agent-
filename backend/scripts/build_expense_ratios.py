@@ -51,7 +51,15 @@ _MAX_PAGES = 12
 _PAUSE = 0.15
 
 _PLAN_SUFFIX = re.compile(r"\b(direct|regular)\b.*$", re.I)
-_NOISE = re.compile(r"\b(plan|growth|option|scheme|fund of funds)\b", re.I)
+# Words that appear in one feed's name and not the other's. "Fund" itself is
+# dropped because AMFI writes "Parag Parikh Flexi Cap Fund" where the NAV feed
+# writes "Parag Parikh Flexi Cap Fund - Direct Plan - Growth", and a handful of
+# schemes differ only by its presence.
+_NOISE = re.compile(
+    r"\b(plan|growth|option|scheme|fund|funds|of|the"
+    r"|idcw|dividend|payout|reinvestment|cum|capital|withdrawal|distribution)\b",
+    re.I,
+)
 
 
 def normalise(name: str) -> str:
@@ -136,10 +144,10 @@ def main() -> int:
                         latest[key] = row
                         found_this_month += 1
             print(f"  {month}: {found_this_month} scheme rows, {len(latest)} unique so far")
-            if len(latest) > 500:
-                # Enough coverage from the freshest filing; older months would
-                # only overwrite with staler numbers.
-                break
+            # Every month is merged, keeping the newest TER_Date per scheme. A
+            # scheme absent from the latest filing is still worth its last
+            # published figure, and stopping at the first productive month left
+            # whole fund houses uncovered.
 
     if not latest:
         print("No TER rows fetched; refusing to write an empty table.", file=sys.stderr)

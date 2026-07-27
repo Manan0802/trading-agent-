@@ -19,9 +19,12 @@ from app.schemas.research import (
     StockScoreOut,
     FactorOut,
     AdjustmentOut,
+    FundEvidenceOut,
 )
 from app.services.advisor import fund_metrics
 from app.services.advisor.category_ranking import rank_category as build_category_ranking
+from app.services.advisor.fund_evidence import build_evidence
+from app.services.advisor.fund_score import evidence_strength
 from app.services.advisor.stock_analysis import analyse as analyse_stock
 from app.services.advisor.fund_catalogue import BROWSABLE_CATEGORIES, is_browsable
 from app.services.advisor.fund_recommender import load_scored_universe, score_category
@@ -82,7 +85,28 @@ def get_fund(
         latest_nav=navs[-1].nav,
         latest_nav_date=navs[-1].date,
         metrics=fund_metrics.compute_metrics(navs, benchmark),
+        # The same evidence the ranking is built from, so a fund's detail view
+        # and its position in the list cannot tell two different stories.
+        evidence=_evidence_out(
+            build_evidence(meta.scheme_code, meta.scheme_name, meta.scheme_category, navs)
+        ),
         nav_series=_downsample(navs),
+    )
+
+
+def _evidence_out(evidence) -> "FundEvidenceOut | None":
+    if evidence is None:
+        return None
+    return FundEvidenceOut(
+        history_years=(
+            round(evidence.history_years, 1)
+            if evidence.history_years is not None
+            else None
+        ),
+        evidence_strength=round(evidence_strength(evidence.history_years), 4),
+        windows={k: WindowOut.model_validate(v) for k, v in evidence.windows.items()},
+        direct_ter=evidence.direct_ter,
+        regular_ter=evidence.regular_ter,
     )
 
 

@@ -12,6 +12,14 @@ export type FundMetrics = {
   consistency: number | null
 }
 
+export type FundEvidence = {
+  history_years: number | null
+  evidence_strength: number
+  windows: Record<string, Window>
+  direct_ter: number | null
+  regular_ter: number | null
+}
+
 export type FundDetail = {
   scheme_code: string
   scheme_name: string
@@ -21,6 +29,7 @@ export type FundDetail = {
   latest_nav: number
   latest_nav_date: string
   metrics: FundMetrics
+  evidence: FundEvidence | null
   nav_series: { date: string; nav: number }[]
 }
 
@@ -104,4 +113,70 @@ export async function fetchCategoryFunds(category: string): Promise<CategoryRank
   return (
     await api.get(`/api/v1/research/fund-categories/${encodeURIComponent(category)}`)
   ).data
+}
+
+export type Window = {
+  mean: number
+  worst: number
+  share_positive: number
+  count: number
+}
+
+export type Verdict = {
+  headline: string
+  points: string[]
+  caveat: string | null
+}
+
+export type RankedFundV2 = {
+  rank: number
+  scheme_code: string
+  scheme_name: string
+  category: string
+  score: number
+  breakdown: Record<string, number>
+  evidence_strength: number
+  history_years: number | null
+  windows: Record<string, Window>
+  volatility: number | null
+  max_drawdown: number | null
+  direct_ter: number | null
+  regular_ter: number | null
+  verdict: Verdict
+}
+
+export type CategoryRankingV2 = {
+  category: string
+  ranked: RankedFundV2[]
+  unscorable: { scheme_code: string; scheme_name: string; reason: string }[]
+  priced: number
+}
+
+export async function fetchCategoryRankingV2(
+  category: string,
+  params: { monthly_sip?: number; years?: number } = {},
+): Promise<CategoryRankingV2> {
+  return (
+    await api.get(`/api/v1/research/fund-rankings/${encodeURIComponent(category)}`, {
+      params,
+    })
+  ).data
+}
+
+export type StockScore = {
+  ticker: string
+  name: string
+  sector: string | null
+  benchmark_used: string
+  base_total: number
+  adjustment_total: number
+  total: number
+  factors: Record<string, { score: number; detail: string }>
+  adjustments: { name: string; points: number; detail: string }[]
+  range_position: number | null
+  verdict: Verdict
+}
+
+export async function fetchStockScore(ticker: string): Promise<StockScore> {
+  return (await api.get(`/api/v1/research/stocks/${ticker}/score`)).data
 }

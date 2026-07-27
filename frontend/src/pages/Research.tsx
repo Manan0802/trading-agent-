@@ -37,11 +37,11 @@ import {
 } from '@/lib/format'
 import {
   fetchFund,
-  fetchCategoryFunds,
+  fetchCategoryRankingV2,
   fetchFundCategories,
   fetchStock,
   fetchStockUniverse,
-  type RankedFund,
+  type RankedFundV2,
 } from '@/lib/research-api'
 
 /**
@@ -54,56 +54,6 @@ function Notice({ children }: { children: ReactNode }) {
       <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
       <span>{children}</span>
     </p>
-  )
-}
-
-function FundRow({
-  fund,
-  rank,
-  isOpen,
-  onOpen,
-}: {
-  fund: RankedFund
-  rank: number
-  isOpen: boolean
-  onOpen: () => void
-}) {
-  const m = fund.metrics
-
-  return (
-    <TableRow>
-      <TableCell className="num text-muted-foreground">{rank}</TableCell>
-      <TableCell className="max-w-[24rem] py-3 whitespace-normal">
-        <button
-          className="text-left font-medium leading-tight underline-offset-4 hover:underline"
-          aria-expanded={isOpen}
-          onClick={onOpen}
-        >
-          {fund.scheme_name}
-        </button>
-        <p className="mt-0.5 text-xs text-muted-foreground">{fund.category}</p>
-      </TableCell>
-      <TableCell className="text-right">
-        <Badge variant={fund.score >= 70 ? 'default' : 'secondary'} className="num">
-          {fund.score.toFixed(0)}
-        </Badge>
-      </TableCell>
-      <TableCell className="num text-right">
-        {formatPercent(m.cagr_3y, { signed: false })}
-      </TableCell>
-      <TableCell className="num text-right text-muted-foreground">
-        {formatRatio(m.sortino)}
-      </TableCell>
-      <TableCell className="num text-right text-muted-foreground">
-        {formatPercent(m.consistency, { signed: false })}
-      </TableCell>
-      <TableCell className="num text-right text-muted-foreground">
-        {formatRatio(m.downside_capture)}
-      </TableCell>
-      <TableCell className={`num text-right ${gainClass(m.alpha)}`}>
-        {formatPercent(m.alpha)}
-      </TableCell>
-    </TableRow>
   )
 }
 
@@ -154,6 +104,8 @@ function FundDetailPanel({
   }
 
   const m = data.metrics
+  const ev = data.evidence
+  const w3 = ev?.windows['3y']
 
   return (
     <Card>
@@ -236,21 +188,31 @@ function FundDetailPanel({
           </div>
         </section>
 
+        {/* The same evidence the ranking is built from. Sortino, alpha and
+            downside capture used to sit here, which meant this panel and the
+            list beside it judged the same fund on two different models. */}
         <MetricRow className="sm:grid-cols-3 lg:grid-cols-3 sm:[&>*:nth-child(3n+1)]:pl-0 sm:[&>*:nth-child(3n)]:border-r-0">
           <Metric
-            label="1-year return"
-            value={formatPercent(m.cagr_1y, { signed: false })}
+            label="Worst 3 years"
+            value={w3 ? formatPercent(w3.worst) : NO_VALUE}
+            valueClassName={w3 ? gainClass(w3.worst) : undefined}
+            hint="The least it ever returned over a full three years, across every possible start date."
             size="sm"
           />
           <Metric
-            label="3-year return"
-            value={formatPercent(m.cagr_3y, { signed: false })}
-            hint="Annualised, so it is comparable with the 1 and 5-year figures."
+            label="Windows won"
+            value={w3 ? formatPercent(w3.share_positive, { signed: false }) : NO_VALUE}
+            hint={
+              w3
+                ? `How many of its ${w3.count.toLocaleString('en-IN')} three-year windows made money.`
+                : undefined
+            }
             size="sm"
           />
           <Metric
-            label="5-year return"
-            value={formatPercent(m.cagr_5y, { signed: false })}
+            label="3-year average"
+            value={w3 ? formatPercent(w3.mean, { signed: false }) : NO_VALUE}
+            hint="Averaged across every window, not measured between two chosen dates."
             size="sm"
           />
           <Metric
@@ -260,34 +222,44 @@ function FundDetailPanel({
             size="sm"
           />
           <Metric
-            label="Sortino"
-            value={formatRatio(m.sortino)}
-            hint="Return per unit of downside risk. Higher is better."
-            size="sm"
-          />
-          <Metric
             label="Worst fall"
             value={formatPercent(m.max_drawdown, { signed: false })}
             hint="The deepest peak-to-trough drop in the history we have."
             size="sm"
           />
           <Metric
-            label="Alpha vs Nifty"
-            value={formatPercent(m.alpha)}
-            valueClassName={gainClass(m.alpha)}
-            hint="Return above what the index gave over the same period."
+            label="Record length"
+            value={ev?.history_years ? `${ev.history_years}y` : NO_VALUE}
+            hint={
+              ev && ev.evidence_strength < 0.5
+                ? 'Short enough that its windows nearly all describe one market, so its consistency counts for less.'
+                : 'Long enough to have been through more than one market.'
+            }
             size="sm"
           />
           <Metric
-            label="Downside capture"
-            value={formatRatio(m.downside_capture)}
-            hint="Below 1.00 means the fund fell less than the market did."
+            label="Cost, direct"
+            value={ev?.direct_ter != null ? formatPercent(ev.direct_ter, { signed: false }) : NO_VALUE}
+            hint="The direct plan's expense ratio, charged every year."
             size="sm"
           />
           <Metric
-            label="Beat the index"
-            value={formatPercent(m.consistency, { signed: false })}
-            hint="Share of rolling periods it finished ahead of the benchmark."
+            label="Cost, regular"
+            value={ev?.regular_ter != null ? formatPercent(ev.regular_ter, { signed: false }) : NO_VALUE}
+            hint="What the same fund costs bought through a distributor."
+            size="sm"
+          />
+          <Metric
+            label="Commission"
+            value={
+              ev?.direct_ter != null && ev?.regular_ter != null
+                ? formatPercent(ev.regular_ter - ev.direct_ter)
+                : NO_VALUE
+            }
+            valueClassName={
+              ev?.direct_ter != null && ev?.regular_ter != null ? 'text-loss' : undefined
+            }
+            hint="What the regular plan takes out of your return every year, for the identical portfolio."
             size="sm"
           />
         </MetricRow>
@@ -339,6 +311,88 @@ function categoryGroup(category: string): string {
 
 const DEFAULT_CATEGORY = 'Equity Scheme - Flexi Cap Fund'
 
+
+/**
+ * A fund's row, and its reasoning underneath when opened. The reasoning is a
+ * paragraph rather than a metric grid because a Sortino ratio is an input to a
+ * judgement, not the judgement — and it is the judgement a holder can act on.
+ */
+function RankedRow({
+  fund,
+  isOpen,
+  onToggle,
+}: {
+  fund: RankedFundV2
+  isOpen: boolean
+  onToggle: () => void
+}) {
+  const w3 = fund.windows['3y']
+  const thin = fund.evidence_strength < 0.5
+
+  return (
+    <>
+      <TableRow className="group">
+        <TableCell className="num align-top text-muted-foreground">{fund.rank}</TableCell>
+        <TableCell className="max-w-[26rem] py-3 align-top whitespace-normal">
+          <button
+            className="text-left font-medium leading-tight underline-offset-4 hover:underline"
+            aria-expanded={isOpen}
+            onClick={onToggle}
+          >
+            {fund.scheme_name}
+          </button>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {fund.history_years !== null && (
+              <span className="tnum">{fund.history_years}y record</span>
+            )}
+            {thin && ' · thin record'}
+          </p>
+        </TableCell>
+        <TableCell className="text-right align-top">
+          <Badge variant={fund.score >= 70 ? 'default' : 'secondary'} className="num">
+            {fund.score.toFixed(0)}
+          </Badge>
+        </TableCell>
+        <TableCell className="num text-right align-top">
+          {w3 ? formatPercent(w3.mean, { signed: false }) : NO_VALUE}
+        </TableCell>
+        <TableCell
+          className={`num text-right align-top ${w3 ? gainClass(w3.worst) : ''}`}
+        >
+          {w3 ? formatPercent(w3.worst) : NO_VALUE}
+        </TableCell>
+        <TableCell className="num text-right align-top text-muted-foreground">
+          {w3 ? formatPercent(w3.share_positive, { signed: false }) : NO_VALUE}
+        </TableCell>
+        <TableCell className="num text-right align-top text-muted-foreground">
+          {fund.direct_ter !== null ? formatPercent(fund.direct_ter, { signed: false }) : NO_VALUE}
+        </TableCell>
+      </TableRow>
+      {isOpen && (
+        <TableRow className="hover:bg-transparent">
+          <TableCell />
+          <TableCell colSpan={6} className="pb-6 whitespace-normal">
+            <p className="max-w-3xl text-sm font-medium">{fund.verdict.headline}</p>
+            <ul className="mt-3 flex max-w-3xl flex-col gap-2">
+              {fund.verdict.points.map((point) => (
+                <li key={point} className="flex gap-2 text-sm text-muted-foreground">
+                  <span aria-hidden className="text-muted-foreground/50">&middot;</span>
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+            {fund.verdict.caveat && (
+              <div className="mt-3 max-w-3xl">
+                <Notice>{fund.verdict.caveat}</Notice>
+              </div>
+            )}
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  )
+}
+
 function FundsTab() {
   const [category, setCategory] = useState(DEFAULT_CATEGORY)
   const [openFund, setOpenFund] = useState<string | null>(null)
@@ -349,8 +403,10 @@ function FundsTab() {
   })
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['fund-category', category],
-    queryFn: () => fetchCategoryFunds(category),
+    queryKey: ['fund-ranking', category],
+    // A representative SIP, only so the commission line can be priced in
+    // rupees. It does not affect the ranking.
+    queryFn: () => fetchCategoryRankingV2(category, { monthly_sip: 15000, years: 15 }),
     retry: false,
   })
 
@@ -424,21 +480,19 @@ function FundsTab() {
                     <TableHead className="w-8">#</TableHead>
                     <TableHead>Fund</TableHead>
                     <TableHead className="text-right">Score</TableHead>
-                    <TableHead className="text-right">3y return</TableHead>
-                    <TableHead className="text-right">Sortino</TableHead>
-                    <TableHead className="text-right">Beat index</TableHead>
-                    <TableHead className="text-right">Down capture</TableHead>
-                    <TableHead className="text-right">Alpha</TableHead>
+                    <TableHead className="text-right">3y avg</TableHead>
+                    <TableHead className="text-right">Worst 3y</TableHead>
+                    <TableHead className="text-right">Windows won</TableHead>
+                    <TableHead className="text-right">Cost</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.ranked.map((f, i) => (
-                    <FundRow
+                  {data.ranked.map((f) => (
+                    <RankedRow
                       key={f.scheme_code}
                       fund={f}
-                      rank={i + 1}
                       isOpen={openFund === f.scheme_code}
-                      onOpen={() =>
+                      onToggle={() =>
                         setOpenFund(openFund === f.scheme_code ? null : f.scheme_code)
                       }
                     />
@@ -450,13 +504,18 @@ function FundsTab() {
 
           <div className="flex flex-col gap-3">
             <p className="max-w-3xl text-sm text-muted-foreground">
-              {data.benchmarked
-                ? `Scored against the ${data.benchmark_name}. A higher score is better, and a downside capture below 1.00 means the fund fell less than the market did.`
-                : 'Not benchmarked against equities. A debt or gold fund is not trying to track the Nifty, so it is ranked on its own risk-adjusted record.'}
+              Every fund is measured over every overlapping three-year window in
+              its history, not between two chosen dates. &ldquo;Worst 3y&rdquo; is
+              the least it ever returned over a full three years, and
+              &ldquo;windows won&rdquo; is how often those three years made money.
+              Cost is the direct plan&rsquo;s expense ratio.
             </p>
-
-            {data.benchmark_caveat && (
-              <Notice>{plainProse(data.benchmark_caveat)}</Notice>
+            {data.priced > 0 && (
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                <span className="tnum">{data.priced}</span> of these funds publish
+                both plans, so opening one shows what the regular plan&rsquo;s
+                commission costs you a year and over a fifteen-year SIP.
+              </p>
             )}
 
             {data.unscorable.length > 0 && (

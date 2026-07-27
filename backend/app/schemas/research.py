@@ -31,6 +31,27 @@ class NavPointOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class WindowOut(BaseModel):
+    """One rolling-window length, summarised over every overlapping window."""
+
+    mean: float
+    worst: float
+    share_positive: float
+    count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FundEvidenceOut(BaseModel):
+    """What the ranking actually judges a fund on."""
+
+    history_years: float | None
+    evidence_strength: float
+    windows: dict[str, "WindowOut"]
+    direct_ter: float | None
+    regular_ter: float | None
+
+
 class FundDetailOut(BaseModel):
     scheme_code: str
     scheme_name: str
@@ -40,6 +61,7 @@ class FundDetailOut(BaseModel):
     latest_nav: float
     latest_nav_date: date
     metrics: FundMetricsOut
+    evidence: FundEvidenceOut | None = None
     nav_series: list[NavPointOut]
 
 
@@ -109,17 +131,6 @@ class StockUniverseOut(BaseModel):
     total: int
     available_indices: list[str]
     available_industries: list[str]
-
-
-class WindowOut(BaseModel):
-    """One rolling-window length, summarised over every overlapping window."""
-
-    mean: float
-    worst: float
-    share_positive: float
-    count: int
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class VerdictOut(BaseModel):
