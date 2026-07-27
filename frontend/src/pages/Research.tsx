@@ -41,6 +41,7 @@ import {
   fetchFundCategories,
   fetchStock,
   fetchStockUniverse,
+  fetchStockScore,
   type RankedFundV2,
 } from '@/lib/research-api'
 
@@ -656,6 +657,87 @@ function StockBrowser({
   )
 }
 
+
+/**
+ * A company's score and why. The factors are shown as their own sentences
+ * rather than a bar chart, because "P/E 16.7 against a sector median of 29.0"
+ * is the thing a buyer can argue with; a bar cannot be argued with.
+ */
+function StockScorePanel({ ticker }: { ticker: string }) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['stock-score', ticker],
+    queryFn: () => fetchStockScore(ticker),
+    retry: false,
+  })
+
+  if (isLoading) return <Skeleton className="h-56 w-full" />
+  if (isError || !data) return null
+
+  const known = Object.entries(data.factors).filter(
+    ([, f]) => !f.detail.startsWith('Not published'),
+  )
+
+  return (
+    <section className="flex flex-col gap-4 border-t pt-8">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <h2 className="text-sm font-medium">How it scores against its peers</h2>
+        <span className="num text-2xl font-medium">
+          {data.total.toFixed(0)}
+          <span className="text-sm text-muted-foreground"> / 100</span>
+        </span>
+      </div>
+
+      <p className="max-w-3xl text-sm">{data.verdict.headline}</p>
+
+      <ul className="flex flex-col divide-y border-y">
+        {known.map(([key, f]) => (
+          <li key={key} className="flex flex-wrap items-baseline justify-between gap-x-6 py-2.5">
+            <span className="text-sm text-muted-foreground">{f.detail}</span>
+            <span className="num text-xs text-muted-foreground">
+              {f.score.toFixed(1)}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {data.adjustments.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {data.adjustments.map((a) => (
+            <li key={a.name} className="flex gap-2 text-sm">
+              <span className={`num shrink-0 ${a.points < 0 ? 'text-loss' : 'text-gain'}`}>
+                {a.points > 0 ? '+' : ''}
+                {a.points}
+              </span>
+              <span className="text-muted-foreground">{a.detail}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {data.range_position !== null && (
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          Trading{' '}
+          <span className="tnum">
+            {formatPercent(data.range_position, { signed: false })}
+          </span>{' '}
+          of the way up its 52-week range. That is where the price sits, not a view
+          on where it goes next.
+        </p>
+      )}
+
+      {data.verdict.caveat && <Notice>{data.verdict.caveat}</Notice>}
+
+      {data.benchmark_used === '_ALL' && (
+        <Notice>
+          Its sector has too few listed peers to take a median from, so it is scored
+          against the whole market instead. Read the valuation lines with that in
+          mind.
+        </Notice>
+      )}
+    </section>
+  )
+}
+
 function StocksTab() {
   const [ticker, setTicker] = useState<string | null>(null)
 
@@ -709,6 +791,8 @@ function StocksTab() {
               {data.industry ? ` · ${data.industry}` : ''}
             </p>
           </header>
+
+          {ticker && <StockScorePanel ticker={ticker} />}
 
           <MetricRow className="sm:grid-cols-3 lg:grid-cols-3 sm:[&>*:nth-child(3n+1)]:pl-0 sm:[&>*:nth-child(3n)]:border-r-0">
             <Metric
