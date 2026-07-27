@@ -1,0 +1,80 @@
+{
+ "Basic Materials": {
+  "dividend_yield": 0.06,
+  "n": 62,
+  "pb": 3.7326,
+  "pe": 31.8463,
+  "roe": 0.1509
+ },
+ "Communication Services": {
+  "n": 14,
+  "pb": 4.4046,
+  "pe": 41.1448,
+  "roe": 0.1379
+ },
+ "Consumer Cyclical": {
+  "n": 67,
+  "pb": 6.1712,
+  "pe": 41.624,
+  "roe": 0.1419
+ },
+ "Consumer Defensive": {
+  "n": 27,
+  "pb": 8.0237,
+  "pe": 49.31,
+  "roe": 0.1624
+ },
+ "Energy": {
+  "n": 15,
+  "pb": 1.916,
+  "pe": 10.86,
+  "roe": 0.1419
+ },
+ "Financial Services": {
+  "dividend_yield": 0.08,
+  "n": 97,
+  "pb": 2.6827,
+  "pe": 22.2403,
+  "roe": 0.1463
+ },
+ "Healthcare": {
+  "dividend_yield": 0.085,
+  "n": 50,
+  "pb": 6.2945,
+  "pe": 48.1833,
+  "roe": 0.1488
+ },
+ "Industrials": {
+  "dividend_yield": 0.06,
+  "n": 88,
+  "pb": 6.0244,
+  "pe": 44.0956,
+  "roe": 0.1559
+ },
+ "Real Estate": {
+  "n": 11,
+  "pb": 4.185,
+  "pe": 35.1825,
+  "roe": 0.1041
+ },
+ "Technology": {
+  "dividend_yield": 0.055,
+  "n": 41,
+  "pb": 5.4335,
+  "pe": 28.9914,
+  "roe": 0.1817
+ },
+ "Utilities": {
+  "n": 21,
+  "pb": 2.6723,
+  "pe": 29.5076,
+  "roe": 0.1194
+ },
+ "_ALL": {
+  "dividend_yield": 0.07,
+  "n": 468,
+  "pb": 4.737,
+  "pe": 36.0812,
+  "roe": 0.1483
+ }
+}
