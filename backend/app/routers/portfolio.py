@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -16,6 +17,8 @@ from app.schemas.portfolio import (
     HistoryPointOut,
     CostReviewOut,
     LeversOut,
+    AnnouncementOut,
+    AnnouncementsOut,
     OverlapOut,
     OverlapPairOut,
     LeverOut,
@@ -28,6 +31,7 @@ from app.services.portfolio.benchmark import compare_to_benchmark
 from app.services.advisor.fund_evidence import expense_ratios
 from app.services.portfolio.history import HoldingSeries, build_history
 from app.services.advisor.fund_overlap import analyse_overlap
+from app.services.marketdata import announcements as filings
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
 from app.services.portfolio.holding_cost import cost_review
@@ -403,4 +407,77 @@ def get_overlap(
         counted=report.counted,
         excluded={**report.excluded, **unreachable},
         summary=report.summary,
+    )
+
+
+# Enough to see what changed without becoming a feed. More than this and the
+# page stops being "three things worth knowing" and starts being a timeline.
+_ANNOUNCEMENT_LIMIT = 12
+_ANNOUNCEMENT_WORKERS = 8
+
+# Per holding as well as overall. Without it one talkative company takes the
+# whole list: Tata Steel files a litigation-pendency notice most months and
+# filled eleven of twelve rows, hiding the only thing the other holding had to
+# say. A cap per company is what makes this a portfolio view.
+_ANNOUNCEMENT_PER_HOLDING = 3
+
+
+@router.get("/announcements", response_model=AnnouncementsOut)
+def get_announcements(
+    days: int = 180,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """What changed about the companies this user owns.
+
+    Deliberately not news. The evidence on retail investors and attention runs
+    one way — more watching, more trading — and turnover and tax are two of the
+    few things this app has measured as decisive. So the unit is "something
+    changed about a thing you own", the filter drops the routine, and what is
+    dropped is counted rather than hidden.
+    """
+    holdings = db.query(Holding).filter(Holding.user_id == user.id).all()
+
+    not_covered: dict[str, str] = {}
+    symbols: list[tuple[str, str]] = []
+    for holding in holdings:
+        if holding.asset_type != "STOCK":
+            not_covered[holding.name] = (
+                "exchange filings are published per company, and the AMC "
+                "addenda that carry fund changes have no feed we can read"
+            )
+            continue
+        symbols.append(
+            (holding.identifier.upper().removesuffix(".NS"), holding.name)
+        )
+
+    def load(entry: tuple[str, str]):
+        symbol, name = entry
+        try:
+            return name, *filings.material_announcements(symbol, days=days)
+        except filings.AnnouncementError as exc:
+            return name, None, str(exc)
+
+    found: list[filings.Announcement] = []
+    withheld = 0
+    filtered_out = 0
+    if symbols:
+        with ThreadPoolExecutor(max_workers=_ANNOUNCEMENT_WORKERS) as pool:
+            for name, kept, extra in pool.map(load, symbols):
+                if kept is None:
+                    not_covered[name] = str(extra)
+                    continue
+                # Newest few from each holding, so every company gets a voice.
+                found.extend(kept[:_ANNOUNCEMENT_PER_HOLDING])
+                withheld += max(len(kept) - _ANNOUNCEMENT_PER_HOLDING, 0)
+                filtered_out += extra
+
+    found.sort(key=lambda a: a.published, reverse=True)
+    shown = found[:_ANNOUNCEMENT_LIMIT]
+    withheld += len(found) - len(shown)
+    return AnnouncementsOut(
+        announcements=[AnnouncementOut.model_validate(a) for a in shown],
+        withheld=withheld,
+        filtered_out=filtered_out,
+        not_covered=not_covered,
     )

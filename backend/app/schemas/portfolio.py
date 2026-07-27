@@ -167,3 +167,35 @@ class HistoryPointOut(BaseModel):
     benchmark_value: float | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AnnouncementOut(BaseModel):
+    symbol: str
+    company: str
+    category: str
+    summary: str
+    published: date
+    attachment: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AnnouncementsOut(BaseModel):
+    """Filings about things the user owns, not a news feed.
+
+    The dropped count is sent because the filter is the whole point: NSE
+    publishes around a hundred announcements per large company per half-year,
+    and a screen showing four of them should be able to say what happened to
+    the other ninety-six.
+    """
+
+    announcements: list[AnnouncementOut]
+    # Material filings held back only by the display cap, so the page never
+    # implies the list is everything.
+    withheld: int
+    # Routine filings dropped as noise: conference calls, newspaper copies.
+    filtered_out: int
+    # Holdings we could not check at all, by name, with the reason. A fund is
+    # in here permanently: exchange filings are per company and AMC addenda
+    # have no feed.
+    not_covered: dict[str, str]

@@ -117,11 +117,26 @@ export type Levers = {
   portfolio_value: number
 }
 
-/**
- * Omitted params are genuinely omitted, not sent as zero: the server falls back
- * to the horizon stored on the profile, and a default sent from here would
- * silently overwrite it.
- */
+export type Announcements = {
+  announcements: {
+    symbol: string
+    company: string
+    category: string
+    summary: string
+    published: string
+    attachment: string | null
+  }[]
+  // Material filings held back only by the display cap.
+  withheld: number
+  // Routine filings dropped as noise.
+  filtered_out: number
+  not_covered: Record<string, string>
+}
+
+export async function fetchAnnouncements(): Promise<Announcements> {
+  return (await api.get('/api/v1/portfolio/announcements')).data
+}
+
 export type Overlap = {
   pairs: {
     a: string
@@ -141,6 +156,11 @@ export async function fetchOverlap(): Promise<Overlap> {
   return (await api.get('/api/v1/portfolio/overlap')).data
 }
 
+/**
+ * Omitted params are genuinely omitted, not sent as zero: the server falls back
+ * to the horizon stored on the profile, and a default sent from here would
+ * silently overwrite it.
+ */
 export async function fetchLevers(params: {
   years_remaining?: number
   monthly_sip?: number

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Trash2 } from 'lucide-react'
 import { AddHoldingDialog } from '@/components/AddHoldingDialog'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
+import { Announcements } from '@/components/Announcements'
 import { CostReview } from '@/components/CostReview'
 import { FundOverlap } from '@/components/FundOverlap'
 import { Levers } from '@/components/Levers'
@@ -238,6 +239,8 @@ export function Portfolio() {
       <CostReview />
 
       <FundOverlap />
+
+      <Announcements />
 
       {history && <PortfolioChart points={history} />}
 
