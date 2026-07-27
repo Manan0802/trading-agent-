@@ -24,3 +24,32 @@ api.interceptors.response.use(
     return Promise.reject(error)
   },
 )
+
+export type TaxComparison = {
+  recommended: 'new' | 'old'
+  new_regime_tax: number
+  old_regime_tax: number
+  saving: number
+  breakeven_deductions: number | null
+  rationale: string
+}
+
+export type Profile = {
+  annual_income: number | null
+  basic_salary: number | null
+  monthly_expenses: number | null
+  is_salaried: boolean
+  existing_80c: number
+  existing_80d: number
+  other_deductions: number
+  years_to_goal: number | null
+  tax: TaxComparison | null
+}
+
+export async function fetchProfile(): Promise<Profile> {
+  return (await api.get('/api/v1/profile')).data
+}
+
+export async function saveProfile(patch: Partial<Profile>): Promise<Profile> {
+  return (await api.patch('/api/v1/profile', patch)).data
+}

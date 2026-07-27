@@ -5,6 +5,7 @@ import { GoalDetail } from '@/pages/GoalDetail'
 import { Login } from '@/pages/Login'
 import { AuthCallback } from '@/pages/AuthCallback'
 import { Portfolio } from '@/pages/Portfolio'
+import { Profile } from '@/pages/Profile'
 import { Research } from '@/pages/Research'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -24,6 +25,7 @@ const NAV = [
   { to: '/portfolio', label: 'Portfolio' },
   { to: '/research', label: 'Research' },
   { to: '/goals/new', label: 'New goal' },
+  { to: '/profile', label: 'You' },
 ]
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -105,6 +107,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <Research />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <RequireAuth>
+                  <Profile />
                 </RequireAuth>
               }
             />
