@@ -196,3 +196,33 @@ class StockScoreOut(BaseModel):
     adjustments: list[AdjustmentOut]
     range_position: float | None
     verdict: VerdictOut
+
+
+class RankedStockOut(BaseModel):
+    rank: int
+    ticker: str
+    name: str
+    sector: str | None
+    benchmark_used: str
+    total: float
+    factors: dict[str, FactorOut]
+    range_position: float | None
+
+
+class UnscorableStockOut(BaseModel):
+    ticker: str
+    name: str
+    reason: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StockRankingOut(BaseModel):
+    label: str
+    ranked: list[RankedStockOut]
+    unscorable: list[UnscorableStockOut]
+    # Companies matching the filter, against those we actually priced. Both are
+    # sent so the page can say "50 of 751" instead of implying it ranked all of
+    # them. A screen that hides its own coverage is lying by omission.
+    matched: int
+    covered: int

@@ -40,6 +40,7 @@ import {
   fetchCategoryRankingV2,
   fetchFundCategories,
   fetchStock,
+  fetchStockRanking,
   fetchStockUniverse,
   fetchStockScore,
   type RankedFundV2,
@@ -555,9 +556,34 @@ function StockLoading() {
   )
 }
 
-const STOCK_PAGE_SIZE = 60
+const STOCK_RANK_SIZE = 50
 
-function StockBrowser({
+/**
+ * "P/E 16.7 against a sector median of 29.0" -> "16.7 vs 29.0". The full
+ * sentence is the right thing on a company's own page, where there is room to
+ * argue with it; in a column it just has to fit.
+ */
+function terse(detail: string | undefined): string {
+  if (!detail || detail.startsWith('Not published')) return NO_VALUE
+  const m = detail.match(/([-\d.]+%?)\s.*median of ([-\d.]+%?)/)
+  return m ? `${m[1]} vs ${m[2]}` : detail
+}
+
+/** The growth line is already short; only its lead-in needs removing. */
+function terseGrowth(detail: string | undefined): string {
+  if (!detail || detail.startsWith('Not published')) return NO_VALUE
+  if (detail.startsWith('Returned to profit')) return 'back to profit'
+  if (detail.startsWith('Lost money')) return 'loss-making'
+  return detail.replace('Earnings per share ', '').replace(' year on year', '')
+}
+
+/**
+ * The whole screen, ranked. It used to be an alphabetical grid of names where
+ * a company was only scored once you opened it, which meant the number had
+ * nothing to sit against: 74 out of 100 says nothing until you know what the
+ * other forty-nine scored.
+ */
+function StockScreen({
   selected,
   onSelect,
 }: {
@@ -568,19 +594,27 @@ function StockBrowser({
   const [industry, setIndustry] = useState<string>('')
   const [query, setQuery] = useState('')
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['stock-universe', index, industry, query],
+  // Only for the filter dropdowns; it is instant and needs no network calls
+  // per company, unlike the ranking itself.
+  const { data: universe } = useQuery({
+    queryKey: ['stock-universe-filters'],
+    queryFn: () => fetchStockUniverse({ limit: 1 }),
+  })
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['stock-ranking', index, industry, query],
     queryFn: () =>
-      fetchStockUniverse({
+      fetchStockRanking({
         index,
         industry: industry || undefined,
         q: query.trim() || undefined,
-        limit: STOCK_PAGE_SIZE,
+        limit: STOCK_RANK_SIZE,
       }),
+    retry: false,
   })
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="stock-search">Search</Label>
@@ -600,7 +634,7 @@ function StockBrowser({
             value={index}
             onChange={(e) => setIndex(e.target.value)}
           >
-            {(data?.available_indices ?? ['NIFTY 50']).map((name) => (
+            {(universe?.available_indices ?? ['NIFTY 50']).map((name) => (
               <option key={name} value={name}>
                 {name}
               </option>
@@ -616,7 +650,7 @@ function StockBrowser({
             onChange={(e) => setIndustry(e.target.value)}
           >
             <option value="">All industries</option>
-            {(data?.available_industries ?? []).map((name) => (
+            {(universe?.available_industries ?? []).map((name) => (
               <option key={name} value={name}>
                 {name}
               </option>
@@ -625,44 +659,149 @@ function StockBrowser({
         </div>
       </div>
 
-      {isLoading && <Skeleton className="h-64 w-full" />}
+      {isLoading && <StocksRankingLoading />}
 
-      {data && data.stocks.length === 0 && (
+      {isError && (
+        <Notice>
+          The exchange feed did not answer for this filter. Try again, and if it
+          keeps failing it is Yahoo rather than your connection.
+        </Notice>
+      )}
+
+      {data && data.ranked.length === 0 && !isLoading && (
         <p className="text-sm text-muted-foreground">
           Nothing in {index} matches that. Try a wider index, or clear the industry
           filter.
         </p>
       )}
 
-      {data && data.stocks.length > 0 && (
+      {data && data.ranked.length > 0 && (
         <>
-          <ul className="grid gap-x-6 border-t sm:grid-cols-2 lg:grid-cols-3">
-            {data.stocks.map((s) => (
-              <li key={s.symbol} className="border-b">
-                <button
-                  type="button"
-                  onClick={() => onSelect(s.ticker)}
-                  aria-current={selected === s.ticker}
-                  className={`flex w-full flex-col items-start gap-0.5 py-2.5 text-left transition-colors hover:text-primary ${
-                    selected === s.ticker ? 'text-primary' : ''
-                  }`}
-                >
-                  <span className="num text-sm font-medium">{s.symbol}</span>
-                  <span className="line-clamp-1 text-xs text-muted-foreground">
-                    {s.name}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-muted-foreground">
-            {/* Says what is hidden rather than implying the list is complete. */}
-            Showing <span className="tnum">{data.stocks.length}</span> of{' '}
-            <span className="tnum">{data.total}</span>. Narrow the search to see the
-            rest.
-          </p>
+          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-8">#</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead className="text-right">Score</TableHead>
+                  <TableHead className="text-right">P/E</TableHead>
+                  <TableHead className="text-right">Return on equity</TableHead>
+                  <TableHead className="text-right">Earnings</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.ranked.map((s) => (
+                  <TableRow
+                    key={s.ticker}
+                    className={selected === s.ticker ? 'bg-secondary/50' : undefined}
+                  >
+                    <TableCell className="num align-top text-muted-foreground">
+                      {s.rank}
+                    </TableCell>
+                    <TableCell className="max-w-[24rem] py-3 align-top whitespace-normal">
+                      <button
+                        className="text-left font-medium leading-tight underline-offset-4 hover:underline"
+                        onClick={() => onSelect(s.ticker)}
+                      >
+                        {s.name}
+                      </button>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {s.sector ?? 'Sector not published'}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-right align-top">
+                      <Badge
+                        variant={s.total >= 70 ? 'default' : 'secondary'}
+                        className="num"
+                      >
+                        {s.total.toFixed(0)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="num text-right align-top text-muted-foreground">
+                      {terse(s.factors.pe?.detail)}
+                    </TableCell>
+                    <TableCell className="num text-right align-top text-muted-foreground">
+                      {terse(s.factors.roe?.detail)}
+                    </TableCell>
+                    <TableCell className="num text-right align-top text-muted-foreground">
+                      {terseGrowth(s.factors.eps_growth?.detail)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {/* Coverage stated rather than implied. Each company is two calls to
+                a feed with no bulk endpoint, so a wide index is ranked in part,
+                and a screen that hides that is lying by omission. */}
+            {data.covered < data.matched && (
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                Ranked <span className="tnum">{data.covered}</span> of the{' '}
+                <span className="tnum">{data.matched}</span> companies in this
+                filter, not all of them. Narrow it with the industry filter or the
+                search box to rank a group you care about, rather than reading this
+                as the best of the market.
+              </p>
+            )}
+
+            <p className="max-w-3xl text-sm text-muted-foreground">
+              Valuation is judged against each company&rsquo;s own sector median,
+              never an absolute bar. Our medians run from a P/E of{' '}
+              <span className="tnum">10.9</span> in energy to{' '}
+              <span className="tnum">49.3</span> in consumer defensive, so an
+              absolute screen would rank every PSU bank cheap and every FMCG name
+              dear while saying nothing about either business.
+            </p>
+            <p className="max-w-3xl text-sm text-muted-foreground">
+              Unlike the fund score, this one has not been backtested: point-in-time
+              fundamentals for past years are not something we can get, so we cannot
+              say whether a high score has predicted anything. Treat it as a
+              structured way to read a balance sheet against its peers, not as a
+              forecast. One year of earnings growth carries a quarter of the score,
+              which flatters whichever sector is at the top of its cycle.
+            </p>
+
+            {data.unscorable.length > 0 && (
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                Left out because the feed had no usable price:{' '}
+                {data.unscorable.map((u) => u.name).join(', ')}.
+              </p>
+            )}
+          </div>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * Fifty companies is a hundred requests to a feed with no bulk endpoint. Cached
+ * that is instant; cold it is several seconds, and a bare skeleton for that long
+ * reads as a broken page.
+ */
+function StocksRankingLoading() {
+  const [slow, setSlow] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 2500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  return (
+    <div className="flex flex-col gap-3">
+      {slow ? (
+        <p className="text-sm text-muted-foreground">
+          Pulling fundamentals for every company in this filter. Yahoo has no bulk
+          endpoint, so the first look costs a few seconds; after that it is instant.
+        </p>
+      ) : (
+        <Skeleton className="h-5 w-64" />
+      )}
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Skeleton key={i} className="h-11 w-full" />
+      ))}
     </div>
   )
 }
@@ -760,13 +899,12 @@ function StocksTab() {
 
   return (
     <div className="flex flex-col gap-8">
-      <StockBrowser selected={ticker} onSelect={setTicker} />
+      <StockScreen selected={ticker} onSelect={setTicker} />
 
       {!ticker && (
         <p className="max-w-2xl border-t pt-6 text-sm text-muted-foreground">
-          Pick a company to see its live price and fundamentals. These are raw
-          figures from the exchange feed, not a view on whether the stock is worth
-          owning.
+          Select a company to see its live price, its full scoring breakdown and
+          whether its promoters have been buying or selling.
         </p>
       )}
 

@@ -156,3 +156,33 @@ export type StockScore = {
 export async function fetchStockScore(ticker: string): Promise<StockScore> {
   return (await api.get(`/api/v1/research/stocks/${ticker}/score`)).data
 }
+
+export type RankedStock = {
+  rank: number
+  ticker: string
+  name: string
+  sector: string | null
+  benchmark_used: string
+  total: number
+  factors: Record<string, { score: number; detail: string }>
+  range_position: number | null
+}
+
+export type StockRanking = {
+  label: string
+  ranked: RankedStock[]
+  unscorable: { ticker: string; name: string; reason: string }[]
+  // Companies matching the filter against those actually priced, so the page
+  // can say "50 of 751" instead of implying it ranked the whole market.
+  matched: number
+  covered: number
+}
+
+export async function fetchStockRanking(params: {
+  index?: string
+  industry?: string
+  q?: string
+  limit?: number
+}): Promise<StockRanking> {
+  return (await api.get('/api/v1/research/stocks/ranked', { params })).data
+}

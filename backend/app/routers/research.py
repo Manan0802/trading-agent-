@@ -16,6 +16,9 @@ from app.schemas.research import (
     VerdictOut,
     WindowOut,
     StockScoreOut,
+    RankedStockOut,
+    StockRankingOut,
+    UnscorableStockOut,
     FactorOut,
     AdjustmentOut,
     FundEvidenceOut,
@@ -25,6 +28,7 @@ from app.services.advisor.category_ranking import rank_category as build_categor
 from app.services.advisor.fund_evidence import build_evidence
 from app.services.advisor.fund_score import evidence_strength
 from app.services.advisor.stock_analysis import analyse as analyse_stock
+from app.services.advisor.stock_ranking import rank_stocks as rank_stock_universe
 from app.services.advisor.fund_catalogue import BROWSABLE_CATEGORIES, is_browsable
 from app.services.advisor.fund_universe import BENCHMARK_BY_ASSET_CLASS
 from app.services.marketdata import mutual_fund, stock, stock_universe
@@ -34,6 +38,11 @@ router = APIRouter(prefix="/api/v1/research", tags=["research"])
 # A multi-year chart does not need every daily NAV, and sending 3,000+ points
 # per fund would dominate the payload.
 _CHART_POINTS = 260
+
+# Hard ceiling on a ranked screen regardless of what the caller asks for. Each
+# company is two Yahoo requests on a cold cache, and a request that tries to
+# price 751 of them times out rather than finishing slowly.
+_MAX_RANKED = 120
 
 
 def _downsample(points: list, limit: int = _CHART_POINTS) -> list:
@@ -181,6 +190,52 @@ def browse_stocks(
         total=len(matches),
         available_indices=stock_universe.INDEX_CHOICES,
         available_industries=stock_universe.industries(),
+    )
+
+
+# Declared before /stocks/{ticker}: FastAPI matches in order, and the dynamic
+# route would otherwise swallow "ranked" as a ticker symbol.
+@router.get("/stocks/ranked", response_model=StockRankingOut)
+def rank_stocks_endpoint(
+    index: str = "NIFTY 50",
+    industry: str | None = None,
+    q: str | None = None,
+    limit: int = 50,
+    user: User = Depends(current_active_user),
+):
+    """Every company in the filter, ranked against each other.
+
+    Defaults to the NIFTY 50 because it is the only slice that is fast on a
+    cold cache. Widening the index is allowed and honest — the response reports
+    how many companies matched against how many were actually priced, so a
+    partial ranking never presents itself as the whole market.
+    """
+    matches = stock_universe.list_stocks(index=index, industry=industry, query=q)
+    label = " · ".join(p for p in (index, industry, q) if p) or "All stocks"
+    result = rank_stock_universe(label, matches, limit=min(limit, _MAX_RANKED))
+
+    return StockRankingOut(
+        label=result.label,
+        ranked=[
+            RankedStockOut(
+                rank=r.rank,
+                ticker=r.score.ticker,
+                name=r.score.name,
+                sector=r.score.sector,
+                benchmark_used=r.score.benchmark_used,
+                total=r.score.total,
+                factors={
+                    k: FactorOut.model_validate(v) for k, v in r.score.factors.items()
+                },
+                range_position=r.score.range_position,
+            )
+            for r in result.ranked
+        ],
+        unscorable=[
+            UnscorableStockOut.model_validate(u) for u in result.unscorable
+        ],
+        matched=result.matched,
+        covered=result.covered,
     )
 
 
