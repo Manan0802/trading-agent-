@@ -16,9 +16,13 @@ from app.schemas.research import (
     UnscorableFundOut,
     VerdictOut,
     WindowOut,
+    StockScoreOut,
+    FactorOut,
+    AdjustmentOut,
 )
 from app.services.advisor import fund_metrics
 from app.services.advisor.category_ranking import rank_category as build_category_ranking
+from app.services.advisor.stock_analysis import analyse as analyse_stock
 from app.services.advisor.fund_catalogue import BROWSABLE_CATEGORIES, is_browsable
 from app.services.advisor.fund_recommender import load_scored_universe, score_category
 from app.services.advisor.fund_universe import (
@@ -215,6 +219,37 @@ def browse_stocks(
         total=len(matches),
         available_indices=stock_universe.INDEX_CHOICES,
         available_industries=stock_universe.industries(),
+    )
+
+
+@router.get("/stocks/{ticker}/score", response_model=StockScoreOut)
+def score_stock_endpoint(
+    ticker: str,
+    user: User = Depends(current_active_user),
+):
+    """Score one company against its sector peers, with the reasoning attached.
+
+    Valuation is judged against the sector median rather than an absolute bar:
+    our own medians run from a P/E of 10.9 in energy to 49.3 in consumer
+    defensive, so an absolute screen would be a sector bet in disguise.
+    """
+    try:
+        result, verdict = analyse_stock(ticker)
+    except stock.StockDataError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+    return StockScoreOut(
+        ticker=result.ticker,
+        name=result.name,
+        sector=result.sector,
+        benchmark_used=result.benchmark_used,
+        base_total=result.base_total,
+        adjustment_total=result.adjustment_total,
+        total=result.total,
+        factors={k: FactorOut.model_validate(v) for k, v in result.factors.items()},
+        adjustments=[AdjustmentOut.model_validate(a) for a in result.adjustments],
+        range_position=result.range_position,
+        verdict=VerdictOut.model_validate(verdict),
     )
 
 

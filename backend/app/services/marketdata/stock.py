@@ -37,6 +37,11 @@ class StockFundamentals:
     dividend_yield_pct: float | None
     week52_high: float | None
     week52_low: float | None
+    # Return on equity, as a fraction. yfinance publishes it directly.
+    roe: float | None = None
+    # Diluted EPS from the prior full year, for the growth comparison. Only on
+    # the income statement, which .info does not carry.
+    eps_previous_year: float | None = None
 
     @property
     def day_change_pct(self) -> float | None:
@@ -74,6 +79,35 @@ def get_stock_price(ticker: str) -> float:
     return _price_from(_info_cached(ticker), ticker)
 
 
+def _previous_year_eps(ticker: str) -> float | None:
+    """Diluted EPS from the year before last, for a growth comparison.
+
+    Only on the income statement, which is a separate and slower call than
+    .info, so it is cached on the same clock and failures are silent: a missing
+    prior year means the growth factor scores neutral, not zero.
+    """
+    now = time.time()
+    key = f"{ticker}::eps_prev"
+    hit = _cache.get(key)
+    if hit is not None and now - hit[0] < _CACHE_TTL_SECONDS:
+        return hit[1]
+
+    value = None
+    try:
+        statement = yf.Ticker(ticker).income_stmt
+        for row in ("Diluted EPS", "Basic EPS"):
+            if statement is not None and row in statement.index:
+                series = statement.loc[row].dropna()
+                if len(series) >= 2:
+                    value = float(series.iloc[1])
+                    break
+    except Exception:
+        value = None
+
+    _cache[key] = (now, value)
+    return value
+
+
 def get_stock_fundamentals(ticker: str) -> StockFundamentals:
     info = _info_cached(ticker)
     return StockFundamentals(
@@ -88,6 +122,8 @@ def get_stock_fundamentals(ticker: str) -> StockFundamentals:
         pe_ratio=info.get("trailingPE"),
         eps=info.get("trailingEps"),
         book_value=info.get("bookValue"),
+        roe=info.get("returnOnEquity"),
+        eps_previous_year=_previous_year_eps(ticker),
         # yfinance already returns this as a percentage (5.14 == 5.14%).
         dividend_yield_pct=info.get("dividendYield"),
         week52_high=info.get("fiftyTwoWeekHigh"),

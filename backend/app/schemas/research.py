@@ -154,3 +154,34 @@ class CategoryRankingV2Out(BaseModel):
     unscorable: list[UnscorableFundOut]
     # How many funds we can price the direct-vs-regular gap for.
     priced: int
+
+
+class FactorOut(BaseModel):
+    score: float
+    detail: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdjustmentOut(BaseModel):
+    name: str
+    points: int
+    detail: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StockScoreOut(BaseModel):
+    ticker: str
+    name: str
+    sector: str | None
+    # The peer group the valuation was judged against; "_ALL" means the sector
+    # had too few peers to median and the whole market stood in.
+    benchmark_used: str
+    base_total: float
+    adjustment_total: float
+    total: float
+    factors: dict[str, FactorOut]
+    adjustments: list[AdjustmentOut]
+    range_position: float | None
+    verdict: VerdictOut
