@@ -25,7 +25,11 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-(cd backend && exec venv/bin/uvicorn app.main:app --port 8000 --reload) &
+# Bound to every interface rather than 127.0.0.1: the browser resolves
+# "localhost" to ::1 first, and an API listening only on IPv4 answers nothing
+# there, which Chrome then reports as a CORS failure rather than a refused
+# connection. Same trap the Vite server hit earlier from the other side.
+(cd backend && exec venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload) &
 pids+=($!)
 
 (cd frontend && exec npm run dev) &
