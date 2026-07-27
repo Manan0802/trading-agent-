@@ -87,7 +87,15 @@ def test_the_rank_is_stated_against_a_named_peer_group():
     v = build_verdict(_ev(), rank=3, peers=34)
     joined = " ".join([v.headline, *v.points])
     assert "3" in joined and "34" in joined
-    assert "Flexi Cap" in joined
+
+
+def test_the_average_return_is_stated_but_disclaimed():
+    """It is a true fact about the past and the reader is entitled to it. It is
+    also the one input that was tested and failed, so it must not read as a
+    reason to expect more of the same."""
+    v = build_verdict(_ev(), rank=1, peers=34)
+    joined = " ".join(v.points).lower()
+    assert "does not predict" in joined
 
 
 def test_every_point_carries_a_number():

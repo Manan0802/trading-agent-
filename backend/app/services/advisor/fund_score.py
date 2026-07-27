@@ -1,28 +1,37 @@
-"""Ranking funds against their category peers.
+"""Ranking funds against their category peers, weighted by what actually predicts.
 
-Four pillars, and the choice of pillars is the argument:
+The weights below are not a matter of taste. They were set by testing, and the
+test is in docs/does-the-score-work.md.
 
-**Consistency (35%)** — not the average return, but the shape of the whole
-distribution of rolling windows: how often the fund made money over a full
-holding period, and how bad its worst one was. A fund averaging 19% that never
-handed anyone a losing three-year stretch is a different proposition from one
-averaging 22% that lost 8.8% annualised over some of them, and a goal-based
-investor is not indifferent between the two.
+Ranking by past returns was measured over sixty three-year windows and does not
+work: the picks beat their category median in 50% of them, and over 54 windows
+the quartile ranked *best* went on to return 17.2% against 19.4% for the
+quartile ranked worst. That is a coin flip with the sign slightly wrong, which
+is the most replicated finding in the literature and is now confirmed on Indian
+data with this code.
 
-**Return (25%)** — the level, from rolling means rather than a point-to-point
-CAGR. Point-to-point is one observation and both of its dates are accidents;
-the rolling mean is every answer the fund could have given a real investor.
+Ranking by expense ratio, tested the same way, works: the cheapest quartile
+returned 20.0% against 17.8% for the dearest, beating it in 45 of 52 windows.
+A 2.2 percentage point spread a year, and unlike a performance record it is a
+published fee rather than a bet.
 
-**Cost (20%)** — the expense ratio. This is the only input here with replicated
-predictive power over future returns, it is published by AMFI, and it is the
-one thing on this list that is knowable in advance rather than inferred from
-the past. It is weighted accordingly.
+So:
 
-**Risk (20%)** — volatility and max drawdown.
+**Cost (55%)** — the expense ratio, and the only pillar here with any measured
+predictive power. It leads because the evidence says it should.
 
-Deliberately absent: short-horizon momentum. A fourteen-day signal is the wrong
-instrument for choosing a fund somebody will hold for fifteen years, and the
-evidence that it survives Indian transaction costs does not exist.
+**Risk (25%)** and **consistency (20%)** — the shape of the record: how deep
+the falls went, how often a full three-year holding made money, how bad the
+worst one was. These are kept not as forecasts, which they are not, but because
+they decide whether somebody stays invested through a bad year, and staying
+invested is a real lever even where selection is not.
+
+**Past return is deliberately not a ranking input at all.** It is the one thing
+here that was directly tested and directly failed. It is still reported on every
+fund, because it is a true fact about the past that a reader is entitled to,
+but it does not move a fund up the list.
+
+Also absent: short-horizon momentum, for the same reason and worse.
 """
 
 from dataclasses import dataclass, field
@@ -33,13 +42,11 @@ from app.services.advisor.peer_normalise import hybrid
 # returns is signal; over one year it is substantially noise and only the
 # ordering is worth trusting.
 _W_RANK_3Y = 0.70
-_W_RANK_1Y = 0.80
 
 PILLAR_WEIGHTS: dict[str, float] = {
-    "consistency": 0.35,
-    "return": 0.25,
-    "cost": 0.20,
-    "risk": 0.20,
+    "cost": 0.55,
+    "risk": 0.25,
+    "consistency": 0.20,
 }
 
 # Without a full three-year window there is no distribution to judge, and a
@@ -121,7 +128,6 @@ class ScoringResult:
 def _pillar_inputs(funds: list[FundEvidence]) -> dict[str, list[float | None]]:
     """Each pillar as a peer-normalised 0-1 series, or None where unknowable."""
     w3 = [f.windows.get("3y") for f in funds]
-    w1 = [f.windows.get("1y") for f in funds]
 
     # Consistency: how often it worked, and how bad it got when it did not.
     share = hybrid([w.share_positive if w else None for w in w3], _W_RANK_3Y)
@@ -135,15 +141,15 @@ def _pillar_inputs(funds: list[FundEvidence]) -> dict[str, list[float | None]]:
         strength = evidence_strength(fund.history_years)
         consistency.append(_NEUTRAL + (raw - _NEUTRAL) * strength)
 
-    # Return: three-year rolling mean leads, one-year supports.
-    mean3 = hybrid([w.mean if w else None for w in w3], _W_RANK_3Y)
-    mean1 = hybrid([w.mean if w else None for w in w1], _W_RANK_1Y)
-    returns = [
-        a if b is None else (0.7 * a + 0.3 * b) if a is not None else None
-        for a, b in zip(mean3, mean1)
+    # Cost is the majority of the score and the only pillar with measured
+    # predictive power, so a fund AMFI files no TER for is scored neutral on it
+    # rather than having the pillar dropped. Dropping it would rank that fund
+    # purely on inputs we know do not predict, and let it climb above funds we
+    # can actually measure.
+    cost = [
+        _NEUTRAL if v is None else v
+        for v in hybrid([f.direct_ter for f in funds], 0.60, lower_is_better=True)
     ]
-
-    cost = hybrid([f.direct_ter for f in funds], 0.60, lower_is_better=True)
 
     vol = hybrid([f.volatility for f in funds], 0.70, lower_is_better=True)
     dd = hybrid([f.max_drawdown for f in funds], 0.70)
@@ -152,7 +158,7 @@ def _pillar_inputs(funds: list[FundEvidence]) -> dict[str, list[float | None]]:
         for a, b in zip(vol, dd)
     ]
 
-    return {"consistency": consistency, "return": returns, "cost": cost, "risk": risk}
+    return {"consistency": consistency, "cost": cost, "risk": risk}
 
 
 def score_peer_group_v2(funds: list[FundEvidence]) -> ScoringResult:

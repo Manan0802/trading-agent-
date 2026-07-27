@@ -93,12 +93,13 @@ def test_a_fund_without_a_three_year_window_is_set_aside_not_guessed():
 
 def test_a_missing_expense_ratio_does_not_punish_the_fund():
     """AMFI's TER filing does not cover every scheme. A gap in our data is not
-    evidence against the fund, so the pillar is dropped and the rest reweighted."""
+    evidence against the fund, so it is scored neutral on cost, neither
+    rewarded nor penalised for what we could not measure."""
     peers = [_evidence("a", ter=0.005), _evidence("b", ter=0.005), _evidence("c", ter=None)]
     result = score_peer_group_v2(peers)
     by_code = {f.scheme_code: f for f in result.ranked}
-    assert by_code["c"].score == pytest.approx(by_code["a"].score, abs=8.0)
-    assert "cost" not in by_code["c"].breakdown
+    assert by_code["c"].breakdown["cost"] == pytest.approx(0.5)
+    assert by_code["c"].score < by_code["a"].score
 
 
 def test_the_breakdown_explains_every_pillar_that_counted():
@@ -171,3 +172,52 @@ def test_evidence_strength_is_reported_so_the_discount_is_visible():
     by_code = {f.scheme_code: f for f in result.ranked}
     assert by_code["a"].evidence_strength < by_code["b"].evidence_strength
     assert 0.0 <= by_code["a"].evidence_strength <= 1.0
+
+
+# --- the weights are set by evidence, not taste -------------------------------
+
+
+def test_cost_is_the_heaviest_pillar_because_it_is_the_only_one_that_predicts():
+    """Measured over 52 three-year windows: the cheapest quartile returned
+    20.0% against 17.8% for the dearest, winning 45 of them. Past returns, on
+    the same test, were a coin flip with the sign wrong."""
+    assert PILLAR_WEIGHTS["cost"] == max(PILLAR_WEIGHTS.values())
+    assert PILLAR_WEIGHTS["cost"] >= 0.5
+
+
+def test_past_return_is_not_a_ranking_input():
+    """It was tested directly and failed directly. It is still reported on
+    every fund; it just does not move one up the list."""
+    assert "return" not in PILLAR_WEIGHTS
+
+
+def test_two_funds_with_the_same_cost_and_risk_are_not_separated_by_returns():
+    result = score_peer_group_v2([
+        _evidence("mediocre", r3y=0.09, r1y=0.09),
+        _evidence("stellar", r3y=0.31, r1y=0.31),
+    ])
+    by_code = {f.scheme_code: f for f in result.ranked}
+    assert by_code["mediocre"].score == pytest.approx(by_code["stellar"].score)
+
+
+def test_a_fund_with_no_published_cost_cannot_outrank_a_cheap_one():
+    """Dropping a missing pillar and reweighting the rest was fine when cost
+    was a fifth of the score. Now that it is the majority and the only pillar
+    that predicts, dropping it would score a fund purely on inputs we know do
+    not predict, and let it climb above funds we can actually measure."""
+    result = score_peer_group_v2([
+        _evidence("cheap", ter=0.004),
+        _evidence("unknown", ter=None),
+        _evidence("dear", ter=0.022),
+    ])
+    by_code = {f.scheme_code: f for f in result.ranked}
+    assert by_code["cheap"].score > by_code["unknown"].score
+    assert by_code["unknown"].score > by_code["dear"].score
+
+
+def test_an_unpriced_fund_is_scored_neutral_on_cost_rather_than_exempted():
+    result = score_peer_group_v2([
+        _evidence("a", ter=0.004), _evidence("b", ter=0.02), _evidence("c", ter=None)
+    ])
+    by_code = {f.scheme_code: f for f in result.ranked}
+    assert by_code["c"].breakdown["cost"] == pytest.approx(0.5)

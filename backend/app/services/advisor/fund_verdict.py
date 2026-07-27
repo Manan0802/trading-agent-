@@ -1,18 +1,21 @@
-"""Turning a fund's evidence into what an advisor would actually say about it.
+"""What a fund's record actually says, and what it does not say.
 
-The temptation with a scoring engine is to print the metrics: Sortino 1.40,
-alpha +7.1%, downside capture 0.40. Those are inputs to a judgement, not the
-judgement, and almost nobody holding a SIP can act on them.
+Two rules, and the second one is the harder discipline.
 
-What a good advisor says instead is what the record means for the person in
-front of them. Not "Sortino 1.40" but "across 1,414 possible three-year holding
-periods since 2013, this fund never lost money, and its worst stretch still
-returned 0.8% a year." Same evidence, and the second one answers the question
-the investor is really asking.
+**Say it in the terms a holder uses.** Not "Sortino 1.40" but "across 1,414
+possible three-year holding periods this fund never lost money, and its worst
+stretch still returned 0.8% a year". Same evidence; the second answers the
+question the investor is really asking.
 
-Every line here carries a figure from the fund's own record. Nothing is
-inferred, softened or invented, and where the evidence is thin the verdict says
-so rather than making a confident claim on a short record.
+**Never let a description sound like a forecast.** Ranking funds by their past
+record was tested over sixty three-year windows and does not predict which will
+do better; see docs/does-the-score-work.md. So the record is reported as what
+holding this fund has felt like, which is a real and useful thing to know
+because it decides whether somebody stays invested through a bad year. It is
+not reported as a reason to expect more of the same.
+
+The cost line leads on funds where both plans are published, because the
+expense ratio is the one thing here that was tested and did predict.
 """
 
 from dataclasses import dataclass
@@ -88,8 +91,9 @@ def build_verdict(
         )
 
     points.append(
-        f"Ranked {rank} of {peers} {category} funds. Averaged "
-        f"{window.mean:+.1%} a year across those windows."
+        f"Averaged {window.mean:+.1%} a year across those windows. That is what "
+        "it did, not what it will do: ranking funds on past returns does not "
+        "predict which of them go on to do better."
     )
 
     if evidence.max_drawdown is not None:
@@ -100,7 +104,12 @@ def build_verdict(
         )
 
     if evidence.direct_ter is not None:
-        line = f"Costs {evidence.direct_ter:.2%} a year in the direct plan."
+        line = (
+            f"Costs {evidence.direct_ter:.2%} a year in the direct plan, and cost "
+            f"is why it sits at {rank} of {peers} here. Across 52 three-year "
+            "windows the cheapest quarter of funds beat the dearest quarter in "
+            "45 of them."
+        )
         gap = (
             evidence.regular_ter - evidence.direct_ter
             if evidence.regular_ter is not None
