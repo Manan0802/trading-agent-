@@ -117,9 +117,13 @@ export type Levers = {
   portfolio_value: number
 }
 
+/**
+ * Omitted params are genuinely omitted, not sent as zero: the server falls back
+ * to the horizon stored on the profile, and a default sent from here would
+ * silently overwrite it.
+ */
 export async function fetchLevers(params: {
   years_remaining?: number
-  annual_income?: number
   monthly_sip?: number
 }): Promise<Levers> {
   return (await api.get('/api/v1/portfolio/levers', { params })).data

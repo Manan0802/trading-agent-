@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { AllocationPie } from '@/components/AllocationPie'
 import { GoalFundPlan } from '@/components/GoalFundPlan'
+import { Levers } from '@/components/Levers'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatInr, plainProse } from '@/lib/format'
@@ -109,6 +110,13 @@ export function GoalDetail() {
       )}
 
       {id && <GoalFundPlan goalId={id} />}
+
+      {/* Placed after the picks, not before them. The list prices fund
+          selection at zero, and that lands as a useful caveat on a plan the
+          reader has already seen rather than as a reason to skip reading it.
+          A goal is also the one place the horizon and the SIP are both known,
+          so every lever here is priced against this goal's own numbers. */}
+      <Levers yearsRemaining={data.years} monthlySip={sip ?? undefined} />
     </div>
   )
 }

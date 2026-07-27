@@ -12,22 +12,18 @@ import { fetchLevers } from '@/lib/portfolio-api'
  * their attention.
  */
 export function Levers({
-  yearsRemaining = 15,
-  annualIncome = 0,
-  monthlySip = 0,
+  yearsRemaining,
+  monthlySip,
 }: {
+  /** Left undefined outside a goal, so the server uses the stored profile
+   *  horizon rather than a number this component invented. */
   yearsRemaining?: number
-  annualIncome?: number
   monthlySip?: number
-}) {
+} = {}) {
   const { data, isLoading } = useQuery({
-    queryKey: ['levers', yearsRemaining, annualIncome, monthlySip],
+    queryKey: ['levers', yearsRemaining, monthlySip],
     queryFn: () =>
-      fetchLevers({
-        years_remaining: yearsRemaining,
-        annual_income: annualIncome,
-        monthly_sip: monthlySip,
-      }),
+      fetchLevers({ years_remaining: yearsRemaining, monthly_sip: monthlySip }),
   })
 
   if (isLoading) return <Skeleton className="h-40 w-full" />
