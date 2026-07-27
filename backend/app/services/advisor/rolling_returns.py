@@ -12,7 +12,6 @@ average 14% a year and still have handed someone a losing three-year stretch.
 """
 
 from dataclasses import dataclass
-from datetime import timedelta
 
 import numpy as np
 

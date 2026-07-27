@@ -20,11 +20,7 @@ expense ratio is the one thing here that was tested and did predict.
 
 from dataclasses import dataclass
 
-from app.services.advisor.fund_score import (
-    REQUIRED_WINDOW_YEARS,
-    FundEvidence,
-    evidence_strength,
-)
+from app.services.advisor.fund_score import FundEvidence, evidence_strength
 
 # Below this, a record is short enough that its rolling windows overlap almost
 # entirely and describe a single stretch of market.
