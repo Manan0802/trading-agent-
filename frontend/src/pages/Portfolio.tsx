@@ -7,6 +7,7 @@ import { CostReview } from '@/components/CostReview'
 import { FundOverlap } from '@/components/FundOverlap'
 import { Levers } from '@/components/Levers'
 import { PortfolioChart } from '@/components/PortfolioChart'
+import { StartHere } from '@/components/StartHere'
 import { Button } from '@/components/ui/button'
 import { Metric, MetricRow } from '@/components/ui/metric'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -145,18 +146,21 @@ function LoadingState() {
   )
 }
 
+/**
+ * Nothing owned yet. The page used to open with "add a fund", which is the most
+ * work for the least money — see StartHere for the order that is actually worth
+ * something.
+ */
 function EmptyState() {
   return (
-    <div className="flex flex-col items-start gap-3 border-t pt-10">
-      <h2 className="text-lg font-medium">Nothing tracked yet</h2>
-      <p className="max-w-md text-sm text-muted-foreground">
-        Add a fund or stock you already own, then record what you actually paid and
-        when. NexTrade fetches live prices and works out your real return, including
-        the money-weighted XIRR that a simple percentage hides.
+    <div className="flex flex-col gap-10">
+      <StartHere />
+      <p className="max-w-2xl text-sm text-muted-foreground">
+        Once something is in here, this page works out your real return — the
+        money-weighted XIRR that a simple percentage hides — against what the same
+        money would have done in the index, and what your regular plans are costing
+        you.
       </p>
-      <div className="pt-1">
-        <AddHoldingDialog />
-      </div>
     </div>
   )
 }
