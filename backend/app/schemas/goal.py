@@ -1,5 +1,5 @@
 from datetime import date
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.services.advisor.goal_inflation import inflation_note
 
@@ -16,6 +16,26 @@ class GoalCreate(BaseModel):
     # None means "use the rate for this goal type". An explicit value overrides
     # it, so the table is a default rather than a policy.
     inflation_rate: float | None = None
+
+
+class GoalUpdate(BaseModel):
+    """Every field optional: an edit changes one thing and leaves the rest.
+
+    Everything derived — the monthly SIP, the equity split, the fund plan — is
+    recomputed from whatever the new inputs are, never patched, so a goal can
+    never carry a plan for a target it no longer has.
+    """
+
+    goal_type: str | None = None
+    goal_name: str | None = None
+    target_amount: float | None = Field(default=None, gt=0)
+    current_savings: float | None = Field(default=None, ge=0)
+    target_date: date | None = None
+    years: float | None = Field(default=None, gt=0)
+    status: str | None = None
+    inflation_rate: float | None = None
+    risk_profile: str | None = None
+    annual_return_rate: float | None = None
 
 
 class GoalOut(BaseModel):

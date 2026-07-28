@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { AllocationPie } from '@/components/AllocationPie'
 import { GoalFundPlan } from '@/components/GoalFundPlan'
+import { EditGoal } from '@/components/EditGoal'
 import { Levers } from '@/components/Levers'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatInr, plainProse } from '@/lib/format'
 
@@ -12,7 +15,10 @@ type Goal = {
   id: string
   goal_name: string
   target_amount: number
+  current_savings: number
+  target_date: string
   years: number
+  inflation_rate: number | null
   required_monthly_sip: number | null
   equity_allocation: number | null
   debt_allocation: number | null
@@ -37,6 +43,7 @@ function LoadingState() {
 
 export function GoalDetail() {
   const { id } = useParams()
+  const [editing, setEditing] = useState(false)
   const { data, isLoading, isError } = useQuery<Goal>({
     queryKey: ['goal', id],
     queryFn: async () => (await api.get(`/api/v1/goals/${id}`)).data,
@@ -63,9 +70,16 @@ export function GoalDetail() {
       <header className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold tracking-tight">{data.goal_name}</h1>
-          <Badge variant={data.status === 'active' ? 'default' : 'secondary'}>
-            {data.status}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant={data.status === 'active' ? 'default' : 'secondary'}>
+              {data.status}
+            </Badge>
+            {!editing && (
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                Change
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -86,6 +100,8 @@ export function GoalDetail() {
           </p>
         </div>
       </header>
+
+      {editing && <EditGoal goal={data} onClose={() => setEditing(false)} />}
 
       <section className="flex flex-col gap-4">
         {/* Not "where the money goes": a sleeve too small to place is dropped

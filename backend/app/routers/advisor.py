@@ -7,6 +7,7 @@ from app.schemas.goal import (
     CommitmentOut,
     GoalCreate,
     GoalOut,
+    GoalUpdate,
     GoalRecommendationsOut,
     FundRecommendationOut,
     ReallocationOut,
@@ -185,6 +186,37 @@ def update_profile(
     return _profile_out(stored)
 
 
+def _reprice(
+    goal: Goal, *, risk_profile: str, annual_return_rate: float
+) -> tuple[dict, dict]:
+    """Recompute everything a goal's inputs decide, in place.
+
+    Shared by create and edit rather than written twice. An edit that changed
+    the target date but left the old monthly SIP sitting beside it would be a
+    plan describing a goal that no longer exists.
+
+    Returns the full SIP and allocation results, not just the fields stored on
+    the goal: the projection carries figures like the wealth created that the
+    explanation uses and the row does not keep.
+    """
+    sip = calculate_required_sip(
+        goal.target_amount,
+        # Not truncated: a goal 16.8 years away is priced over 16.8 years. The
+        # arithmetic below is continuous in it, and rounding down quietly asks
+        # for a bigger monthly figure than the goal needs.
+        goal.years,
+        annual_return_rate,
+        goal.current_savings,
+        goal.inflation_rate,
+    )
+    alloc = get_allocation(goal.years, risk_profile)
+    goal.required_monthly_sip = sip["required_monthly_sip"]
+    goal.equity_allocation = alloc["equity"]
+    goal.debt_allocation = alloc["debt"]
+    goal.gold_allocation = alloc["gold"]
+    return sip, alloc
+
+
 @router.post("/goals", response_model=GoalOut)
 def create_goal(
     body: GoalCreate,
@@ -198,19 +230,6 @@ def create_goal(
         if body.inflation_rate is not None
         else inflation_for_goal(body.goal_type)
     )
-    sip = calculate_required_sip(
-        body.target_amount,
-        int(body.years),
-        body.annual_return_rate,
-        body.current_savings,
-        inflation_rate,
-    )
-    alloc = get_allocation(body.years, body.risk_profile)
-    explanation = get_goal_explanation(
-        {"goal_name": body.goal_name, "target_amount": body.target_amount, "years": body.years},
-        sip,
-        alloc,
-    )
     goal = Goal(
         user_id=user.id,
         goal_type=body.goal_type,
@@ -220,16 +239,92 @@ def create_goal(
         target_date=body.target_date,
         years=body.years,
         inflation_rate=inflation_rate,
-        required_monthly_sip=sip["required_monthly_sip"],
-        equity_allocation=alloc["equity"],
-        debt_allocation=alloc["debt"],
-        gold_allocation=alloc["gold"],
-        llm_explanation=explanation,
+    )
+    sip, alloc = _reprice(
+        goal,
+        risk_profile=body.risk_profile,
+        annual_return_rate=body.annual_return_rate,
+    )
+    goal.llm_explanation = get_goal_explanation(
+        {"goal_name": goal.goal_name, "target_amount": goal.target_amount, "years": goal.years},
+        sip,
+        alloc,
     )
     db.add(goal)
     db.commit()
     db.refresh(goal)
     return goal
+
+
+@router.patch("/goals/{goal_id}", response_model=GoalOut)
+def update_goal(
+    goal_id: str,
+    body: GoalUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """Change a goal's target, date or name, and reprice it.
+
+    This is the other half of the affordability check. Telling someone their
+    goals cost more than they earn and that a target or date has to move, while
+    giving them no way to move one, is advice with the door locked.
+
+    Everything derived is recomputed rather than patched: change the date and
+    the monthly SIP, the equity split and the fund plan all follow from it.
+    """
+    goal = db.get(Goal, goal_id)
+    if not goal or goal.user_id != user.id:
+        raise HTTPException(404, "Goal not found")
+
+    fields = body.model_dump(exclude_unset=True)
+    for field in ("goal_name", "target_amount", "current_savings", "target_date", "years", "status"):
+        if fields.get(field) is not None:
+            setattr(goal, field, fields[field])
+
+    if fields.get("goal_type") is not None:
+        goal.goal_type = fields["goal_type"]
+        # The stored rate came from the old type, so it has to follow unless the
+        # user has pinned one explicitly.
+        if fields.get("inflation_rate") is None:
+            goal.inflation_rate = inflation_for_goal(goal.goal_type)
+    if fields.get("inflation_rate") is not None:
+        goal.inflation_rate = fields["inflation_rate"]
+
+    sip, alloc = _reprice(
+        goal,
+        risk_profile=body.risk_profile or "moderate",
+        annual_return_rate=body.annual_return_rate or 0.12,
+    )
+    # Regenerated, not kept. The explanation names the monthly figure and the
+    # split; left alone after an edit it would describe a plan that is no
+    # longer on the page it sits on.
+    goal.llm_explanation = get_goal_explanation(
+        {"goal_name": goal.goal_name, "target_amount": goal.target_amount, "years": goal.years},
+        sip,
+        alloc,
+    )
+    db.commit()
+    db.refresh(goal)
+    return goal
+
+
+@router.delete("/goals/{goal_id}", status_code=204)
+def delete_goal(
+    goal_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """Remove a goal outright.
+
+    A hard delete rather than an archive flag: this is the user's own plan, and
+    a goal they have decided against should stop showing up in what their goals
+    cost them every month.
+    """
+    goal = db.get(Goal, goal_id)
+    if not goal or goal.user_id != user.id:
+        raise HTTPException(404, "Goal not found")
+    db.delete(goal)
+    db.commit()
 
 
 @router.get("/goals", response_model=list[GoalOut])

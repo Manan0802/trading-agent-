@@ -5,7 +5,9 @@ from pydantic import BaseModel, Field
 
 class SipRequest(BaseModel):
     target_amount: float
-    years: int
+    # Fractional on purpose: a goal 16.8 years away is priced over 16.8 years,
+    # and the edit form's live preview sends exactly what the save will send.
+    years: float
     annual_return_rate: float = 0.12
     current_savings: float = 0.0
     inflation_rate: float = 0.06
