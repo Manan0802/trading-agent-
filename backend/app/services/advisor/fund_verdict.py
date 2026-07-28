@@ -18,6 +18,7 @@ The cost line leads on funds where both plans are published, because the
 expense ratio is the one thing here that was tested and did predict.
 """
 
+from app.services.advisor.money import inr
 from dataclasses import dataclass
 
 from app.services.advisor.fund_score import FundEvidence, evidence_strength
@@ -120,7 +121,7 @@ def build_verdict(
                 gross = _sip_future_value(monthly_sip, years, assumed_return)
                 net = _sip_future_value(monthly_sip, years, assumed_return - gap)
                 line += (
-                    f", about ₹{gross - net:,.0f} on ₹{monthly_sip:,.0f} a month "
+                    f", about {inr(gross - net)} on {inr(monthly_sip)} a month "
                     f"over {years} years"
                 )
             line += "."

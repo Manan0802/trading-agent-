@@ -7,6 +7,7 @@ regime and push 80C products at everyone, which is wrong advice for the common
 case, so regime choice is computed here rather than assumed.
 """
 
+from app.services.advisor.money import inr
 from dataclasses import dataclass
 from typing import Literal
 
@@ -150,20 +151,20 @@ def compare_regimes(
         else:
             shortfall = max(0.0, breakeven - deductions)
             rationale = (
-                f"The new regime is cheaper by ₹{saving:,.0f}. You are "
-                f"claiming ₹{deductions:,.0f} of deductions; the old regime "
-                f"would only catch up at ₹{breakeven:,.0f}, which is "
-                f"₹{shortfall:,.0f} more than you have. Locking money into "
+                f"The new regime is cheaper by {inr(saving)}. You are "
+                f"claiming {inr(deductions)} of deductions; the old regime "
+                f"would only catch up at {inr(breakeven)}, which is "
+                f"{inr(shortfall)} more than you have. Locking money into "
                 "80C products to chase that is usually the tail wagging the dog."
             )
     else:
         rationale = (
-            f"The old regime is cheaper by ₹{saving:,.0f} because your "
-            f"₹{deductions:,.0f} of deductions exceed the "
-            f"₹{breakeven:,.0f} breakeven. Keep claiming them, but check "
+            f"The old regime is cheaper by {inr(saving)} because your "
+            f"{inr(deductions)} of deductions exceed the "
+            f"{inr(breakeven)} breakeven. Keep claiming them, but check "
             "each one is an investment you would hold anyway."
             if breakeven is not None
-            else f"The old regime is cheaper by ₹{saving:,.0f}."
+            else f"The old regime is cheaper by {inr(saving)}."
         )
 
     return RegimeComparison(

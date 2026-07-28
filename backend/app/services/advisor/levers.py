@@ -19,6 +19,8 @@ off — because the zero is the finding.
 
 from dataclasses import dataclass
 
+from app.services.advisor.money import inr
+
 # Growth assumed when compounding a cost saving. Only the *difference* between
 # two paths is reported, so the exact figure matters far less than it looks:
 # a saving of 0.64pp compounds similarly at 10% or 14%.
@@ -33,25 +35,6 @@ class Lever:
     lifetime_value: float
     detail: str
     action: str
-
-
-def _inr(amount: float) -> str:
-    """Rupees grouped the Indian way: 2,45,700, not 245,700.
-
-    Python's `,` format spec groups in thousands throughout, which reads as a
-    typo to anyone in India once the figure passes a lakh.
-    """
-    whole = f"{abs(amount):.0f}"
-    if len(whole) > 3:
-        head, tail = whole[:-3], whole[-3:]
-        groups = []
-        while len(head) > 2:
-            groups.insert(0, head[-2:])
-            head = head[:-2]
-        if head:
-            groups.insert(0, head)
-        whole = ",".join([*groups, tail])
-    return f"{'-' if amount < 0 else ''}₹{whole}"
 
 
 def _compounded_saving(value: float, gap: float, years: float) -> float:
@@ -158,7 +141,7 @@ def rank_levers(
                 lifetime_value=0.0,
                 detail=(
                     f"Already done. You are on the {current_regime} regime, and on "
-                    f"your numbers it costs {_inr(tax_regime_gap)} a year less "
+                    f"your numbers it costs {inr(tax_regime_gap)} a year less "
                     "than the alternative. Worth nothing more because you are "
                     "already collecting it."
                 ),

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { GoalNew } from '@/pages/GoalNew'
+import { Goals } from '@/pages/Goals'
 import { GoalDetail } from '@/pages/GoalDetail'
 import { Login } from '@/pages/Login'
 import { AuthCallback } from '@/pages/AuthCallback'
@@ -24,7 +25,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 const NAV = [
   { to: '/portfolio', label: 'Portfolio' },
   { to: '/research', label: 'Research' },
-  { to: '/goals/new', label: 'New goal' },
+  { to: '/goals', label: 'Goals' },
   { to: '/profile', label: 'You' },
 ]
 
@@ -115,6 +116,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <Profile />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/goals"
+              element={
+                <RequireAuth>
+                  <Goals />
                 </RequireAuth>
               }
             />

@@ -18,6 +18,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Literal
 
+from app.services.advisor.money import inr
+
 PlanType = Literal["direct", "regular"]
 
 _DIRECT = re.compile(r"\bdirect\b", re.I)
@@ -132,13 +134,13 @@ def _summarise(review: CostReview, years: float) -> str:
     subject = "1 fund here is a regular plan" if count == 1 else f"{count} funds here are regular plans"
     lifetime = (
         f" Over {years:.0f} more years that compounds to about "
-        f"₹{review.lifetime_cost:,.0f}."
+        f"{inr(review.lifetime_cost)}."
         if years > 0
         else ""
     )
     return (
         f"{subject}, costing about "
-        f"₹{review.annual_cost:,.0f} a year in distributor commission for the "
+        f"{inr(review.annual_cost)} a year in distributor commission for the "
         f"identical portfolio.{lifetime} Switching to the direct plan of the "
         "same fund is a redemption and a fresh purchase, so it realises capital "
         "gains, worth checking against the saving before you move."

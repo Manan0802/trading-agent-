@@ -23,6 +23,10 @@ class GoalOut(BaseModel):
     goal_type: str
     goal_name: str
     target_amount: float
+    # Both needed by the goals list: a goal without its due date or what is
+    # already saved toward it is a name and a number, not a plan.
+    current_savings: float
+    target_date: date
     years: float
     inflation_rate: float | None
     required_monthly_sip: float | None
@@ -96,3 +100,26 @@ class GoalRecommendationsOut(BaseModel):
     # the allocation it claims to implement is worse than one that says so.
     reallocations: list[ReallocationOut] = []
     actual_mix: dict[str, float] = {}
+
+
+class GoalDemandOut(BaseModel):
+    goal_id: str
+    goal_name: str
+    monthly_sip: float
+    years: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CommitmentOut(BaseModel):
+    """What every goal together demands each month, against what there is."""
+
+    total_monthly: float
+    goals: list[GoalDemandOut]
+    # None when income or expenses are unknown. A shortfall invented from a
+    # missing number is worse than no figure at all.
+    affordable_monthly: float | None
+    shortfall: float | None
+    verdict: str
+
+    model_config = ConfigDict(from_attributes=True)

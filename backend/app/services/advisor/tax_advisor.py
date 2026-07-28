@@ -7,6 +7,7 @@ suboptimal — it told them to lock ₹1.5 lakh into a three-year product for a 
 benefit they could not claim.
 """
 
+from app.services.advisor.money import inr
 from app.services.advisor.tax_regime import Regime, compare_regimes, compute_tax
 
 SECTION_80C_CAP = 150_000
@@ -102,7 +103,7 @@ def generate_tax_saving_plan(
             annual_income, employer_nps_amount, regime, is_salaried, claimed
         )
         employer_nps_note = (
-            f"{nps_cap_rate:.0%} of your ₹{basic_salary:,.0f} basic. This is a "
+            f"{nps_cap_rate:.0%} of your {inr(basic_salary)} basic. This is a "
             "CTC restructure, not extra money out of your pocket, but it is "
             "locked until 60, so only take it if you would have invested it anyway."
         )

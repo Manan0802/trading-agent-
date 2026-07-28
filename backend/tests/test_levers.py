@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.advisor.levers import Lever, _inr, rank_levers
+from app.services.advisor.levers import Lever, rank_levers
 
 
 def test_the_levers_come_back_ordered_by_what_they_are_worth():
@@ -153,22 +153,3 @@ def test_a_user_on_the_dearer_regime_is_told_which_way_to_move():
     assert tax.lifetime_value > 0
     assert "new" in tax.title.lower()
     assert "new" in tax.action.lower()
-
-
-@pytest.mark.parametrize(
-    "amount,expected",
-    [
-        (0, "₹0"),
-        (999, "₹999"),
-        (1_000, "₹1,000"),
-        (99_999, "₹99,999"),
-        (1_00_000, "₹1,00,000"),
-        (2_45_700, "₹2,45,700"),
-        (1_23_45_678, "₹1,23,45,678"),
-        (-2_45_700, "-₹2,45,700"),
-    ],
-)
-def test_rupees_are_grouped_the_indian_way(amount, expected):
-    """245,700 reads as a typo to anyone in India. Lakhs and crores group in
-    twos after the first thousand."""
-    assert _inr(amount) == expected

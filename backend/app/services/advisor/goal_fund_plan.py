@@ -10,6 +10,7 @@ portfolios bought through a distributor cost more every year, and the plan
 totals what that comes to.
 """
 
+from app.services.advisor.money import inr
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -138,7 +139,7 @@ def _placeable_allocation(
                 amount=round(freed, 2),
                 moved_to=moved_to,
                 note=(
-                    f"₹{freed:,.0f} a month is below the ₹{MIN_MONTHLY_SIP:,.0f} "
+                    f"{inr(freed)} a month is below the {inr(MIN_MONTHLY_SIP)} "
                     f"minimum a fund will accept, so the {victim} sleeve is not "
                     "bought and its money goes to the rest of the plan in "
                     "proportion. Your mix differs from the target because of it."
@@ -201,7 +202,7 @@ def build_fund_plan(
             plan.skipped.append(
                 SkippedClass(
                     asset_class,
-                    f"₹{class_amount:,.0f} a month is below the ₹{MIN_MONTHLY_SIP:,.0f} "
+                    f"{inr(class_amount)} a month is below the {inr(MIN_MONTHLY_SIP)} "
                     "minimum most funds accept, so it is left out rather than "
                     "recommended as an instalment that would be rejected",
                 )

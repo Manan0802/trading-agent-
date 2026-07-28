@@ -4,6 +4,7 @@ from app.auth.fastapi_users_app import current_active_user
 from app.database import get_db
 from app.models import Goal, User
 from app.schemas.goal import (
+    CommitmentOut,
     GoalCreate,
     GoalOut,
     GoalRecommendationsOut,
@@ -28,6 +29,7 @@ from app.services.advisor.asset_allocator import (
     get_allocation,
     recommended_products,
 )
+from app.services.advisor.goal_commitment import GoalDemand, assess_commitment
 from app.services.advisor.goal_fund_plan import build_fund_plan
 from app.services.advisor.goal_inflation import inflation_for_goal
 from app.services.advisor.whole_portfolio import (
@@ -236,6 +238,39 @@ def list_goals(
     user: User = Depends(current_active_user),
 ):
     return db.query(Goal).filter(Goal.user_id == user.id).all()
+
+
+# Declared before /goals/{goal_id}: FastAPI matches in order, and the dynamic
+# route would otherwise swallow "commitment" as a goal id.
+@router.get("/goals/commitment", response_model=CommitmentOut)
+def get_commitment(
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """What every goal together asks for each month, against what there is.
+
+    Each goal's own page says what that goal needs. Nobody adds them up, and
+    three affordable-looking plans are how a user ends up committing more than
+    they earn and discovering it by missing an instalment.
+    """
+    goals = db.query(Goal).filter(Goal.user_id == user.id).all()
+    demands = [
+        GoalDemand(
+            goal_id=g.id,
+            goal_name=g.goal_name,
+            monthly_sip=g.required_monthly_sip or 0.0,
+            years=g.years or 0.0,
+        )
+        for g in goals
+        if g.status == "active"
+    ]
+    return CommitmentOut.model_validate(
+        assess_commitment(
+            demands,
+            annual_income=user.annual_income,
+            monthly_expenses=user.monthly_expenses,
+        )
+    )
 
 
 @router.get("/goals/{goal_id}", response_model=GoalOut)
