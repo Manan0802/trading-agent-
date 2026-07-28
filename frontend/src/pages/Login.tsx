@@ -109,7 +109,7 @@ export function Login() {
 
           <button
             type="button"
-            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+            className="-my-2 py-2 text-sm text-muted-foreground underline-offset-4 hover:underline"
             onClick={() => {
               setError(null)
               setMode(mode === 'login' ? 'register' : 'login')

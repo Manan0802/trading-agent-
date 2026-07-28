@@ -57,7 +57,10 @@ export function ThemeToggle() {
           title={label}
           onClick={() => setTheme(value)}
           className={cn(
-            'rounded-sm p-1.5 transition-colors',
+            // A 26px square is a miss on a phone. The icon stays 14px; the
+            // thing a thumb has to land on does not.
+            'flex size-8 items-center justify-center rounded-sm transition-colors',
+            'pointer-coarse:size-9',
             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
             theme === value
               ? 'bg-secondary text-foreground'
