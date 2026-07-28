@@ -92,3 +92,42 @@ def test_repeat_calls_hit_cache(monkeypatch):
 def test_falls_back_to_regular_market_price_when_current_price_absent(monkeypatch):
     _stub(monkeypatch, {"regularMarketPrice": 250.0, "longName": "X"})
     assert stock.get_stock_price("X.NS") == pytest.approx(250.0)
+
+
+class TestABadTickerIsNotAServerFault:
+    """yfinance raises from inside its own parser for a blank or malformed
+    symbol, and uncaught that reached the router as a 500. An unknown ticker
+    is a 404."""
+
+    def test_a_blank_ticker_raises_stock_data_error(self):
+        import pytest
+
+        from app.services.marketdata.stock import StockDataError, get_stock_fundamentals
+
+        for blank in ("", "   ", None):
+            with pytest.raises(StockDataError):
+                get_stock_fundamentals(blank)
+
+    def test_yfinance_returning_something_that_is_not_a_dict_is_caught(self, monkeypatch):
+        import pytest
+
+        from app.services.marketdata import stock
+
+        stock.clear_cache()
+        monkeypatch.setattr(stock.yf, "Ticker", lambda t: type("T", (), {"info": None})())
+        with pytest.raises(stock.StockDataError):
+            stock.get_stock_fundamentals("WEIRD.NS")
+
+    def test_yfinance_blowing_up_becomes_a_stock_data_error(self, monkeypatch):
+        import pytest
+
+        from app.services.marketdata import stock
+
+        stock.clear_cache()
+
+        def explode(_):
+            raise TypeError("'NoneType' object does not support item assignment")
+
+        monkeypatch.setattr(stock.yf, "Ticker", explode)
+        with pytest.raises(stock.StockDataError):
+            stock.get_stock_fundamentals("ANY.NS")

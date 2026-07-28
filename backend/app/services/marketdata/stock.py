@@ -115,10 +115,29 @@ def _write_disk(key: str, payload: Any, now: float) -> None:
 
 
 def _fetch_info(ticker: str) -> dict:
-    return yf.Ticker(ticker).info
+    """Yahoo's `.info`, or a StockDataError if it cannot answer.
+
+    yfinance raises whatever the underlying HTTP layer raised, and for a blank
+    or malformed symbol it raises a TypeError from inside its own parser rather
+    than saying the symbol is bad. Uncaught, that reached the router as a 500 —
+    an unknown ticker is a 404, not a server fault.
+    """
+    try:
+        info = yf.Ticker(ticker).info
+    except Exception as exc:  # noqa: BLE001 — yfinance raises an open-ended set
+        raise StockDataError(f"No data available for ticker {ticker}") from exc
+    if not isinstance(info, dict):
+        raise StockDataError(f"No data available for ticker {ticker}")
+    return info
 
 
 def _info_cached(ticker: str) -> dict:
+    # Checked before the cache, not inside the fetch: hashing the key for a
+    # disk lookup is the first thing that touches the string, and a None
+    # ticker died there with an AttributeError before any guard ran.
+    if not (ticker or "").strip():
+        raise StockDataError("No ticker given")
+
     now = time.time()
     hit = _cache.get(ticker)
     if hit is not None and now - hit[0] < _CACHE_TTL_SECONDS:
