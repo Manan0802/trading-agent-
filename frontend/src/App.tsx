@@ -1,19 +1,38 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { GoalNew } from '@/pages/GoalNew'
-import { Goals } from '@/pages/Goals'
-import { GoalDetail } from '@/pages/GoalDetail'
 import { Login } from '@/pages/Login'
 import { AuthCallback } from '@/pages/AuthCallback'
-import { Portfolio } from '@/pages/Portfolio'
-import { Profile } from '@/pages/Profile'
-import { Research } from '@/pages/Research'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { clearToken, isAuthenticated } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
+// Split per route. The charting library alone is most of the bundle and it is
+// only ever drawn on three of these pages, but every user was downloading it
+// before the first paint — including somebody on a phone who has not added a
+// holding yet and will see no chart at all. Login stays eager: it is the first
+// thing an unauthenticated visitor needs and there is nothing to defer.
+const Portfolio = lazy(() => import('@/pages/Portfolio').then((m) => ({ default: m.Portfolio })))
+const Research = lazy(() => import('@/pages/Research').then((m) => ({ default: m.Research })))
+const Goals = lazy(() => import('@/pages/Goals').then((m) => ({ default: m.Goals })))
+const GoalNew = lazy(() => import('@/pages/GoalNew').then((m) => ({ default: m.GoalNew })))
+const GoalDetail = lazy(() => import('@/pages/GoalDetail').then((m) => ({ default: m.GoalDetail })))
+const Profile = lazy(() => import('@/pages/Profile').then((m) => ({ default: m.Profile })))
+
 const queryClient = new QueryClient()
+
+/** Shaped like the page headers behind it, so the swap is not a jolt. */
+function RouteFallback() {
+  return (
+    <div className="flex flex-col gap-8">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-56 w-full" />
+    </div>
+  )
+}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
@@ -97,6 +116,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Layout>
+          <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<Navigate to="/portfolio" replace />} />
             <Route path="/login" element={<Login />} />
@@ -150,6 +170,7 @@ export default function App() {
               }
             />
           </Routes>
+          </Suspense>
         </Layout>
       </BrowserRouter>
     </QueryClientProvider>
