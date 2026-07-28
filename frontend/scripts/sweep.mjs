@@ -9,7 +9,7 @@
  * it is the state least likely to be looked at by hand.
  */
 import { chromium } from 'playwright'
-const API='http://127.0.0.1:8000', APP='http://localhost:5173'
+const API=process.env.API_URL ?? 'http://127.0.0.1:8000', APP=process.env.APP_URL ?? 'http://localhost:5173'
 const EMAIL=`sw+${Date.now()}@example.com`, PW='screenshot-account-pw'
 await fetch(`${API}/api/v1/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:EMAIL,password:PW,name:'Sw',phone:'+919000000333'})})
 const {access_token}=await (await fetch(`${API}/api/v1/auth/jwt/login`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({username:EMAIL,password:PW})})).json()
