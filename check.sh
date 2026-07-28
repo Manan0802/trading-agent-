@@ -57,6 +57,9 @@ else
 
     step "every page on a phone"
     run "fits, and every control is thumb-sized" bash -c "cd frontend && API_URL='$API' APP_URL='$APP' node scripts/mobile.mjs | tail -3"
+
+    step "without a mouse, without sight"
+    run "labels, headings, contrast, tab order" bash -c "cd frontend && API_URL='$API' APP_URL='$APP' node scripts/a11y.mjs | tail -3"
   else
     echo
     echo "No web app on $APP — skipping the page sweep."

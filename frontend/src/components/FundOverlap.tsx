@@ -51,7 +51,7 @@ export function FundOverlap() {
               className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2.5"
             >
               <span className="text-sm text-muted-foreground">
-                {p.a_name} <span className="text-muted-foreground/50">and</span>{' '}
+                {p.a_name} <span className="text-muted-foreground">and</span>{' '}
                 {p.b_name}
               </span>
               <span className="flex items-baseline gap-3">
