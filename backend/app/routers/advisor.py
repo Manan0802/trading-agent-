@@ -186,9 +186,7 @@ def update_profile(
     return _profile_out(stored)
 
 
-def _reprice(
-    goal: Goal, *, risk_profile: str, annual_return_rate: float
-) -> tuple[dict, dict]:
+def _reprice(goal: Goal, *, annual_return_rate: float = 0.12) -> tuple[dict, dict]:
     """Recompute everything a goal's inputs decide, in place.
 
     Shared by create and edit rather than written twice. An edit that changed
@@ -209,7 +207,10 @@ def _reprice(
         goal.current_savings,
         goal.inflation_rate,
     )
-    alloc = get_allocation(goal.years, risk_profile)
+    # From the goal's own stored risk profile. Taking it from the request meant
+    # an edit that did not mention risk — a rename, a new target — silently fell
+    # back to "moderate" and rebuilt the split around it.
+    alloc = get_allocation(goal.years, goal.risk_profile)
     goal.required_monthly_sip = sip["required_monthly_sip"]
     goal.equity_allocation = alloc["equity"]
     goal.debt_allocation = alloc["debt"]
@@ -239,12 +240,9 @@ def create_goal(
         target_date=body.target_date,
         years=body.years,
         inflation_rate=inflation_rate,
-    )
-    sip, alloc = _reprice(
-        goal,
         risk_profile=body.risk_profile,
-        annual_return_rate=body.annual_return_rate,
     )
+    sip, alloc = _reprice(goal, annual_return_rate=body.annual_return_rate)
     goal.llm_explanation = get_goal_explanation(
         {"goal_name": goal.goal_name, "target_amount": goal.target_amount, "years": goal.years},
         sip,
@@ -290,11 +288,9 @@ def update_goal(
     if fields.get("inflation_rate") is not None:
         goal.inflation_rate = fields["inflation_rate"]
 
-    sip, alloc = _reprice(
-        goal,
-        risk_profile=body.risk_profile or "moderate",
-        annual_return_rate=body.annual_return_rate or 0.12,
-    )
+    if fields.get("risk_profile") is not None:
+        goal.risk_profile = fields["risk_profile"]
+    sip, alloc = _reprice(goal, annual_return_rate=body.annual_return_rate or 0.12)
     # Regenerated, not kept. The explanation names the monthly figure and the
     # split; left alone after an edit it would describe a plan that is no
     # longer on the page it sits on.

@@ -27,6 +27,7 @@ import {
   gainClass,
 } from '@/lib/format'
 import {
+  PORTFOLIO_QUERY_KEYS,
   deleteHolding,
   fetchBenchmark,
   fetchHistory,
@@ -77,9 +78,12 @@ function HoldingRow({ holding }: { holding: HoldingSummary }) {
   const remove = useMutation({
     mutationFn: () => deleteHolding(holding.holding_id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['portfolio'] })
-      queryClient.invalidateQueries({ queryKey: ['benchmark'] })
-      queryClient.invalidateQueries({ queryKey: ['history'] })
+      // Every view that reads the holdings list, not the three somebody
+      // remembered at the time. The cost review, the levers, the overlap and
+      // the filings all kept describing a fund that had just been deleted.
+      for (const key of PORTFOLIO_QUERY_KEYS) {
+        queryClient.invalidateQueries({ queryKey: [key] })
+      }
     },
   })
 

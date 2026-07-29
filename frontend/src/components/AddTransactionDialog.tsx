@@ -21,7 +21,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatInr } from '@/lib/format'
-import { addTransaction, type HoldingSummary } from '@/lib/portfolio-api'
+import { addTransaction, type HoldingSummary,
+  PORTFOLIO_QUERY_KEYS,
+} from '@/lib/portfolio-api'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -45,8 +47,11 @@ export function AddTransactionDialog({ holding }: { holding: HoldingSummary }) {
         price: Number(price),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['portfolio'] })
-      queryClient.invalidateQueries({ queryKey: ['benchmark'] })
+      for (const key of PORTFOLIO_QUERY_KEYS) {
+
+        queryClient.invalidateQueries({ queryKey: [key] })
+
+      }
       setUnits('')
       setPrice('')
       setError(null)

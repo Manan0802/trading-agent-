@@ -2,6 +2,25 @@ import { api } from '@/lib/api'
 
 export type AssetType = 'MF' | 'STOCK'
 
+/**
+ * Every query whose answer depends on which holdings exist.
+ *
+ * Listed in one place because it was previously spelled out at each call site
+ * and the lists drifted: adding a holding refreshed three of them, deleting one
+ * refreshed a different three, and nothing anywhere refreshed the filings. The
+ * cost review, the levers and the overlap all kept quoting a fund that had just
+ * been deleted until the page was reloaded.
+ */
+export const PORTFOLIO_QUERY_KEYS = [
+  'portfolio',
+  'benchmark',
+  'history',
+  'cost-review',
+  'levers',
+  'overlap',
+  'announcements',
+] as const
+
 export type HoldingSummary = {
   holding_id: string
   name: string

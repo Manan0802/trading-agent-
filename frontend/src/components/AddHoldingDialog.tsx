@@ -21,7 +21,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { FundPicker, type PickedScheme } from '@/components/FundPicker'
-import { createHolding, type AssetType } from '@/lib/portfolio-api'
+import {
+  PORTFOLIO_QUERY_KEYS,
+  createHolding,
+  type AssetType,
+} from '@/lib/portfolio-api'
 
 export function AddHoldingDialog() {
   const queryClient = useQueryClient()
@@ -53,10 +57,9 @@ export function AddHoldingDialog() {
         identifier: finalIdentifier,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['portfolio'] })
-      queryClient.invalidateQueries({ queryKey: ['cost-review'] })
-      queryClient.invalidateQueries({ queryKey: ['levers'] })
-      queryClient.invalidateQueries({ queryKey: ['overlap'] })
+      for (const key of PORTFOLIO_QUERY_KEYS) {
+        queryClient.invalidateQueries({ queryKey: [key] })
+      }
       reset()
       setError(null)
       setOpen(false)

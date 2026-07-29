@@ -199,3 +199,58 @@ class TestOtherPeoplesGoals:
         goal = _goal(mine)
         assert client.delete(f"/api/v1/goals/{goal['id']}", headers=theirs).status_code == 404
         assert client.get(f"/api/v1/goals/{goal['id']}", headers=mine).status_code == 200
+
+
+class TestTheRiskChoiceSurvivesAnEdit:
+    """The user picks a risk profile on the create form and it decides the
+    equity split. Only the split was stored, so an edit had nothing to recompute
+    it from and fell back to "moderate": renaming an aggressive goal quietly cut
+    its equity from 85% to 75% and rebuilt the whole fund plan around the wrong
+    mix, with no field on the edit form that would explain why."""
+
+    def test_renaming_an_aggressive_goal_does_not_make_it_moderate(self):
+        headers = _user("risk-rename@example.com")
+        goal = _goal(headers, risk_profile="aggressive", years=25, target_date="2051-06-01")
+        assert goal["risk_profile"] == "aggressive"
+
+        after = client.patch(
+            f"/api/v1/goals/{goal['id']}", json={"goal_name": "Renamed"}, headers=headers
+        ).json()
+        assert after["risk_profile"] == "aggressive"
+        assert after["equity_allocation"] == goal["equity_allocation"]
+
+    def test_a_conservative_goal_stays_conservative_through_a_target_change(self):
+        headers = _user("risk-target@example.com")
+        goal = _goal(headers, risk_profile="conservative")
+        after = client.patch(
+            f"/api/v1/goals/{goal['id']}",
+            json={"target_amount": 9_000_000},
+            headers=headers,
+        ).json()
+        assert after["equity_allocation"] == goal["equity_allocation"]
+
+    def test_the_risk_profile_can_still_be_changed_on_purpose(self):
+        headers = _user("risk-change@example.com")
+        goal = _goal(headers, risk_profile="conservative", years=25, target_date="2051-06-01")
+        after = client.patch(
+            f"/api/v1/goals/{goal['id']}",
+            json={"risk_profile": "aggressive"},
+            headers=headers,
+        ).json()
+        assert after["risk_profile"] == "aggressive"
+        assert after["equity_allocation"] > goal["equity_allocation"]
+
+    def test_three_risk_profiles_give_three_different_splits(self):
+        """If they did not, the test above would pass for the wrong reason."""
+        headers = _user("risk-distinct@example.com")
+        splits = {
+            profile: _goal(
+                headers,
+                goal_name=profile,
+                risk_profile=profile,
+                years=25,
+                target_date="2051-06-01",
+            )["equity_allocation"]
+            for profile in ("conservative", "moderate", "aggressive")
+        }
+        assert len(set(splits.values())) == 3

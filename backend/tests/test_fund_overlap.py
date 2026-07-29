@@ -144,3 +144,47 @@ def test_every_pair_is_reported_once(count):
     ]
     report = analyse_overlap(funds)
     assert len(report.pairs) == count * (count - 1) // 2
+
+
+class TestAGapInTheDataIsNotDiversification:
+    """An unmeasured pair kept the correlation matrix's default 0, and 0 reads
+    as "perfectly diversifying" — the opposite of what not knowing means. The
+    pairs list already refused to say it; the diversification score did not."""
+
+    def test_a_fund_that_cannot_be_measured_is_not_counted_as_a_free_bet(self):
+        market = _market(60, seed=41)
+        a = _series(market)
+        b = _series([m + 0.001 * n for m, n in zip(market, _market(60, seed=42))])
+        frozen = _series([0.0] * 60)
+
+        with_frozen = analyse_overlap(
+            [("a", "A", a), ("b", "B", b), ("f", "Frozen", frozen)]
+        )
+        without = analyse_overlap([("a", "A", a), ("b", "B", b)])
+
+        # A and B move together, so both readings must say "about one bet".
+        # Before the fix the frozen fund added a whole independent position.
+        assert with_frozen.effective_positions == pytest.approx(
+            without.effective_positions, abs=0.05
+        )
+        assert with_frozen.counted == 2
+
+    def test_the_summary_counts_only_the_funds_it_could_compare(self):
+        market = _market(60, seed=43)
+        report = analyse_overlap(
+            [
+                ("a", "A", _series(market)),
+                ("b", "B", _series(market)),
+                ("f", "Frozen", _series([0.0] * 60)),
+            ]
+        )
+        assert "3 funds" not in report.summary
+        assert report.counted == 2
+
+    def test_everything_measurable_still_counts_every_fund(self):
+        funds = [
+            (f"f{i}", f"Fund {i}", _series(_market(70, seed=50 + i))) for i in range(4)
+        ]
+        report = analyse_overlap(funds)
+        assert report.counted == 4
+        assert report.effective_positions > 3.0

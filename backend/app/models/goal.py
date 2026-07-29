@@ -19,6 +19,11 @@ class Goal(Base):
     # Persisted rather than re-derived: the goal-type table can change, and a
     # saved plan must stay reproducible from its own stored inputs.
     inflation_rate: Mapped[float | None] = mapped_column(default=None)
+    # Same reason. Only its effect — the equity/debt/gold split — used to be
+    # stored, so an edit had nothing to recompute that split from and fell back
+    # to "moderate": renaming an aggressive goal quietly cut its equity from
+    # 85% to 75% and rebuilt the fund plan around the wrong mix.
+    risk_profile: Mapped[str] = mapped_column(default="moderate")
     required_monthly_sip: Mapped[float | None] = mapped_column(default=None)
     equity_allocation: Mapped[int | None] = mapped_column(default=None)
     debt_allocation: Mapped[int | None] = mapped_column(default=None)

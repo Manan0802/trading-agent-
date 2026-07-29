@@ -42,6 +42,7 @@ class GoalOut(BaseModel):
     id: str
     goal_type: str
     goal_name: str
+    risk_profile: str
     target_amount: float
     # Both needed by the goals list: a goal without its due date or what is
     # already saved toward it is a name and a number, not a plan.

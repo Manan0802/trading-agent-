@@ -51,6 +51,9 @@ class OverlapReport:
     # Roughly how many genuinely separate positions the holdings amount to.
     # Four funds that all move together are one bet, not four.
     effective_positions: float | None
+    # Funds every other fund could be measured against. The effective-positions
+    # figure covers only these; a fund with an unmeasurable pair is excluded
+    # rather than credited as independent.
     counted: int
     # Funds left out, and why. Never dropped silently.
     excluded: dict[str, str]
@@ -113,6 +116,24 @@ def _effective_positions(matrix: np.ndarray) -> float | None:
     return float(np.exp(entropy))
 
 
+def _fully_measured_block(measured: np.ndarray) -> list[int]:
+    """The largest set of funds where every pair inside it was measured.
+
+    Not "every fund whose row is complete" — one unmeasurable fund would fail
+    every other fund's row and throw away the whole reading. The fund with the
+    most gaps is dropped, and the rest are re-checked, until what remains is a
+    block with no holes in it.
+    """
+    keep = list(range(measured.shape[0]))
+    while len(keep) > 1:
+        block = measured[np.ix_(keep, keep)]
+        if block.all():
+            break
+        gaps = (~block).sum(axis=1)
+        keep.pop(int(np.argmax(gaps)))
+    return keep
+
+
 def analyse_overlap(
     funds: list[tuple[str, str, list[NavPoint]]],
     *,
@@ -150,6 +171,12 @@ def analyse_overlap(
     pairs: list[Pair] = []
     size = len(usable)
     matrix = np.eye(size)
+    # Which cells we actually measured. An unset cell keeps np.eye's 0, and 0
+    # means "perfectly diversifying" — the opposite of what an unmeasured pair
+    # tells us. Left in, a fund we could not correlate against anything was
+    # counted as a whole extra independent bet: three funds where two move
+    # together at 0.95 read as 2.0 separate bets instead of 1.1.
+    measured = np.eye(size, dtype=bool)
     for i in range(size):
         for j in range(i + 1, size):
             a_returns, b_returns = _aligned_returns(usable[i][2], usable[j][2])
@@ -162,6 +189,7 @@ def analyse_overlap(
                 continue
             correlation = float(np.corrcoef(a_returns, b_returns)[0, 1])
             matrix[i, j] = matrix[j, i] = correlation
+            measured[i, j] = measured[j, i] = True
             pairs.append(
                 Pair(
                     a=usable[i][0],
@@ -174,7 +202,10 @@ def analyse_overlap(
             )
 
     pairs.sort(key=lambda p: -p.correlation)
-    effective = _effective_positions(matrix)
+    known = _fully_measured_block(measured)
+    effective = (
+        _effective_positions(matrix[np.ix_(known, known)]) if len(known) > 1 else None
+    )
 
     duplicates = [p for p in pairs if p.correlation >= DUPLICATE_ABOVE]
     if not pairs:
@@ -188,8 +219,8 @@ def analyse_overlap(
             f"{worst.a_name} and {worst.b_name} moved together "
             f"{worst.correlation:.2f} of the time over {worst.months} months. "
             "Holding both is one position with two sets of paperwork. Across "
-            f"all {size} funds you are running about "
-            f"{effective:.1f} genuinely separate bets."
+            f"the {len(known)} funds we could compare against every other, you "
+            f"are running about {effective:.1f} genuinely separate bets."
             if effective
             else f"{worst.a_name} and {worst.b_name} moved together "
             f"{worst.correlation:.2f} of the time."
@@ -198,8 +229,9 @@ def analyse_overlap(
         summary = (
             f"Nothing here is a duplicate of anything else. The closest pair is "
             f"{pairs[0].a_name} and {pairs[0].b_name} at "
-            f"{pairs[0].correlation:.2f}, and across all {size} funds you are "
-            f"running about {effective:.1f} separate bets."
+            f"{pairs[0].correlation:.2f}, and across the {len(known)} funds we "
+            f"could compare against every other, you are running about "
+            f"{effective:.1f} separate bets."
             if effective
             else "Nothing here is a duplicate of anything else."
         )
@@ -207,7 +239,7 @@ def analyse_overlap(
     return OverlapReport(
         pairs=pairs,
         effective_positions=round(effective, 2) if effective else None,
-        counted=size,
+        counted=len(known),
         excluded=excluded,
         summary=summary,
     )
