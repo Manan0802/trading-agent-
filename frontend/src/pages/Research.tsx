@@ -755,12 +755,18 @@ function StockScreen({
               dear while saying nothing about either business.
             </p>
             <p className="max-w-3xl text-sm text-muted-foreground">
-              Unlike the fund score, this one has not been backtested: point-in-time
-              fundamentals for past years are not something we can get, so we cannot
-              say whether a high score has predicted anything. Treat it as a
-              structured way to read a balance sheet against its peers, not as a
-              forecast. One year of earnings growth carries a quarter of the score,
-              which flatters whichever sector is at the top of its cycle.
+              This score has not been shown to predict. It has now been tested
+              the way the fund score was — reconstructing each company&rsquo;s
+              figures as they stood at past year ends, six months on so only
+              filed numbers count — and across the NIFTY 500 the top quartile
+              beat the bottom in both years there is data for, by about ten
+              percentage points. Two years is not evidence. A score with no
+              skill lands two years the same way a quarter of the time, so the
+              wording here stays as it is until the sample reaches five.
+              Meanwhile treat it as a structured way to read a balance sheet
+              against its peers, not a forecast: one year of earnings growth
+              carries a quarter of the score, which flatters whichever sector is
+              at the top of its cycle.
             </p>
 
             {data.unscorable.length > 0 && (
