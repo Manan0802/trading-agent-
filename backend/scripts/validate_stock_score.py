@@ -19,6 +19,7 @@ coin. Anything less and the screen has to say so.
 """
 
 import argparse
+import csv
 import statistics
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -46,6 +47,15 @@ _MIN_SECTOR_PEERS = 4
 # time, and an earlier version of this script called that success — which is the
 # exact self-flattery this whole app exists to avoid.
 _MIN_YEARS_TO_CLAIM = 5
+
+# Every run appends here. yfinance serves a *rolling* five fiscal years: as a
+# new year becomes usable, the oldest ages out at about the same rate. Without
+# somewhere to keep them, re-running this in two years would still show two or
+# three usable years and the sample would never reach the bar above — which
+# would put quiet pressure on lowering the bar instead of meeting it.
+_LEDGER = (
+    Path(__file__).resolve().parent.parent / "app" / "data" / "stock_score_ledger.csv"
+)
 
 
 @dataclass(frozen=True)
@@ -212,16 +222,115 @@ def _point_in_time_benchmarks(cohort: list[Observation]) -> dict[str, dict]:
     return benchmarks
 
 
+def _rank_ic(scored: list[tuple[float, float, str]]) -> float | None:
+    """Spearman correlation between score and forward return, within one year.
+
+    The quartile spread throws away almost everything: two hundred companies
+    become a single win-or-lose bit, and five years of those is the earliest any
+    claim could be made. This uses every company in the cross-section, so the
+    two or three years already in hand carry real weight — it is the information
+    coefficient a factor researcher would ask for first.
+    """
+    if len(scored) < 20:
+        return None
+    scores = [s for s, _, _ in scored]
+    returns = [r for _, r, _ in scored]
+    n = len(scores)
+
+    def ranks(values: list[float]) -> list[float]:
+        order = sorted(range(n), key=lambda i: values[i])
+        out = [0.0] * n
+        i = 0
+        while i < n:
+            j = i
+            while j + 1 < n and values[order[j + 1]] == values[order[i]]:
+                j += 1
+            shared = (i + j) / 2 + 1
+            for k in range(i, j + 1):
+                out[order[k]] = shared
+            i = j + 1
+        return out
+
+    x, y = ranks(scores), ranks(returns)
+    mx, my = statistics.mean(x), statistics.mean(y)
+    cov = sum((a - mx) * (b - my) for a, b in zip(x, y))
+    denom = (
+        sum((a - mx) ** 2 for a in x) * sum((b - my) ** 2 for b in y)
+    ) ** 0.5
+    return cov / denom if denom else None
+
+
+def _remember(rows: list[dict], universe: str, lag: int) -> None:
+    """Append this run's years, keyed by the experiment that produced them.
+
+    Universe and lag are part of the key because they are different
+    experiments, not different samples of one. A NIFTY 50 run and a NIFTY 500
+    run of the same year disagree sharply, and pooling them under a bare year
+    would blend two answers into one that is neither.
+    """
+    if not rows:
+        return
+    existing: dict[tuple, dict] = {}
+    if _LEDGER.exists():
+        with _LEDGER.open() as fh:
+            for row in csv.DictReader(fh):
+                existing[(row["universe"], row["lag_months"], row["year"])] = row
+    for r in rows:
+        existing[(universe, str(lag), r["year"])] = {
+            "universe": universe,
+            "lag_months": lag,
+            "year": r["year"],
+            "n": r["n"],
+            "top": f"{r['top']:.6f}",
+            "bottom": f"{r['bottom']:.6f}",
+            "spread": f"{r['spread']:.6f}",
+            "ic": "" if r["ic"] is None else f"{r['ic']:.6f}",
+        }
+    _LEDGER.parent.mkdir(parents=True, exist_ok=True)
+    with _LEDGER.open("w", newline="") as fh:
+        writer = csv.DictWriter(
+            fh,
+            fieldnames=["universe", "lag_months", "year", "n", "top", "bottom", "spread", "ic"],
+        )
+        writer.writeheader()
+        for key in sorted(existing):
+            writer.writerow(existing[key])
+
+
+def _merged_with_ledger(rows: list[dict], universe: str, lag: int) -> list[dict]:
+    """This run's years plus earlier years from the same experiment only."""
+    if not _LEDGER.exists():
+        return rows
+    by_year = {r["year"]: r for r in rows}
+    with _LEDGER.open() as fh:
+        for row in csv.DictReader(fh):
+            if row.get("universe") != universe or row.get("lag_months") != str(lag):
+                continue
+            if row["year"] in by_year:
+                continue
+            by_year[row["year"]] = {
+                "year": row["year"],
+                "n": int(row["n"]),
+                "top": float(row["top"]),
+                "bottom": float(row["bottom"]),
+                "spread": float(row["spread"]),
+                "ic": float(row["ic"]) if row["ic"] else None,
+                "best": "",
+                "from_ledger": True,
+            }
+    return [by_year[y] for y in sorted(by_year)]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--index", default="NIFTY 50")
-    parser.add_argument("--limit", type=int, default=60)
+    parser.add_argument("--index", default="NIFTY 500")
+    parser.add_argument("--limit", type=int, default=500)
     # Indian companies file annual results up to six months after the year end.
     # Scoring on the year-end date uses numbers nobody had yet, and starts the
     # forward return before the market could have reacted to them — which is
     # worth a great deal in a year the market ran. This is the lag that turns
     # the test from "what the data says" into "what an investor could have done".
-    parser.add_argument("--lag-months", type=int, default=0)
+    parser.add_argument("--lag-months", type=int, default=6)
     args = parser.parse_args()
 
     entries = list_stocks(index=args.index)[: args.limit]
@@ -285,6 +394,7 @@ def main() -> int:
             scored.append((result.total, o.forward_return, o.name))
 
         scored.sort(key=lambda t: -t[0])
+        ic = _rank_ic(scored)
         n = max(1, len(scored) // 4)
         top = [r for _, r, _ in scored[:n]]
         bottom = [r for _, r, _ in scored[-n:]]
@@ -295,9 +405,13 @@ def main() -> int:
                 "top": statistics.mean(top),
                 "bottom": statistics.mean(bottom),
                 "spread": statistics.mean(top) - statistics.mean(bottom),
+                "ic": ic,
                 "best": scored[0][2],
             }
         )
+
+    _remember(rows, args.index, args.lag_months)
+    rows = _merged_with_ledger(rows, args.index, args.lag_months)
 
     if not rows:
         print(
@@ -306,12 +420,16 @@ def main() -> int:
         )
         return 1
 
-    print(f"{'year':<12}{'n':>4}{'top qtr':>10}{'bottom qtr':>12}{'spread':>10}  top pick")
-    print("-" * 78)
+    print(
+        f"{'year':<12}{'n':>5}{'top qtr':>10}{'bottom qtr':>12}{'spread':>9}{'IC':>8}"
+    )
+    print("-" * 56)
     for r in rows:
+        ic = f"{r['ic']:+.3f}" if r["ic"] is not None else "   —"
+        mark = " (earlier run)" if r.get("from_ledger") else ""
         print(
-            f"{r['year']:<12}{r['n']:>4}{r['top']:>9.1%}{r['bottom']:>12.1%}"
-            f"{r['spread']:>10.1%}  {r['best'][:26]}"
+            f"{r['year']:<12}{r['n']:>5}{r['top']:>9.1%}{r['bottom']:>12.1%}"
+            f"{r['spread']:>9.1%}{ic:>8}{mark}"
         )
 
     wins = sum(1 for r in rows if r["spread"] > 0)
@@ -319,6 +437,25 @@ def main() -> int:
     print("-" * 78)
     print(f"\ntop quartile beat bottom quartile in {wins} of {len(rows)} years")
     print(f"average spread: {mean_spread:+.1%} a year")
+
+    ics = [r["ic"] for r in rows if r["ic"] is not None]
+    if len(ics) >= 2:
+        mean_ic = statistics.mean(ics)
+        # Fama-MacBeth: treat each year's IC as one draw and ask whether their
+        # mean is distinguishable from zero. Still few draws, but each one is
+        # built from hundreds of companies rather than a coin flip.
+        se = statistics.stdev(ics) / (len(ics) ** 0.5)
+        t = mean_ic / se if se else 0.0
+        print(
+            f"\nmean information coefficient {mean_ic:+.3f} across {len(ics)} "
+            f"years (t = {t:+.2f})"
+        )
+        print(
+            "  An IC near zero means the score's ranking and the following "
+            "year's\n  returns are unrelated. |t| above about 2 would be the "
+            "conventional bar,\n  and with this few years it is indicative "
+            "rather than conclusive."
+        )
     print()
 
     if len(rows) < _MIN_YEARS_TO_CLAIM:

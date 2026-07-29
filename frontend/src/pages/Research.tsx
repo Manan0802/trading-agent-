@@ -755,18 +755,19 @@ function StockScreen({
               dear while saying nothing about either business.
             </p>
             <p className="max-w-3xl text-sm text-muted-foreground">
-              This score has not been shown to predict. It has now been tested
-              the way the fund score was — reconstructing each company&rsquo;s
-              figures as they stood at past year ends, six months on so only
-              filed numbers count — and across the NIFTY 500 the top quartile
-              beat the bottom in both years there is data for, by about ten
-              percentage points. Two years is not evidence. A score with no
-              skill lands two years the same way a quarter of the time, so the
-              wording here stays as it is until the sample reaches five.
-              Meanwhile treat it as a structured way to read a balance sheet
-              against its peers, not a forecast: one year of earnings growth
-              carries a quarter of the score, which flatters whichever sector is
-              at the top of its cycle.
+              This score has not been shown to predict, and it has now been
+              tested the way the fund score was — each company&rsquo;s figures
+              rebuilt as they stood at past year ends, six months on so only
+              published numbers count. Across the NIFTY 500 its top quartile
+              beat its bottom by about ten percentage points. Across the NIFTY
+              50 it <em>lost</em> by five, ranking the large caps faintly
+              backwards. An answer that inverts when you change the index is not
+              a signal, and the likeliest reading of the wider number is that
+              2023&ndash;24 was a historic run for small caps rather than that
+              the score saw anything. So read it as a structured way to compare
+              a balance sheet against its own sector, not a forecast: one year
+              of earnings growth carries a quarter of it, which flatters
+              whichever sector is at the top of its cycle.
             </p>
 
             {data.unscorable.length > 0 && (
