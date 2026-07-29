@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { FundPicker, type PickedScheme } from '@/components/FundPicker'
 import { createHolding, type AssetType } from '@/lib/portfolio-api'
 
 export function AddHoldingDialog() {
@@ -28,15 +29,35 @@ export function AddHoldingDialog() {
   const [assetType, setAssetType] = useState<AssetType>('MF')
   const [name, setName] = useState('')
   const [identifier, setIdentifier] = useState('')
+  // A fund is chosen from AMFI rather than typed, so its name and code cannot
+  // disagree. A stock is still typed: NSE tickers are short, printed on every
+  // statement, and we have no search behind them.
+  const [scheme, setScheme] = useState<PickedScheme | null>(null)
+
+  const isMF = assetType === 'MF'
+  const finalName = isMF ? scheme?.scheme_name ?? '' : name
+  const finalIdentifier = isMF ? scheme?.scheme_code ?? '' : identifier.trim()
   const [error, setError] = useState<string | null>(null)
+
+  const reset = () => {
+    setName('')
+    setIdentifier('')
+    setScheme(null)
+  }
 
   const create = useMutation({
     mutationFn: () =>
-      createHolding({ name, asset_type: assetType, identifier: identifier.trim() }),
+      createHolding({
+        name: finalName,
+        asset_type: assetType,
+        identifier: finalIdentifier,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio'] })
-      setName('')
-      setIdentifier('')
+      queryClient.invalidateQueries({ queryKey: ['cost-review'] })
+      queryClient.invalidateQueries({ queryKey: ['levers'] })
+      queryClient.invalidateQueries({ queryKey: ['overlap'] })
+      reset()
       setError(null)
       setOpen(false)
     },
@@ -66,10 +87,17 @@ export function AddHoldingDialog() {
             <Label htmlFor="asset_type">Type</Label>
             <Select
               value={assetType}
-              onValueChange={(v) => setAssetType(v as AssetType)}
+              onValueChange={(v) => {
+                setAssetType(v as AssetType)
+                reset()
+              }}
             >
               <SelectTrigger id="asset_type" className="w-full">
-                <SelectValue />
+                {/* Rendered explicitly: the bare value showed the raw code
+                    "MF" in the closed trigger instead of "Mutual fund". */}
+                <SelectValue>
+                  {(value) => (value === 'STOCK' ? 'Stock' : 'Mutual fund')}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="MF">Mutual fund</SelectItem>
@@ -78,44 +106,46 @@ export function AddHoldingDialog() {
             </Select>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              required
-              placeholder={
-                assetType === 'MF'
-                  ? 'Parag Parikh Flexi Cap Direct Growth'
-                  : 'Reliance Industries'
-              }
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
+          {isMF ? (
+            <FundPicker picked={scheme} onPick={setScheme} />
+          ) : (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  required
+                  placeholder="Reliance Industries"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="identifier">
-              {assetType === 'MF' ? 'AMFI scheme code' : 'NSE ticker'}
-            </Label>
-            <Input
-              id="identifier"
-              required
-              placeholder={assetType === 'MF' ? '122639' : 'RELIANCE.NS'}
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {assetType === 'MF'
-                ? 'This is what we fetch the daily NAV with.'
-                : 'NSE tickers end in .NS, which is what we fetch the live price with.'}
-            </p>
-          </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="identifier">NSE ticker</Label>
+                <Input
+                  id="identifier"
+                  required
+                  placeholder="RELIANCE.NS"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  NSE tickers end in .NS, which is what we fetch the live price
+                  with.
+                </p>
+              </div>
+            </>
+          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" type="button">Cancel</Button>} />
-            <Button type="submit" disabled={create.isPending}>
+            <Button
+              type="submit"
+              disabled={create.isPending || !finalName || !finalIdentifier}
+            >
               {create.isPending ? 'Adding…' : 'Add holding'}
             </Button>
           </DialogFooter>
