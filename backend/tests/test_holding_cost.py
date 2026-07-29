@@ -29,7 +29,7 @@ def test_a_regular_holding_is_priced_over_the_years_left():
     """0.65pp sounds small. What it takes out of a real balance over a real
     horizon does not."""
     review = cost_review(
-        holdings=[{"name": "X Fund - Regular Plan - Growth", "value": 500000, "ter_gap": 0.0065}],
+        holdings=[{"name": "X Fund - Regular Plan - Growth", "plan": "regular", "value": 500000, "ter_gap": 0.0065}],
         years_remaining=15,
     )
     assert review.annual_cost == pytest.approx(3250, abs=1)
@@ -38,7 +38,7 @@ def test_a_regular_holding_is_priced_over_the_years_left():
 
 def test_a_direct_holding_costs_nothing_extra():
     review = cost_review(
-        holdings=[{"name": "X Fund - Direct Plan - Growth", "value": 500000, "ter_gap": 0.0065}],
+        holdings=[{"name": "X Fund - Direct Plan - Growth", "plan": "direct", "value": 500000, "ter_gap": 0.0065}],
         years_remaining=15,
     )
     assert review.annual_cost == 0
@@ -48,8 +48,8 @@ def test_a_direct_holding_costs_nothing_extra():
 def test_only_the_regular_holdings_are_flagged():
     review = cost_review(
         holdings=[
-            {"name": "A - Direct Plan - Growth", "value": 300000, "ter_gap": 0.006},
-            {"name": "B - Regular Plan - Growth", "value": 200000, "ter_gap": 0.009},
+            {"name": "A - Direct Plan - Growth", "plan": "direct", "value": 300000, "ter_gap": 0.006},
+            {"name": "B - Regular Plan - Growth", "plan": "regular", "value": 200000, "ter_gap": 0.009},
             {"name": "C Fund - Growth", "value": 100000, "ter_gap": 0.007},
         ],
         years_remaining=10,
@@ -61,7 +61,7 @@ def test_a_holding_without_a_published_gap_is_not_priced():
     """AMFI does not file a TER for every scheme. An unpriced holding is
     reported as unknown rather than assigned an average."""
     review = cost_review(
-        holdings=[{"name": "B - Regular Plan - Growth", "value": 200000, "ter_gap": None}],
+        holdings=[{"name": "B - Regular Plan - Growth", "plan": "regular", "value": 200000, "ter_gap": None}],
         years_remaining=10,
     )
     assert review.annual_cost == 0
@@ -72,7 +72,7 @@ def test_the_lifetime_figure_compounds_rather_than_multiplying():
     """The fee comes out of a balance that would otherwise have grown, so the
     cost of paying it compounds too."""
     review = cost_review(
-        holdings=[{"name": "B - Regular Plan", "value": 1000000, "ter_gap": 0.01}],
+        holdings=[{"name": "B - Regular Plan", "plan": "regular", "value": 1000000, "ter_gap": 0.01}],
         years_remaining=20,
         assumed_return=0.12,
     )
@@ -82,7 +82,7 @@ def test_the_lifetime_figure_compounds_rather_than_multiplying():
 
 def test_zero_years_remaining_has_no_lifetime_cost():
     review = cost_review(
-        holdings=[{"name": "B - Regular Plan", "value": 100000, "ter_gap": 0.01}],
+        holdings=[{"name": "B - Regular Plan", "plan": "regular", "value": 100000, "ter_gap": 0.01}],
         years_remaining=0,
     )
     assert review.lifetime_cost == 0
@@ -97,7 +97,7 @@ def test_the_summary_says_what_to_do_and_names_the_catch():
     """Switching is a redemption, so it is a taxable event. Telling someone to
     switch without saying that is bad advice."""
     review = cost_review(
-        holdings=[{"name": "B - Regular Plan - Growth", "value": 400000, "ter_gap": 0.008}],
+        holdings=[{"name": "B - Regular Plan - Growth", "plan": "regular", "value": 400000, "ter_gap": 0.008}],
         years_remaining=12,
     )
     assert "₹" in review.summary
@@ -106,13 +106,13 @@ def test_the_summary_says_what_to_do_and_names_the_catch():
 
 def test_the_summary_reads_correctly_for_one_fund_and_for_several():
     one = cost_review(
-        holdings=[{"name": "A - Regular Plan", "value": 100000, "ter_gap": 0.006}],
+        holdings=[{"name": "A - Regular Plan", "plan": "regular", "value": 100000, "ter_gap": 0.006}],
         years_remaining=10,
     )
     many = cost_review(
         holdings=[
-            {"name": "A - Regular Plan", "value": 100000, "ter_gap": 0.006},
-            {"name": "B - Regular Plan", "value": 100000, "ter_gap": 0.006},
+            {"name": "A - Regular Plan", "plan": "regular", "value": 100000, "ter_gap": 0.006},
+            {"name": "B - Regular Plan", "plan": "regular", "value": 100000, "ter_gap": 0.006},
         ],
         years_remaining=10,
     )

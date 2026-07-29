@@ -40,13 +40,29 @@ export function CostReview({ yearsRemaining = 15 }: { yearsRemaining?: number })
         <ul className="flex flex-col divide-y border-y">
           {data.flagged.map((f) => (
             <li key={f.name} className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2.5">
-              <div className="flex flex-col">
+              <div className="flex max-w-2xl flex-col gap-0.5">
                 <span className="text-sm leading-tight">{f.name}</span>
                 <span className="tnum text-xs text-muted-foreground">
                   {formatInr(f.value)} held &middot;{' '}
                   {formatPercent(f.ter_gap, { signed: false })} a year more than the
                   direct plan
                 </span>
+                {/* The scheme to actually buy. Without this the advice stops at
+                    "switch to the direct plan" and the reader is left guessing
+                    in a broker's search box, which is where a plan like this
+                    dies. */}
+                {f.direct_name && (
+                  <span className="text-xs leading-snug text-muted-foreground">
+                    Buy instead:{' '}
+                    <span className="text-foreground">{f.direct_name}</span>
+                    {f.direct_code && (
+                      <>
+                        {' '}
+                        <span className="tnum">(AMFI {f.direct_code})</span>
+                      </>
+                    )}
+                  </span>
+                )}
               </div>
               <span className="num text-sm text-loss">
                 {formatInr(f.annual_cost)}/yr

@@ -92,6 +92,11 @@ class FlaggedHoldingOut(BaseModel):
     value: float
     ter_gap: float
     annual_cost: float
+    # The scheme to buy instead, when we can name it with confidence. Without
+    # this "switch to the direct plan" is a sentiment, and the user is left in
+    # a broker's search box guessing which of eleven similar names is the pair.
+    direct_code: str | None = None
+    direct_name: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -93,3 +93,10 @@ def funds_matching(category: str, name_contains: str) -> list[CatalogueFund]:
     """
     needle = name_contains.lower()
     return [f for f in _by_category().get(category, ()) if needle in f.name.lower()]
+
+
+@lru_cache(maxsize=1)
+def all_funds() -> tuple[CatalogueFund, ...]:
+    """Every scheme in the catalogue, flat. Used to find a regular plan's
+    direct twin, which is a search across categories rather than within one."""
+    return tuple(f for funds in _by_category().values() for f in funds)

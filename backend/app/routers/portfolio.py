@@ -35,6 +35,7 @@ from app.services.marketdata import announcements as filings
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
 from app.services.portfolio.holding_cost import cost_review
+from app.services.portfolio.plan_identity import identify
 from app.services.portfolio.fifo import TxnInput, apply_fifo
 from app.services.portfolio.valuation import HoldingInput, value_portfolio
 
@@ -194,6 +195,47 @@ def get_benchmark_comparison(
     )
 
 
+def _priced_holdings(holdings: list[Holding], values: dict[str, float]) -> list[dict]:
+    """Each holding resolved to what it actually is, and what it costs.
+
+    Two things used to go wrong here and cancelled into a plausible-looking
+    number. Plan type was read off the name the user typed, so a direct plan
+    labelled "Regular" was billed for a switch it did not need. And the expense
+    ratio was looked up under the holding's own scheme code — but AMFI files
+    both plans' ratios under the *direct* code, so a genuine regular holding
+    found nothing and was quietly dropped as unpriceable. The people the cost
+    review exists for were the only ones it did not work for.
+
+    Both are the same fix: resolve the scheme, then price the pair.
+    """
+    fees = expense_ratios()
+    priced: list[dict] = []
+    for holding in holdings:
+        if holding.asset_type != "MF":
+            continue
+        identity = identify(holding.identifier, holding.name)
+        # The TER pair lives under the direct code, whichever plan is held.
+        entry = fees.get(identity.direct_code or holding.identifier) or {}
+        direct, regular = entry.get("direct_ter"), entry.get("regular_ter")
+        gap = (
+            (regular - direct) / 100
+            if direct is not None and regular is not None and regular > direct
+            else None
+        )
+        priced.append(
+            {
+                # The official name, so the row says what AMFI says.
+                "name": identity.official_name or holding.name,
+                "plan": identity.plan,
+                "value": values.get(holding.id, 0.0),
+                "ter_gap": gap,
+                "direct_code": identity.direct_code,
+                "direct_name": identity.direct_name,
+            }
+        )
+    return priced
+
+
 @router.get("/cost-review", response_model=CostReviewOut)
 def get_cost_review(
     years_remaining: float = 15,
@@ -213,23 +255,7 @@ def get_cost_review(
     )
     values = {s.holding_id: (s.current_value or s.invested) for s in summary.holdings}
 
-    fees = expense_ratios()
-    priced = []
-    for holding in holdings:
-        entry = fees.get(holding.identifier) or {}
-        direct, regular = entry.get("direct_ter"), entry.get("regular_ter")
-        gap = (
-            (regular - direct) / 100
-            if direct is not None and regular is not None
-            else None
-        )
-        priced.append(
-            {
-                "name": holding.name,
-                "value": values.get(holding.id, 0.0),
-                "ter_gap": gap,
-            }
-        )
+    priced = _priced_holdings(holdings, values)
 
     return CostReviewOut.model_validate(cost_review(priced, years_remaining))
 
@@ -257,17 +283,7 @@ def get_levers(
     )
     values = {s.holding_id: (s.current_value or s.invested) for s in summary.holdings}
 
-    fees = expense_ratios()
-    priced = []
-    for holding in holdings:
-        entry = fees.get(holding.identifier) or {}
-        direct, regular = entry.get("direct_ter"), entry.get("regular_ter")
-        gap = (
-            (regular - direct) / 100
-            if direct is not None and regular is not None
-            else None
-        )
-        priced.append({"name": holding.name, "value": values.get(holding.id, 0.0), "ter_gap": gap})
+    priced = _priced_holdings(holdings, values)
 
     review = cost_review(priced, horizon)
     # The gap that matters is the one on the money actually sitting in regular

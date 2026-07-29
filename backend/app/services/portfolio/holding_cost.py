@@ -45,6 +45,11 @@ class FlaggedHolding:
     value: float
     ter_gap: float
     annual_cost: float
+    # The scheme to actually buy instead. "Switch to the direct plan" is not an
+    # instruction until it names one, and a broker's search box is where a plan
+    # like this dies.
+    direct_code: str | None = None
+    direct_name: str | None = None
 
 
 @dataclass
@@ -89,7 +94,11 @@ def cost_review(
 
     for holding in holdings:
         name = holding.get("name", "")
-        if classify_plan(name) != "regular":
+        # The caller decides the plan, from the scheme code rather than from
+        # whatever the holding was typed in as. Reading it off the name here
+        # meant a direct plan somebody had labelled "Regular" was billed for a
+        # switch it did not need.
+        if holding.get("plan") != "regular":
             continue
 
         gap = holding.get("ter_gap")
@@ -105,7 +114,12 @@ def cost_review(
         )
         review.flagged.append(
             FlaggedHolding(
-                name=name, value=value, ter_gap=gap, annual_cost=round(annual, 2)
+                name=name,
+                value=value,
+                ter_gap=gap,
+                annual_cost=round(annual, 2),
+                direct_code=holding.get("direct_code"),
+                direct_name=holding.get("direct_name"),
             )
         )
 

@@ -89,7 +89,15 @@ export async function fetchHistory(): Promise<HistoryPoint[]> {
 export type CostReview = {
   annual_cost: number
   lifetime_cost: number
-  flagged: { name: string; value: number; ter_gap: number; annual_cost: number }[]
+  flagged: {
+    name: string
+    value: number
+    ter_gap: number
+    annual_cost: number
+    // The scheme to buy instead, when it can be named with confidence.
+    direct_code: string | null
+    direct_name: string | null
+  }[]
   unpriced: string[]
   summary: string
 }
