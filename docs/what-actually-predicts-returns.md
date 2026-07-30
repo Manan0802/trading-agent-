@@ -247,13 +247,23 @@ It changes what we can *claim*, and adds one thing.
    ~93% dwarfs cost's +1.9%. Right now Research is a fund list and allocation is
    buried inside Goals. That ordering is backwards relative to the evidence.
 
-5. **Real holdings are obtainable after all.** Previously recorded as "no
-   holdings feed exists." Correct about APIs, wrong about documents: AMCs publish
-   monthly portfolio disclosures as XLS/XLSX, with **ISIN**, industry, quantity
-   and market value, one sheet per scheme. Verified by downloading and parsing
-   PPFAS's February 2026 file (580KB, 7 scheme sheets, 427 rows). ISIN solves
-   cross-AMC name matching. Correlation-based overlap can become
-   holdings-verified overlap.
+5. **Real holdings are obtainable, and this was already known.** The line "no
+   holdings feed exists" that appears in several of our notes is wrong, and was
+   already known to be wrong — earlier research had a working parser and real
+   overlap numbers. Correct about APIs, wrong about documents. Re-verified today
+   by downloading and parsing PPFAS's February 2026 disclosure: 580KB `.xls`, 7
+   scheme sheets, 427 rows, columns exactly as SEBI prescribes — instrument,
+   **ISIN**, industry/rating, quantity, market value. ISIN solves cross-AMC name
+   matching. So correlation-based overlap is a *choice*, not a constraint, and
+   the notes should stop claiming otherwise.
+
+   Known traps from the earlier work, still applicable: Nippon's `.xls` is
+   actually xlsx; `% to NAV` scale differs by AMC (fractions vs percent — 100x
+   errors if not normalised); header row position varies, so find it by locating
+   the ISIN cell; HDFC's WAF blocks non-browser clients. Legacy `.xls` needs
+   `xlrd>=2.0.1`, which is not yet in `requirements.txt` because nothing in the
+   app imports it yet. AMFI's own `/online-center/portfolio-disclosure` page is
+   JS-rendered and yields nothing to a plain scrape.
 
 ---
 
