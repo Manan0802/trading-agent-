@@ -21,6 +21,7 @@ naming none: the reader would move real money into it.
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 
 from app.services.advisor.fund_catalogue import CatalogueFund, all_funds
 from app.services.marketdata.mutual_fund import MutualFundDataError, get_scheme_meta
@@ -74,6 +75,70 @@ def _catalogue_index() -> dict[str, list[CatalogueFund]]:
     for fund in all_funds():
         index.setdefault(core_name(fund.name), []).append(fund)
     return index
+
+
+@lru_cache(maxsize=1)
+def _house_tokens() -> frozenset[str]:
+    """First words of every fund house in the catalogue: AXIS, ADITYA, SBI...
+
+    Derived rather than listed, so a new AMC arrives with the catalogue instead
+    of with a code change.
+    """
+    return frozenset(
+        fund.fund_house.split()[0].upper()
+        for fund in all_funds()
+        if fund.fund_house and fund.fund_house.split()
+    )
+
+
+def _house_of(name: str) -> str | None:
+    """The fund house a name claims, if it names a recognisable one."""
+    words = core_name(name).split()
+    return words[0] if words and words[0] in _house_tokens() else None
+
+
+def misnamed_as(scheme_code: str, typed_name: str) -> str | None:
+    """The authoritative name, when the label on a holding is a different fund.
+
+    The scheme code drives every number in this app; the name is only a label
+    someone typed. When they disagree, nothing is broken and nothing errors --
+    the analysis is simply about a fund other than the one named, which is the
+    worst kind of wrong number because it looks entirely right.
+
+    Real case, found in our own demo data: "ICICI Prudential Corporate Bond
+    Fund" carried code 119533, which AMFI publishes as "Aditya Birla Sun Life
+    Corporate Bond Fund". Every figure was correct, and correct about Aditya
+    Birla.
+
+    The test is a disagreement about the **fund house**, not about the string.
+    Comparing names directly cries wolf on every shorthand -- "PPFAS" is not a
+    claim about a different fund from "Parag Parikh Flexi Cap Fund", it is the
+    same fund typed lazily, and warning about it trains people to ignore the
+    warning. Nor does sharing words discriminate: the real case above shares
+    "Corporate Bond Fund" with the fund it is not.
+
+    So both sides must name a house the catalogue recognises, and those houses
+    must differ. Anything less certain stays silent.
+
+    Returns None when they agree, when either side names no known house, when
+    the feed is down (an outage is not evidence of a mismatch), or for anything
+    that is not a mutual fund.
+    """
+    if not typed_name:
+        return None
+    try:
+        official = get_scheme_meta(scheme_code).scheme_name
+    except (MutualFundDataError, Exception):  # noqa: BLE001
+        return None
+    if not official:
+        return None
+    if core_name(official) == core_name(typed_name):
+        return None
+
+    typed_house, official_house = _house_of(typed_name), _house_of(official)
+    if typed_house is None or official_house is None:
+        return None
+    return official if typed_house != official_house else None
 
 
 def identify(scheme_code: str, typed_name: str = "") -> PlanIdentity:

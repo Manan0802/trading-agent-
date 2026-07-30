@@ -96,6 +96,19 @@ function HoldingRow({ holding }: { holding: HoldingSummary }) {
           <span className="tnum">{holding.identifier}</span>
           {holding.category ? ` · ${holding.category}` : ''}
         </p>
+        {/* The scheme code drives every number here; the name is only a label.
+            When they disagree, nothing errors — the figures are simply about a
+            different fund. That is worth interrupting for. */}
+        {holding.misnamed_as && (
+          <p className="mt-1 flex items-start gap-1 text-xs font-medium">
+            <AlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden />
+            <span>
+              Code <span className="tnum">{holding.identifier}</span> is{' '}
+              <strong>{holding.misnamed_as}</strong>. Every figure below is for
+              that fund, not the name above &mdash; fix the name or the code.
+            </span>
+          </p>
+        )}
         {holding.price_error && (
           <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
             <AlertTriangle className="size-3 shrink-0" aria-hidden />

@@ -37,6 +37,10 @@ class HoldingOut(BaseModel):
     identifier: str
     category: str | None
     transactions: list[TransactionOut]
+    # Set ONLY when AMFI's name for this scheme code is a different fund from
+    # the one `name` says. Non-null means every figure on this holding is
+    # correct and correct about something else. Null is the normal case.
+    misnamed_as: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -51,6 +55,9 @@ class HoldingSummaryOut(BaseModel):
     invested: float
     current_price: float | None
     current_value: float | None
+    # See HoldingOut.misnamed_as. Repeated here because this is the shape the
+    # portfolio page actually renders, and a warning nobody sees is not one.
+    misnamed_as: str | None = None
     unrealised_gain: float | None
     realised_gain: float
     absolute_return: float | None

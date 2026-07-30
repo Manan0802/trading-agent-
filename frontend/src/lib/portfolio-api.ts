@@ -31,6 +31,12 @@ export type HoldingSummary = {
   invested: number
   current_price: number | null
   current_value: number | null
+  /**
+   * AMFI's name for this scheme code, set ONLY when it is a different fund
+   * from `name`. Non-null means every figure on this row is correct — and
+   * correct about something else.
+   */
+  misnamed_as: string | null
   unrealised_gain: number | null
   realised_gain: number
   absolute_return: number | null

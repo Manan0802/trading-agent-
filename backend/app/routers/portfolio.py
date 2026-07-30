@@ -35,7 +35,7 @@ from app.services.marketdata import announcements as filings
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
 from app.services.portfolio.holding_cost import cost_review
-from app.services.portfolio.plan_identity import identify
+from app.services.portfolio.plan_identity import identify, misnamed_as
 from app.services.portfolio.fifo import TxnInput, apply_fifo
 from app.services.portfolio.valuation import HoldingInput, value_portfolio
 
@@ -85,12 +85,28 @@ def create_holding(
     return holding
 
 
+def _with_identity(holding: Holding) -> HoldingOut:
+    """Serialise a holding, flagging a label that names a different fund.
+
+    Checked for funds only: `misnamed_as` compares against AMFI's scheme
+    register, which has nothing to say about a stock ticker.
+    """
+    out = HoldingOut.model_validate(holding)
+    if holding.asset_type == "MF":
+        out = out.model_copy(
+            update={"misnamed_as": misnamed_as(holding.identifier, holding.name)}
+        )
+    return out
+
+
 @router.get("/holdings", response_model=list[HoldingOut])
 def list_holdings(
     db: Session = Depends(get_db),
     user: User = Depends(current_active_user),
 ):
-    return db.query(Holding).filter(Holding.user_id == user.id).all()
+    holdings = db.query(Holding).filter(Holding.user_id == user.id).all()
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        return list(pool.map(_with_identity, holdings))
 
 
 @router.get("/holdings/{holding_id}", response_model=HoldingOut)
@@ -99,7 +115,7 @@ def get_holding(
     db: Session = Depends(get_db),
     user: User = Depends(current_active_user),
 ):
-    return _owned_holding(holding_id, db, user)
+    return _with_identity(_owned_holding(holding_id, db, user))
 
 
 @router.delete("/holdings/{holding_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -158,7 +174,28 @@ def get_portfolio(
     summary = value_portfolio(
         [_to_input(h) for h in holdings], get_current_price, date.today()
     )
-    return PortfolioSummaryOut.model_validate(summary)
+    out = PortfolioSummaryOut.model_validate(summary)
+
+    # Resolved here rather than inside value_portfolio, which is pure arithmetic
+    # over lots and should not acquire a network dependency on AMFI.
+    funds = {h.id: h for h in holdings if h.asset_type == "MF"}
+    if funds:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            flags = dict(
+                pool.map(
+                    lambda h: (h.id, misnamed_as(h.identifier, h.name)),
+                    funds.values(),
+                )
+            )
+        out = out.model_copy(
+            update={
+                "holdings": [
+                    row.model_copy(update={"misnamed_as": flags.get(row.holding_id)})
+                    for row in out.holdings
+                ]
+            }
+        )
+    return out
 
 
 @router.get("/benchmark", response_model=BenchmarkComparisonOut)
