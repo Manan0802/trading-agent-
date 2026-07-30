@@ -24,7 +24,7 @@ from app.schemas.portfolio import (
     LeverOut,
 )
 from app.services.advisor.fund_universe import BENCHMARK_SCHEME_CODE
-from app.services.marketdata import mutual_fund
+from app.services.marketdata import fund_holdings, mutual_fund
 from app.services.marketdata.mutual_fund import MutualFundDataError, NavPoint
 from app.services.marketdata.pricing import get_current_price
 from app.services.portfolio.benchmark import compare_to_benchmark
@@ -391,10 +391,11 @@ def get_overlap(
 ):
     """Whether the funds this user holds are actually different from each other.
 
-    The usual product here compares portfolio holdings. That is not buildable
-    honestly for Indian funds — there is no holdings feed — so this measures
-    what shared holdings are a proxy for: two funds are one position when they
-    move together, and NAV history says so directly.
+    Correlation of monthly returns leads: two funds are one position when they
+    move together, and NAV history says so directly for every fund. Real
+    holdings overlap rides alongside wherever the AMC publishes a monthly
+    portfolio we can parse, because it answers the half correlation cannot —
+    whether a correlated pair is the same exposure or literally the same shares.
 
     Stocks are excluded rather than mixed in. A single company against a
     diversified fund correlates for reasons that have nothing to do with
@@ -416,7 +417,25 @@ def get_overlap(
         except MutualFundDataError as exc:
             unreachable[holding.name] = f"NAV history could not be fetched ({exc})"
 
-    report = analyse_overlap(funds)
+    # Best effort, and concurrent because each one is a multi-megabyte
+    # spreadsheet from a different AMC. A fund with no readable disclosure is
+    # simply absent from the map, which the engine reports as unmeasured rather
+    # than as zero overlap.
+    def _portfolio(holding: Holding):
+        name = identify(holding.identifier, holding.name).official_name or holding.name
+        try:
+            return holding.identifier, fund_holdings.portfolio_for(name)
+        except Exception:  # noqa: BLE001 - overlap must survive any AMC outage
+            return holding.identifier, None
+
+    portfolios: dict[str, object] = {}
+    if len(funds) > 1:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for identifier, portfolio in pool.map(_portfolio, holdings):
+                if portfolio is not None:
+                    portfolios[identifier] = portfolio
+
+    report = analyse_overlap(funds, portfolios=portfolios)
     return OverlapOut(
         pairs=[OverlapPairOut.model_validate(p) for p in report.pairs],
         effective_positions=report.effective_positions,

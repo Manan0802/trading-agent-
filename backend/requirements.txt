@@ -22,3 +22,10 @@ yfinance==1.5.1
 # transitively through yfinance, so a yfinance release that drops it, or a
 # numpy 3.0, would break fund scoring with no signal from this file.
 numpy>=2.0,<3.0
+# Excel engines for marketdata/fund_holdings.py, which reads AMC monthly
+# portfolio disclosures. Both are needed, not one: AMCs name files .xls that are
+# really xlsx and vice versa, so the parser tries each engine in turn. pandas
+# arrives transitively through yfinance and picks the engine by name only, so
+# a missing engine surfaces as "unreadable workbook" at request time.
+openpyxl>=3.1
+xlrd>=2.0.1

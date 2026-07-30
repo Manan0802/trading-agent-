@@ -5,9 +5,15 @@ import { fetchOverlap } from '@/lib/portfolio-api'
 /**
  * Whether the funds someone holds are actually different from each other.
  *
- * Not a holdings-overlap calculator, because no holdings feed exists for Indian
- * funds. This measures the thing holdings overlap is a proxy for: two funds are
- * one position when they move together, and NAV history says so directly.
+ * Two numbers per pair, and they answer different questions. Correlation says
+ * whether two funds are one position — NAV history says that directly, for every
+ * fund. Shared holdings say why: a correlated pair sharing 3% of its assets is
+ * the same market bought two ways, while one sharing 45% is the same shares
+ * twice. Only the second is worth acting on beyond consolidating paperwork.
+ *
+ * Holdings coverage is partial, because it comes from parsing each AMC's own
+ * monthly disclosure. A pair with no figure is shown as unmeasured, never as
+ * zero — zero would read as "perfectly diversified", the opposite of unknown.
  *
  * The framing matters. Two equity funds correlating 0.95 is not a fault, it is
  * what equity does — so nothing here is coloured as a warning. The useful
@@ -17,6 +23,13 @@ import { fetchOverlap } from '@/lib/portfolio-api'
 
 /** Below this a pair is doing genuinely separate work. */
 const DUPLICATE_ABOVE = 0.9
+
+/**
+ * Share of assets in the same securities that makes a pair the same shares
+ * rather than merely the same exposure. Two diversified Indian equity funds
+ * routinely share 15–30% just by both owning the index leaders.
+ */
+const SAME_STOCKS_ABOVE = 40
 
 export function FundOverlap() {
   const { data, isLoading } = useQuery({
@@ -62,6 +75,24 @@ export function FundOverlap() {
                 >
                   {p.correlation.toFixed(2)}
                 </span>
+                {/* Unmeasured says so in words. Rendering a dash as 0% would
+                    claim these funds share nothing, which we do not know. */}
+                {p.common_weight === null ? (
+                  <span className="text-xs text-muted-foreground">
+                    holdings n/a
+                  </span>
+                ) : (
+                  <span
+                    className={`num text-xs ${
+                      p.common_weight >= SAME_STOCKS_ABOVE
+                        ? 'font-medium'
+                        : 'text-muted-foreground'
+                    }`}
+                    title={`${p.shared_securities} securities in common`}
+                  >
+                    {p.common_weight.toFixed(0)}% same
+                  </span>
+                )}
                 <span className="num text-xs text-muted-foreground">
                   {p.months}mo
                 </span>
@@ -81,10 +112,14 @@ export function FundOverlap() {
         comparison is against whatever else you hold.
       </p>
       <p className="max-w-3xl text-sm text-muted-foreground">
-        There is no holdings feed for Indian mutual funds, so this is not a
-        share-of-portfolio overlap. It measures what that number is a proxy for,
-        and does it better: two funds can hold different companies and still be
-        one bet.
+        The second figure is the share of assets both funds hold in the{' '}
+        <em>same</em> securities, read from each AMC&rsquo;s own monthly
+        portfolio disclosure and matched on ISIN. Two diversified equity funds
+        sharing <span className="tnum">15&ndash;30%</span> is ordinary; both own
+        the index leaders. Above <span className="tnum">40%</span> you are
+        holding the same shares twice. Where it says{' '}
+        <em>holdings n/a</em>, that AMC does not publish a file we can read yet
+        &mdash; unknown, not zero.
       </p>
 
       {Object.entries(data.excluded).length > 0 && (

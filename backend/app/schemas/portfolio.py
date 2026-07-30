@@ -141,6 +141,11 @@ class OverlapPairOut(BaseModel):
     b_name: str
     correlation: float
     months: int
+    # Share of net assets in the same securities, matched on ISIN. None means
+    # unmeasured -- one of the two AMCs does not publish a file we read yet --
+    # and the UI must not render it as zero.
+    common_weight: float | None = None
+    shared_securities: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -148,9 +153,11 @@ class OverlapPairOut(BaseModel):
 class OverlapOut(BaseModel):
     """Whether the funds someone holds are actually different from each other.
 
-    Correlation of monthly returns rather than shared holdings: no holdings
-    feed exists for Indian funds, and moving together is what shared holdings
-    are a proxy for anyway.
+    Correlation of monthly returns leads, because moving together is what
+    shared holdings are a proxy for, and two funds can hold different stocks
+    and still be one bet. Real holdings overlap rides alongside it wherever the
+    AMC publishes a monthly portfolio we can parse -- it answers the second
+    half, whether a correlated pair is the same exposure or the same shares.
     """
 
     pairs: list[OverlapPairOut]

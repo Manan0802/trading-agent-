@@ -172,6 +172,13 @@ export type Overlap = {
     b_name: string
     correlation: number
     months: number
+    /**
+     * Share of net assets the two funds hold in the same securities.
+     * `null` means unmeasured — one of the AMCs does not publish a portfolio
+     * we can read — which is not the same as zero and must not render as 0%.
+     */
+    common_weight: number | null
+    shared_securities: number | null
   }[]
   effective_positions: number | null
   counted: number
