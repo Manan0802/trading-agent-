@@ -29,6 +29,7 @@ import json
 import os
 import re
 import time
+import zipfile
 from dataclasses import dataclass
 from datetime import date, timedelta
 from io import BytesIO
@@ -117,6 +118,43 @@ def _nippon_url(as_of: date) -> list[str]:
     ]
 
 
+def _axis_url(as_of: date) -> list[str]:
+    stem = f"Monthly Portfolio-{as_of.day:02d} {as_of.month:02d} {as_of:%y}"
+    # 301s to transact.axismf.com; httpx is told to follow redirects.
+    return [
+        "https://www.axismf.com/cms/sites/default/files/Statutory/"
+        + stem.replace(" ", "%20")
+        + ".xlsx"
+    ]
+
+
+def _kotak_url(as_of: date) -> list[str]:
+    base = "https://vatseelabs-s3.kotakmf.com/FAD/Portfolios"
+    name = f"ConsolidatedSEBIPortfolio{as_of:%B}{as_of.year}.xlsx"
+    # The folder label carries "SEBI" some months and not others, while the
+    # file inside keeps its name either way. Both folders are offered rather
+    # than predicted. Kotak's own disclosure page is behind a bot manager, but
+    # the CDN the page links to is not, which is the only reason this works.
+    return [
+        f"{base}/Consolidated{token}-Portfolio-as-on-{as_of:%B}-{as_of.day},-{as_of.year}/{name}"
+        for token in ("-SEBI", "")
+    ]
+
+
+def _icici_url(as_of: date) -> list[str]:
+    base = (
+        "https://www.icicipruamc.com/blob/downloads/Files/"
+        "Monthly%20Portfolio%20Disclosures"
+    )
+    stem = f"Monthly-Portfolio-Disclosure-{as_of:%B}-{as_of.year}.zip"
+    # The folder is abbreviated in some months and spelled out in others
+    # (Mar, Apr, but June). The filename always spells the month out.
+    return [
+        f"{base}/{as_of.year}/{folder}/{stem}"
+        for folder in (as_of.strftime("%b"), as_of.strftime("%B"))
+    ]
+
+
 # Keyed by the AMC token that appears at the start of scheme names. Only
 # entries below have had a real file downloaded and parsed. An AMC whose URL
 # was guessed but never fetched belongs nowhere near this dict.
@@ -124,7 +162,21 @@ _AMCS: dict[str, tuple[str, object]] = {
     "PARAG PARIKH": ("PPFAS Mutual Fund", _ppfas_url),
     "SBI": ("SBI Mutual Fund", _sbi_url),
     "NIPPON INDIA": ("Nippon India Mutual Fund", _nippon_url),
+    "AXIS": ("Axis Mutual Fund", _axis_url),
+    "KOTAK": ("Kotak Mahindra Mutual Fund", _kotak_url),
+    "ICICI PRUDENTIAL": ("ICICI Prudential Mutual Fund", _icici_url),
 }
+
+# AMCs whose file is reachable but whose URL needs the scheme name, not just a
+# date, so they cannot be served by a builder of this shape:
+#   HDFC   one file per scheme, hosted under the *publication* month, and the
+#          only one that needs a browser User-Agent.
+#   UTI    an API call resolves an internal two-letter code first (017 -> "MR"),
+#          and the code is not derivable from anything else.
+#   Mirae  one file per scheme keyed on a lowercase internal code ("mafcf").
+#   ABSL   one combined zip, but the filename changed in all six consecutive
+#          months checked, so it needs the page scraped, not a template.
+# All four are verified reachable and recorded; none is guessed at here.
 
 
 def covered_amcs() -> dict[str, str]:
@@ -233,9 +285,15 @@ def _norm(value) -> str:
 
 
 def _header_row(frame) -> int | None:
-    """Index of the row holding the column names, found via the ISIN cell."""
+    """Index of the row holding the column names, found via the ISIN cell.
+
+    Matched as a prefix, not for equality: the column is "ISIN" at most AMCs but
+    "ISIN Code" at Kotak, and an equality test silently found no header at all
+    there, which reads downstream as "this workbook has no portfolios in it".
+    """
     for index in range(min(len(frame), 30)):
-        if "ISIN" in [_norm(value) for value in frame.iloc[index].tolist()]:
+        cells = [_norm(value) for value in frame.iloc[index].tolist()]
+        if any(cell.startswith("ISIN") for cell in cells):
             return index
     return None
 
@@ -294,7 +352,22 @@ def _scheme_name(frame, header: int) -> str | None:
                 continue
             if len(text) > len(best):
                 best = text
-    return best.split("(")[0].strip() or None
+    return _strip_title_wrapper(best.split("(")[0].strip()) or None
+
+
+# Kotak prints "Portfolio of Kotak Flexicap Fund as on 30 Jun 2026" rather than
+# the bare name. Left whole, the date becomes part of the scheme key and the
+# fund can never be matched -- and the key changes every month.
+_TITLE_WRAPPER = (
+    re.compile(r"^\s*portfolio\s+(?:of|for)\s+", re.I),
+    re.compile(r"\s+as\s+(?:on|at|of)\b.*$", re.I),
+)
+
+
+def _strip_title_wrapper(text: str) -> str:
+    for pattern in _TITLE_WRAPPER:
+        text = pattern.sub("", text)
+    return text.strip(" -–,")
 
 
 def _parse_sheet(frame) -> SchemePortfolio | None:
@@ -363,15 +436,53 @@ def _parse_sheet(frame) -> SchemePortfolio | None:
     )
 
 
-def _parse_workbook(blob: bytes, as_of: date) -> dict[str, SchemePortfolio]:
+def _frames(blob: bytes):
+    """Every candidate portfolio table in a download, whatever it is packaged as.
+
+    Three shapes in the wild and they are all the same problem once opened: one
+    workbook with a sheet per scheme (PPFAS, SBI, Nippon, Axis, Kotak), or a zip
+    of one workbook per scheme (ICICI's 144 files), or a single-scheme workbook.
+    Yielding frames flattens all three, so the parsing below never has to know.
+    """
+    if blob[:2] == b"PK" and _is_zip(blob):
+        with zipfile.ZipFile(BytesIO(blob)) as archive:
+            for entry in archive.namelist():
+                if entry.endswith("/") or not entry.lower().endswith((".xls", ".xlsx")):
+                    continue
+                try:
+                    inner = _open_workbook(archive.read(entry))
+                except HoldingsUnavailable:
+                    continue
+                for sheet in inner.sheet_names:
+                    try:
+                        yield inner.parse(sheet, header=None)
+                    except Exception:  # noqa: BLE001
+                        continue
+        return
+
     book = _open_workbook(blob)
-    out: dict[str, SchemePortfolio] = {}
-    collided: set[str] = set()
     for sheet in book.sheet_names:
         try:
-            frame = book.parse(sheet, header=None)
+            yield book.parse(sheet, header=None)
         except Exception:  # noqa: BLE001 - a bad sheet is not a bad file
             continue
+
+
+def _is_zip(blob: bytes) -> bool:
+    """A real archive, not an xlsx -- which is also a PK zip underneath."""
+    try:
+        with zipfile.ZipFile(BytesIO(blob)) as archive:
+            names = archive.namelist()
+    except zipfile.BadZipFile:
+        return False
+    # An xlsx always carries this; a zip of spreadsheets does not.
+    return "[Content_Types].xml" not in names
+
+
+def _parse_workbook(blob: bytes, as_of: date) -> dict[str, SchemePortfolio]:
+    out: dict[str, SchemePortfolio] = {}
+    collided: set[str] = set()
+    for frame in _frames(blob):
         parsed = _parse_sheet(frame)
         if parsed is None:
             continue

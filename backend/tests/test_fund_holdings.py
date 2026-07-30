@@ -106,6 +106,16 @@ class TestSchemeName:
         ])
         assert _scheme_name(frame, 2) == "SBI MNC Fund"
 
+    def test_strips_the_portfolio_of_x_as_on_date_wrapper(self):
+        # Kotak's title. Left whole, the date lands inside the scheme key, so
+        # the key changes every month and the fund never matches at all.
+        frame = _sheet(title_rows=[
+            ["Portfolio of Kotak Flexicap Fund as on 30 Jun 2026",
+             None, None, None, None, None],
+            [None, None, None, None, None, None],
+        ])
+        assert _scheme_name(frame, 2) == "Kotak Flexicap Fund"
+
     def test_drops_the_regulatory_parenthetical(self):
         frame = _sheet(title_rows=[
             ["Parag Parikh Flexi Cap Fund (An open-ended dynamic equity scheme)",
@@ -129,6 +139,15 @@ class TestParseSheet:
 
     def test_accepts_the_sbi_column_name_too(self):
         assert _parse_sheet(_sheet(weight_header="% to AUM")) is not None
+
+    def test_finds_the_header_when_the_column_is_isin_code_not_isin(self):
+        # Kotak's spelling. An equality test found no header row here, which
+        # reads downstream as "this 118-sheet workbook contains no portfolios".
+        frame = _sheet()
+        frame.iloc[2, 2] = "ISIN Code"
+        parsed = _parse_sheet(frame)
+        assert parsed is not None
+        assert len(parsed.holdings) == 5
 
     def test_a_sheet_with_no_isin_column_is_not_a_portfolio(self):
         frame = _frame([
