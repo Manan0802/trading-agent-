@@ -35,4 +35,4 @@ Thumbs.db
 
 # Local agent config — contains API keys, never commit
 .mcp.json
-.claude/
+.claude
