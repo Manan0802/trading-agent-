@@ -82,6 +82,10 @@ class BenchmarkComparisonOut(BaseModel):
     benchmark_xirr: float | None
     outperformance: float | None
     reason: str | None
+    # Holdings priced from a frozen NAV, by name, with the reason. Present on
+    # every view built from portfolio value, so a figure that gets acted on
+    # cannot be computed from a dead scheme in silence.
+    stale: dict[str, str] = {}
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -123,6 +127,10 @@ class CostReviewOut(BaseModel):
     # Regular plans AMFI publishes no direct-plan TER for, so the cost is
     # unknown rather than averaged.
     unpriced: list[str]
+    # Holdings priced from a frozen NAV, by name, with the reason. Present on
+    # every view built from portfolio value, so a figure that gets acted on
+    # cannot be computed from a dead scheme in silence.
+    stale: dict[str, str] = {}
     summary: str
 
     model_config = ConfigDict(from_attributes=True)
@@ -145,6 +153,10 @@ class LeversOut(BaseModel):
     levers: list[LeverOut]
     years_remaining: float
     portfolio_value: float
+    # Holdings priced from a frozen NAV, by name, with the reason. Present on
+    # every view built from portfolio value, so a figure that gets acted on
+    # cannot be computed from a dead scheme in silence.
+    stale: dict[str, str] = {}
 
 
 class OverlapPairOut(BaseModel):

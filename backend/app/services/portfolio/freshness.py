@@ -32,6 +32,33 @@ BEHIND_PEERS_DAYS = 4
 ALONE_DAYS = 14
 
 
+def stale_holdings(
+    priced: dict[str, date | None],
+    *,
+    today: date,
+) -> dict[str, str]:
+    """Every holding priced from a frozen NAV, by name, with the reason.
+
+    A single call so that every view built on the same portfolio value carries
+    the same warning. The first version of this was wired into the holdings
+    table alone, which left the benchmark comparison, the levers and the cost
+    review quoting the identical frozen figure with nothing said -- and those
+    are the numbers that actually get acted on.
+
+    `priced` maps holding name to the date its price came from.
+    """
+    dates = [d for d in priced.values() if d is not None]
+    out: dict[str, str] = {}
+    for name, price_date in priced.items():
+        behind = stale_days(price_date, peer_dates=dates, today=today)
+        if behind is not None:
+            out[name] = (
+                f"priced from a NAV of {price_date}, {behind} days behind the "
+                "rest of this portfolio, so this figure is not current"
+            )
+    return out
+
+
 def stale_days(
     price_date: date | None,
     *,

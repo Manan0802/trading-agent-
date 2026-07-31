@@ -36,7 +36,7 @@ from app.services.marketdata import announcements as filings
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
 from app.services.portfolio.holding_cost import cost_review
-from app.services.portfolio.freshness import stale_days
+from app.services.portfolio.freshness import stale_days, stale_holdings
 from app.services.portfolio.plan_identity import identify, misnamed_as
 from app.services.portfolio.fifo import TxnInput, apply_fifo
 from app.services.portfolio.valuation import HoldingInput, value_portfolio
@@ -85,6 +85,23 @@ def create_holding(
     db.commit()
     db.refresh(holding)
     return holding
+
+
+def _stale(holdings: list[Holding]) -> dict[str, str]:
+    """Holdings whose price is frozen, for any view built on portfolio value.
+
+    Called by every endpoint that prices the portfolio, not just the table, so
+    a lever worth "Rs X a year" cannot be computed from a NAV that stopped
+    moving in 2022 without saying so.
+    """
+    funds = [h for h in holdings if h.asset_type == "MF"]
+    if not funds:
+        return {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        priced = dict(
+            pool.map(lambda h: (h.name, price_as_of(h.asset_type, h.identifier)), funds)
+        )
+    return stale_holdings(priced, today=date.today())
 
 
 def _with_identity(holding: Holding) -> HoldingOut:
@@ -245,7 +262,7 @@ def get_benchmark_comparison(
             503, f"Benchmark data is temporarily unavailable, please retry ({exc})"
         ) from exc
 
-    return BenchmarkComparisonOut.model_validate(
+    out = BenchmarkComparisonOut.model_validate(
         compare_to_benchmark(
             transactions,
             benchmark_navs,
@@ -253,6 +270,9 @@ def get_benchmark_comparison(
             valuation_date=valuation_date,
         )
     )
+    # Attached after validation, not passed in: compare_to_benchmark
+    # returns a dataclass that knows nothing about data freshness.
+    return out.model_copy(update={"stale": _stale(holdings)})
 
 
 def _priced_holdings(holdings: list[Holding], values: dict[str, float]) -> list[dict]:
@@ -317,7 +337,8 @@ def get_cost_review(
 
     priced = _priced_holdings(holdings, values)
 
-    return CostReviewOut.model_validate(cost_review(priced, years_remaining))
+    out = CostReviewOut.model_validate(cost_review(priced, years_remaining))
+    return out.model_copy(update={"stale": _stale(holdings)})
 
 
 @router.get("/levers", response_model=LeversOut)
@@ -395,6 +416,7 @@ def get_levers(
         ],
         years_remaining=horizon,
         portfolio_value=summary.total_current_value,
+        stale=_stale(holdings),
     )
 
 
