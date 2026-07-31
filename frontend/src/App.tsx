@@ -57,7 +57,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           single row, which pushed 555px of header through a 390px screen and
           made every page in the app scroll sideways. */}
       <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-        <div className="mx-auto flex max-w-6xl flex-col px-4 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
+        <div className="mx-auto flex max-w-[100rem] flex-col px-4 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
           <div className="flex h-14 items-center justify-between gap-4 sm:h-auto sm:justify-start sm:gap-8">
             <NavLink
               to={signedIn ? '/portfolio' : '/login'}
@@ -106,7 +106,10 @@ function Layout({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">{children}</main>
+      {/* Wider than a reading column: a dashboard's job is to put several
+          answers in one glance, and 6xl forced the panels into a single stack
+          on every screen size anyone actually uses. */}
+      <main className="mx-auto max-w-[100rem] px-4 py-8 sm:px-6 sm:py-10">{children}</main>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Panel } from '@/components/ui/panel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatInr } from '@/lib/format'
 import { fetchLevers } from '@/lib/portfolio-api'
@@ -30,7 +31,7 @@ export function Levers({
   if (!data || data.levers.length === 0) return null
 
   return (
-    <section className="flex flex-col gap-3">
+    <Panel className="xl:col-span-1">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
         <h2 className="text-sm font-medium">What actually moves your money</h2>
         <p className="text-xs text-muted-foreground">
@@ -68,6 +69,6 @@ export function Levers({
           )
         })}
       </ul>
-    </section>
+    </Panel>
   )
 }

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Panel } from '@/components/ui/panel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchOverlap } from '@/lib/portfolio-api'
 
@@ -43,7 +44,7 @@ export function FundOverlap() {
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    <Panel>
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
         <h2 className="text-sm font-medium">Are these funds actually different?</h2>
         {data.effective_positions !== null && (
@@ -131,6 +132,6 @@ export function FundOverlap() {
           .
         </p>
       )}
-    </section>
+    </Panel>
   )
 }

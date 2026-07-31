@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Panel } from '@/components/ui/panel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchAnnouncements } from '@/lib/portfolio-api'
 
@@ -36,7 +37,7 @@ export function Announcements() {
   if (!data || data.announcements.length === 0) return null
 
   return (
-    <section className="flex flex-col gap-3">
+    <Panel>
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
         <h2 className="text-sm font-medium">What changed about what you own</h2>
         <p className="text-xs text-muted-foreground">Last six months</p>
@@ -102,6 +103,6 @@ export function Announcements() {
           .
         </p>
       )}
-    </section>
+    </Panel>
   )
 }

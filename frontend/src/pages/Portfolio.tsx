@@ -10,6 +10,7 @@ import { PortfolioChart } from '@/components/PortfolioChart'
 import { StartHere } from '@/components/StartHere'
 import { Button } from '@/components/ui/button'
 import { Metric, MetricRow } from '@/components/ui/metric'
+import { Panel } from '@/components/ui/panel'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -230,7 +231,14 @@ export function Portfolio() {
   }
 
   return (
-    <div className="flex flex-col gap-10">
+    /*
+     * Dashboard order is by how often it is read, not by how the app is built.
+     * What you own and how it is doing come first; the analyses that change
+     * slowly sit below. The chart and the holdings share a row on wide screens
+     * because they answer the same question — how is this going — and reading
+     * one usually means glancing at the other.
+     */
+    <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-start justify-between gap-6">
         <div className="flex flex-col gap-1.5">
           <h1 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -247,42 +255,43 @@ export function Portfolio() {
         <AddHoldingDialog />
       </header>
 
-      <MetricRow>
-        <Metric label="Invested" value={formatInr(data.total_invested)} size="sm" />
-        <Metric
-          label="XIRR"
-          value={formatPercent(data.xirr)}
-          valueClassName={gainClass(data.xirr)}
-          hint="Annualised and money-weighted, so it accounts for when you invested."
-          size="sm"
-        />
-        <Metric
-          label="Realised gain"
-          value={formatInrSigned(data.total_realised_gain)}
-          valueClassName={gainClass(data.total_realised_gain)}
-          hint="Already booked by selling."
-          size="sm"
-        />
-        <Metric label="Holdings" value={String(data.holdings.length)} size="sm" />
-      </MetricRow>
+      <Panel>
+        <MetricRow>
+          <Metric label="Invested" value={formatInr(data.total_invested)} size="sm" />
+          <Metric
+            label="XIRR"
+            value={formatPercent(data.xirr)}
+            valueClassName={gainClass(data.xirr)}
+            hint="Annualised and money-weighted, so it accounts for when you invested."
+            size="sm"
+          />
+          <Metric
+            label="Realised gain"
+            value={formatInrSigned(data.total_realised_gain)}
+            valueClassName={gainClass(data.total_realised_gain)}
+            hint="Already booked by selling."
+            size="sm"
+          />
+          <Metric label="Holdings" value={String(data.holdings.length)} size="sm" />
+        </MetricRow>
+      </Panel>
 
       <BenchmarkVerdict />
 
-      <Levers />
-
-      <CostReview />
-
-      <FundOverlap />
-
-      <Announcements />
-
-      {history && (
-        <PortfolioChart
-          points={history.points}
-          excluded={history.excluded}
-          excludedValue={history.excluded_value}
-        />
-      )}
+      {/* Two thirds to the chart: a trend needs horizontal room to be a trend,
+          while the levers are a short ranked list that reads fine narrow. */}
+      <div className="grid gap-6 xl:grid-cols-3">
+        {history && (
+          <Panel className="xl:col-span-2">
+            <PortfolioChart
+              points={history.points}
+              excluded={history.excluded}
+              excludedValue={history.excluded_value}
+            />
+          </Panel>
+        )}
+        <Levers />
+      </div>
 
       {data.has_pricing_errors && (
         <p className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -295,9 +304,11 @@ export function Portfolio() {
         </p>
       )}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium">Holdings</h2>
-        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <Panel
+        title="Holdings"
+        aside={`${data.holdings.length} ${data.holdings.length === 1 ? 'position' : 'positions'}`}
+      >
+        <div className="-mx-4 overflow-x-auto sm:mx-0">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -317,7 +328,20 @@ export function Portfolio() {
             </TableBody>
           </Table>
         </div>
-      </section>
+      </Panel>
+
+      {/* Below the fold on purpose: these change monthly at most, and putting
+          them above the holdings pushed the table people actually read off the
+          first screen. */}
+      {/* Each of these renders nothing when it has nothing to say, and each
+          owns its own surface — wrapping them here left empty bordered boxes on
+          a portfolio with one holding, which reads as "something failed". */}
+      <div className="grid items-start gap-6 xl:grid-cols-2">
+        <CostReview />
+        <FundOverlap />
+      </div>
+
+      <Announcements />
     </div>
   )
 }

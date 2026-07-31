@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Panel } from '@/components/ui/panel'
 import { AlertTriangle } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatInr, formatPercent } from '@/lib/format'
@@ -23,7 +24,7 @@ export function CostReview({ yearsRemaining = 15 }: { yearsRemaining?: number })
   const clean = data.flagged.length === 0 && data.unpriced.length === 0
 
   return (
-    <section className="flex flex-col gap-3">
+    <Panel>
       <h2 className="text-sm font-medium">What your funds cost</h2>
 
       <p
@@ -83,6 +84,6 @@ export function CostReview({ yearsRemaining = 15 }: { yearsRemaining?: number })
           </span>
         </p>
       )}
-    </section>
+    </Panel>
   )
 }

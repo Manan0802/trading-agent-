@@ -64,7 +64,9 @@ export function MetricRow({
   return (
     <dl
       className={cn(
-        'grid grid-cols-2 gap-x-6 gap-y-8 border-y py-6',
+        // No border of its own: this now sits inside a Panel, and the two
+        // together drew a rule immediately inside the panel edge.
+        'grid grid-cols-2 gap-x-6 gap-y-8',
         'sm:grid-cols-3 lg:grid-cols-4',
         'sm:divide-x sm:[&>*]:pl-6 sm:[&>*:first-child]:pl-0',
         className,
