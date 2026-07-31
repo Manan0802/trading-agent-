@@ -8,7 +8,10 @@ import { chromium } from 'playwright'
 import { mkdir } from 'node:fs/promises'
 
 const APP = process.env.APP_URL ?? 'http://localhost:5173'
-const API = process.env.API_URL ?? 'http://127.0.0.1:8000'
+// 8000 is another project on this machine. Defaulting there produced a token
+// this app rejects, so every page silently screenshotted the login screen and
+// the run still reported success.
+const API = process.env.API_URL ?? 'http://127.0.0.1:8020'
 const OUT = process.argv[2] ?? 'shots'
 
 const EMAIL = `shots+${Date.now()}@example.com`
@@ -26,7 +29,16 @@ async function seed() {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: form,
   })
-  const { access_token: token } = await res.json()
+  const body = await res.json()
+  const token = body.access_token
+  if (!token) {
+    // Without this the run writes a folder of login screens and calls it done.
+    console.error(
+      `could not authenticate against ${API} (HTTP ${res.status}). ` +
+        `Screenshots would all be the login page. Set API_URL if the backend is elsewhere.`,
+    )
+    process.exit(1)
+  }
   const auth = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
 
   const goal = await (

@@ -191,3 +191,56 @@ class TestProductionGuards:
 
         # Local work must not need Postgres or a generated secret.
         assert Settings(_env_file=None, environment="development")
+
+
+class TestOnlyFailuresCountOnAuth:
+    """Brute force is failed attempts, so successes must not spend the budget.
+
+    Found the hard way: the screenshot tooling, the consistency harness and an
+    ad-hoc script all log in from 127.0.0.1, and running them back to back
+    exhausted the shared allowance between them. Every tool then got 401s,
+    which is exactly how a limiter gets turned off.
+    """
+
+    def _register(self, client, email):
+        return client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": email,
+                "password": "correct-horse-battery",
+                "name": "T",
+                "phone": "+919000009999",
+            },
+        )
+
+    def _login(self, client, email, password):
+        return client.post(
+            "/api/v1/auth/jwt/login",
+            data={"username": email, "password": password},
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+    def test_many_successful_logins_are_never_refused(self, client):
+        email = "ratelimit-success@example.com"
+        self._register(client, email)
+        for _ in range(AUTH.requests * 3):
+            assert self._login(client, email, "correct-horse-battery").status_code == 200
+
+    def test_failures_still_hit_the_wall_at_the_same_count(self, client):
+        email = "ratelimit-fail@example.com"
+        self._register(client, email)
+        codes = [
+            self._login(client, email, "wrong").status_code
+            for _ in range(AUTH.requests + 3)
+        ]
+        assert 429 in codes
+        assert codes.count(429) >= 3
+
+    def test_a_success_does_not_clear_the_wall_a_guesser_already_hit(self, client):
+        # Otherwise one correct password would reset the budget for everyone
+        # sharing that IP.
+        email = "ratelimit-mixed@example.com"
+        self._register(client, email)
+        for _ in range(AUTH.requests + 1):
+            self._login(client, email, "wrong")
+        assert self._login(client, email, "correct-horse-battery").status_code == 429

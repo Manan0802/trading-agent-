@@ -8,13 +8,20 @@ because it is where passwords get guessed.
 
 So there are three tiers, and the tier is chosen by what an abuser would gain:
 
-    auth        brute force            strictest, and counted per IP
+    auth        brute force            strictest, counted per IP, FAILURES ONLY
     heavy       our upstreams' cost    strict, counted per user
     default     ordinary reads         generous
 
 Counted per authenticated user where we know who is calling, and per client IP
 where we do not -- which is exactly the login case, since an attacker trying
 passwords has no account yet.
+
+**On the auth tier only failed attempts are counted.** Brute force *is* failed
+attempts, so charging successes protects nothing and punishes the wrong people:
+locally every script shares 127.0.0.1, and a handful run back to back spent the
+allowance between them -- which is how a limiter ends up switched off. A
+guessing run never earns a success to spend, so it still stops at the same
+count.
 
 **Deliberately in-process.** State lives in this worker's memory, so N workers
 allow N times the limit, and a restart forgets everything. That is the honest
@@ -48,8 +55,8 @@ class Tier:
         return f"{self.requests} per {per}"
 
 
-# Six failed passwords a minute is far more than a person mistypes and far less
-# than a guessing run needs.
+# Ten failed passwords a minute is far more than a person mistypes and far less
+# than a guessing run needs. Successes are free.
 AUTH = Tier("auth", requests=10, window_seconds=60)
 
 # One overlap call can fetch six AMC workbooks. The disk cache absorbs repeats,
@@ -122,6 +129,19 @@ class _Counter:
             bucket.hits.append(now)
             return None
 
+    def peek(self, key: str, tier: Tier, now: float) -> int | None:
+        """Whether this caller is already over, without spending an attempt."""
+        with self._lock:
+            bucket = self._buckets.get((key, tier.name))
+            if bucket is None:
+                return None
+            cutoff = now - tier.window_seconds
+            while bucket.hits and bucket.hits[0] <= cutoff:
+                bucket.hits.popleft()
+            if len(bucket.hits) < tier.requests:
+                return None
+            return max(1, int(bucket.hits[0] + tier.window_seconds - now) + 1)
+
     def _sweep(self, now: float) -> None:
         """Drop buckets nobody has touched, so memory does not grow with IPs."""
         if now - self._last_swept < 300:
@@ -168,25 +188,47 @@ def _caller(request: Request) -> str:
     return f"ip:{request.client.host if request.client else 'unknown'}"
 
 
+def _refused(tier: Tier, retry_after: int) -> JSONResponse:
+    """Says the limit and when to come back, so a caller can behave rather than
+    guess. It does not say who was counted."""
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": (
+                f"Too many requests. This endpoint allows {tier.described}. "
+                f"Try again in {retry_after}s."
+            )
+        },
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         tier = tier_for(request.url.path)
         if tier is None:
             return await call_next(request)
 
-        retry_after = _counter.hit(_caller(request), tier, time.time())
+        caller = _caller(request)
+        now = time.time()
+
+        # On the auth tier, only failures count. Brute force *is* failed
+        # attempts, so budgeting successes protects nothing and punishes the
+        # wrong people: locally every tool shares 127.0.0.1, and a few scripts
+        # run back to back exhausted the allowance between them, which is how
+        # a limiter ends up switched off. A guessing run never gets a success
+        # to spend, so it still hits the wall at the same count.
+        if tier is AUTH:
+            retry_after = _counter.peek(caller, tier, now)
+            if retry_after is not None:
+                return _refused(tier, retry_after)
+            response = await call_next(request)
+            if response.status_code >= 400:
+                _counter.hit(caller, tier, now)
+            return response
+
+        retry_after = _counter.hit(caller, tier, now)
         if retry_after is None:
             return await call_next(request)
 
-        return JSONResponse(
-            status_code=429,
-            # Says the limit and when to come back, so a caller can behave
-            # rather than guess. It does not say who was counted.
-            content={
-                "detail": (
-                    f"Too many requests. This endpoint allows "
-                    f"{tier.described}. Try again in {retry_after}s."
-                )
-            },
-            headers={"Retry-After": str(retry_after)},
-        )
+        return _refused(tier, retry_after)
