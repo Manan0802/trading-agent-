@@ -188,6 +188,32 @@ class TestWorkbook:
         assert fh.covered_amcs()
 
 
+class TestPerSchemeSources:
+    """HDFC files one document per scheme instead of one workbook per AMC."""
+
+    def test_the_cache_key_includes_the_scheme_or_one_fund_answers_for_all(self):
+        # The download holds only the named fund. Keyed on the AMC alone, the
+        # first HDFC fund fetched would be returned as every other HDFC fund's
+        # holdings — a wrong portfolio that looks entirely plausible.
+        assert fh._AMCS["HDFC"].per_scheme is True
+        assert fh._AMCS["SBI"].per_scheme is False
+
+    def test_the_url_carries_the_scheme_name_without_its_plan_suffix(self):
+        urls = fh._hdfc_url(fh.date(2026, 6, 30), "HDFC Flexi Cap Fund - Direct Plan - Growth")
+        assert "Monthly%20HDFC%20Flexi%20Cap%20Fund%20-%2030%20June%202026.xlsx" in urls[0]
+        assert "Direct" not in urls[0] and "Growth" not in urls[0]
+
+    def test_it_looks_under_the_publication_month_not_the_as_on_month(self):
+        # The 30 June report is published in July and hosted under 2026-07.
+        assert "/2026-07/" in fh._hdfc_url(fh.date(2026, 6, 30), "HDFC Small Cap Fund")[0]
+
+    def test_a_december_report_rolls_into_the_next_year(self):
+        assert "/2027-01/" in fh._hdfc_url(fh.date(2026, 12, 31), "HDFC Small Cap Fund")[0]
+
+    def test_display_name_keeps_casing_because_these_urls_are_case_sensitive(self):
+        assert fh._display_name("HDFC Flexi Cap Fund - Direct Plan") == "HDFC Flexi Cap Fund"
+
+
 class TestCommonWeight:
     def _portfolio(self, pairs):
         return SchemePortfolio(

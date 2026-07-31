@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 
@@ -155,33 +156,73 @@ def _icici_url(as_of: date) -> list[str]:
     ]
 
 
+def _display_name(scheme_name: str) -> str:
+    """AMFI's name with the plan and option words removed, casing intact.
+
+    "HDFC Flexi Cap Fund - Direct Plan - Growth" -> "HDFC Flexi Cap Fund",
+    which is how HDFC titles the file. `core_name` cannot be used: it upper-cases,
+    and these URLs are case-sensitive.
+    """
+    from app.services.portfolio.plan_identity import _PLAN_WORDS
+
+    return " ".join(_PLAN_WORDS.sub(" ", scheme_name or "").split())
+
+
+def _hdfc_url(as_of: date, scheme_name: str) -> list[str]:
+    # Hosted under the *publication* month, which is the one after the as-on
+    # date: the 30 June report lives under 2026-07.
+    pub_y, pub_m = (as_of.year + 1, 1) if as_of.month == 12 else (as_of.year, as_of.month + 1)
+    stem = f"Monthly {_display_name(scheme_name)} - {as_of.day} {as_of:%B} {as_of.year}.xlsx"
+    return [
+        f"https://files.hdfcfund.com/s3fs-public/{pub_y}-{pub_m:02d}/{quote(stem)}"
+    ]
+
+
+@dataclass(frozen=True)
+class AmcSource:
+    label: str
+    # (month end, AMFI scheme name) -> URLs to try in order.
+    urls: object
+    # True when the URL names one scheme, so the download holds only that fund
+    # and the cache must be keyed per scheme rather than per AMC.
+    per_scheme: bool = False
+
+
 # Keyed by the AMC token that appears at the start of scheme names. Only
 # entries below have had a real file downloaded and parsed. An AMC whose URL
 # was guessed but never fetched belongs nowhere near this dict.
-_AMCS: dict[str, tuple[str, object]] = {
-    "PARAG PARIKH": ("PPFAS Mutual Fund", _ppfas_url),
-    "SBI": ("SBI Mutual Fund", _sbi_url),
-    "NIPPON INDIA": ("Nippon India Mutual Fund", _nippon_url),
-    "AXIS": ("Axis Mutual Fund", _axis_url),
-    "KOTAK": ("Kotak Mahindra Mutual Fund", _kotak_url),
-    "ICICI PRUDENTIAL": ("ICICI Prudential Mutual Fund", _icici_url),
+_AMCS: dict[str, AmcSource] = {
+    "PARAG PARIKH": AmcSource("PPFAS Mutual Fund", lambda d, _: _ppfas_url(d)),
+    "SBI": AmcSource("SBI Mutual Fund", lambda d, _: _sbi_url(d)),
+    "NIPPON INDIA": AmcSource("Nippon India Mutual Fund", lambda d, _: _nippon_url(d)),
+    "AXIS": AmcSource("Axis Mutual Fund", lambda d, _: _axis_url(d)),
+    "KOTAK": AmcSource("Kotak Mahindra Mutual Fund", lambda d, _: _kotak_url(d)),
+    "ICICI PRUDENTIAL": AmcSource("ICICI Prudential Mutual Fund", lambda d, _: _icici_url(d)),
+    # Partial by nature: HDFC files one document per scheme and its WAF answers
+    # 403 rather than 404 for one that does not exist, so a scheme whose file is
+    # titled differently is simply unavailable. Verified working for Flexi Cap,
+    # Small Cap, Balanced Advantage and Corporate Bond; not for Mid-Cap
+    # Opportunities or Top 100. Partial coverage of the largest AMC beats none,
+    # and an unavailable scheme reports "holdings n/a" rather than a wrong number.
+    "HDFC": AmcSource("HDFC Mutual Fund", _hdfc_url, per_scheme=True),
 }
 
-# AMCs whose file is reachable but whose URL needs the scheme name, not just a
-# date, so they cannot be served by a builder of this shape:
-#   HDFC   one file per scheme, hosted under the *publication* month, and the
-#          only one that needs a browser User-Agent.
-#   UTI    an API call resolves an internal two-letter code first (017 -> "MR"),
-#          and the code is not derivable from anything else.
+# Reachable, verified, and still not wired up, because each needs an identifier
+# we cannot derive from anything we hold:
+#   UTI    an API call resolves an internal two-letter code (017 -> "MR"), keyed
+#          on UTI's own scheme code rather than AMFI's.
 #   Mirae  one file per scheme keyed on a lowercase internal code ("mafcf").
-#   ABSL   one combined zip, but the filename changed in all six consecutive
-#          months checked, so it needs the page scraped, not a template.
-# All four are verified reachable and recorded; none is guessed at here.
+#   ABSL   one combined zip whose filename changed in all six consecutive months
+#          checked, and the listing page is JS-rendered -- so it needs a headless
+#          browser at request time, which is not a dependency worth putting in
+#          the request path.
+# URL patterns for all three are recorded in the data-sources notes. Wiring them
+# needs a scheme-code mapping, not more guessing.
 
 
 def covered_amcs() -> dict[str, str]:
     """AMC token -> display name, for saying out loud what is and is not covered."""
-    return {token: label for token, (label, _) in _AMCS.items()}
+    return {token: source.label for token, source in _AMCS.items()}
 
 
 def _amc_for(scheme_name: str) -> str | None:
@@ -532,17 +573,21 @@ def portfolio_for(scheme_name: str) -> SchemePortfolio:
         raise HoldingsUnavailable(
             f"{scheme_name.split()[0]} does not publish in a format we read yet"
         )
-    _, builder = _AMCS[token]
+    source = _AMCS[token]
     wanted = _match_key(scheme_name)
 
     now = time.time()
     problems: list[str] = []
     for as_of in _month_ends():
+        # A per-scheme download holds only that fund, so caching it under the
+        # AMC alone would serve one scheme's holdings for every other.
         key = f"{token}|{as_of.isoformat()}"
+        if source.per_scheme:
+            key = f"{key}|{wanted}"
         cached = _read_disk(key, now)
         if cached is None:
             try:
-                blob = _download(builder(as_of))
+                blob = _download(source.urls(as_of, scheme_name))
                 parsed = _parse_workbook(blob, as_of)
             except HoldingsUnavailable as exc:
                 problems.append(f"{as_of.isoformat()}: {exc}")
