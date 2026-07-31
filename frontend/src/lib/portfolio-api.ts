@@ -37,6 +37,13 @@ export type HoldingSummary = {
    * correct about something else.
    */
   misnamed_as: string | null
+  /** The date this price is actually from. */
+  price_as_of: string | null
+  /**
+   * Days behind the rest of the portfolio. Set only when far enough behind to
+   * mean the feed stopped rather than the market being shut for a holiday.
+   */
+  stale_days: number | null
   unrealised_gain: number | null
   realised_gain: number
   absolute_return: number | null
@@ -107,7 +114,15 @@ export type HistoryPoint = {
   benchmark_value: number | null
 }
 
-export async function fetchHistory(): Promise<HistoryPoint[]> {
+export type PortfolioHistory = {
+  points: HistoryPoint[]
+  /** Holding name -> why it is not in the line. Never silent. */
+  excluded: Record<string, string>
+  /** What those holdings are worth today, so the gap to the headline is stated. */
+  excluded_value: number
+}
+
+export async function fetchHistory(): Promise<PortfolioHistory> {
   return (await api.get('/api/v1/portfolio/history')).data
 }
 

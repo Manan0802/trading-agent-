@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from app.services.marketdata.mutual_fund import NavPoint, nav_on_or_before
-from app.services.portfolio.fifo import TxnInput
+from app.services.portfolio.fifo import TxnInput, apply_fifo
 
 # Roughly ten years of month-ends. A chart is around 800 pixels wide, so daily
 # sampling would send thousands of numbers to draw the same line.
@@ -64,19 +64,23 @@ def _sample_dates(first_txn: date, valuation_date: date) -> list[date]:
 def _units_and_invested(
     transactions: list[TxnInput], as_of: date
 ) -> tuple[float, float]:
-    units = 0.0
-    invested = 0.0
-    for txn in transactions:
-        if txn.txn_date > as_of:
-            continue
-        amount = txn.units * txn.price
-        if txn.txn_type == "BUY":
-            units += txn.units
-            invested += amount
-        else:
-            units -= txn.units
-            invested -= amount
-    return units, invested
+    """Units held on a date, and the FIFO cost basis of exactly those units.
+
+    The cost basis has to be FIFO, not buys-minus-sale-proceeds, because the
+    headline "Invested" on the same page is FIFO and the two were 30% apart
+    after any partial sale. Buy 100 at 100 and sell 60 at 120: net cash says
+    2,800, the 40 units still held cost 4,000. Both are true statements about
+    different quantities, and both were labelled "Invested" one above the other.
+
+    This is the module's own promise -- rebuilt from the ledger so they "can
+    never drift out of agreement with the headline figures" -- which was not
+    kept until the two used the same definition.
+    """
+    upto = [t for t in transactions if t.txn_date <= as_of]
+    if not upto:
+        return 0.0, 0.0
+    lots = apply_fifo(upto)
+    return lots.units_held, lots.cost_basis
 
 
 def _benchmark_units(

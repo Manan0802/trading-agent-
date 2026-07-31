@@ -58,6 +58,12 @@ class HoldingSummaryOut(BaseModel):
     # See HoldingOut.misnamed_as. Repeated here because this is the shape the
     # portfolio page actually renders, and a warning nobody sees is not one.
     misnamed_as: str | None = None
+    # The date the price above is actually from. Shown so a frozen NAV cannot
+    # masquerade as today's value.
+    price_as_of: date | None = None
+    # Days behind the rest of this portfolio. Set only when it is far enough
+    # behind to mean the feed stopped rather than the market was shut.
+    stale_days: int | None = None
     unrealised_gain: float | None
     realised_gain: float
     absolute_return: float | None
@@ -184,6 +190,24 @@ class HistoryPointOut(BaseModel):
     invested: float
     portfolio_value: float
     benchmark_value: float | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PortfolioHistoryOut(BaseModel):
+    """The line, and everything the line does not cover.
+
+    Previously a bare list of points, which left nowhere to say what had been
+    left out -- so a portfolio with a stock drew a chart 29% below the total
+    printed directly above it, with nothing anywhere explaining the gap.
+    """
+
+    points: list["HistoryPointOut"]
+    # Holding name -> why it is not in the line. Never silent.
+    excluded: dict[str, str] = {}
+    # What those holdings are worth today, so the gap between this chart and
+    # the headline total is a stated number rather than something to notice.
+    excluded_value: float = 0.0
 
     model_config = ConfigDict(from_attributes=True)
 

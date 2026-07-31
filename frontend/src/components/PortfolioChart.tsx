@@ -53,9 +53,21 @@ function ChartTooltip({
   )
 }
 
-export function PortfolioChart({ points }: { points: HistoryPoint[] }) {
+export function PortfolioChart({
+  points,
+  excluded = {},
+  excludedValue = 0,
+}: {
+  points: HistoryPoint[]
+  /** Holdings this line does not cover, with the reason. */
+  excluded?: Record<string, string>
+  /** What they are worth today. */
+  excludedValue?: number
+}) {
   // Two points draw a straight line that implies a trend from nothing.
   if (points.length < 3) return null
+
+  const left = Object.entries(excluded)
 
   const hasBenchmark = points.some((p) => p.benchmark_value !== null)
 
@@ -150,6 +162,25 @@ export function PortfolioChart({ points }: { points: HistoryPoint[] }) {
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Without this the chart sat 29% below the total printed above it, with
+          nothing to explain the gap. Two plausible numbers disagreeing is worse
+          than one visible error, because neither looks wrong. */}
+      {left.length > 0 && (
+        <p className="max-w-3xl text-xs text-muted-foreground">
+          This line covers your funds only.{' '}
+          {left.map(([name]) => name).join(', ')}
+          {excludedValue > 0 && (
+            <>
+              {' '}&mdash; worth{' '}
+              <span className="tnum">{formatInr(excludedValue)}</span> today
+            </>
+          )}
+          {' '}
+          {left.length === 1 ? 'is' : 'are'} not in it, so it reads below the
+          total above. {left[0][1]}.
+        </p>
+      )}
     </section>
   )
 }

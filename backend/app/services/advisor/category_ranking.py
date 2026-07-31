@@ -7,6 +7,7 @@ looking at the same judgement.
 """
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from dataclasses import dataclass
 
 from app.services.advisor.fund_catalogue import funds_in_category
@@ -22,6 +23,11 @@ from app.services.marketdata import mutual_fund
 # The cost is network latency, not computation, and every response lands in the
 # disk cache, so this is paid once a day per fund.
 _FETCH_WORKERS = 24
+
+# Past this, a scheme has stopped publishing rather than sat out a holiday. No
+# Indian market closure comes close to a month, so this needs no tuning: it
+# separates "wound up" from "shut for Diwali", not "fresh" from "slightly late".
+_CLOSED_AFTER_DAYS = 30
 
 
 @dataclass(frozen=True)
@@ -60,11 +66,31 @@ def rank_codes(
         try:
             navs = mutual_fund.get_nav_history(entry.code)
         except mutual_fund.MutualFundDataError:
-            return None
-        return build_evidence(entry.code, entry.name, entry.category, navs)
+            return None, None
+        if not navs:
+            return None, None
+
+        # A scheme that wound up or matured keeps its whole history in the feed,
+        # so it scores like any other fund and can rank above the ones you can
+        # actually buy. Multi Cap carried one that last published 2,772 days
+        # ago. Nothing about a stale series looks wrong -- the record is real,
+        # it just ended -- which is why this has to be an explicit check.
+        behind = (date.today() - navs[-1].date).days
+        if behind > _CLOSED_AFTER_DAYS:
+            return None, UnscorableFund(
+                scheme_code=entry.code,
+                scheme_name=entry.name,
+                reason=(
+                    f"no NAV published since {navs[-1].date}, {behind} days ago, "
+                    "so this scheme has almost certainly wound up or matured"
+                ),
+            )
+        return build_evidence(entry.code, entry.name, entry.category, navs), None
 
     with ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
-        evidence = [e for e in pool.map(load, entries) if e is not None]
+        loaded = list(pool.map(load, entries))
+    evidence = [e for e, _ in loaded if e is not None]
+    closed = [u for _, u in loaded if u is not None]
 
     result = score_peer_group_v2(evidence)
     total = len(result.ranked)
@@ -81,7 +107,10 @@ def rank_codes(
             )
             for i, fund in enumerate(result.ranked, start=1)
         ],
-        unscorable=result.unscorable,
+        # Wound-up schemes are listed with the ones that could not be scored,
+        # never dropped in silence: "34 funds" that was really 40 is an
+        # omission the reader cannot see.
+        unscorable=closed + result.unscorable,
         priced=sum(1 for f in result.ranked if f.evidence.regular_ter is not None),
     )
 

@@ -109,6 +109,19 @@ function HoldingRow({ holding }: { holding: HoldingSummary }) {
             </span>
           </p>
         )}
+        {/* A NAV keeps being returned after a scheme stops publishing, so a
+            frozen price otherwise reads as today's value. */}
+        {holding.stale_days !== null && (
+          <p className="mt-1 flex items-start gap-1 text-xs font-medium">
+            <AlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden />
+            <span>
+              Priced from a NAV of{' '}
+              <span className="tnum">{holding.price_as_of}</span>, which is{' '}
+              <span className="tnum">{holding.stale_days}</span> days behind
+              your other funds. This value is not current.
+            </span>
+          </p>
+        )}
         {holding.price_error && (
           <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
             <AlertTriangle className="size-3 shrink-0" aria-hidden />
@@ -263,7 +276,13 @@ export function Portfolio() {
 
       <Announcements />
 
-      {history && <PortfolioChart points={history} />}
+      {history && (
+        <PortfolioChart
+          points={history.points}
+          excluded={history.excluded}
+          excludedValue={history.excluded_value}
+        />
+      )}
 
       {data.has_pricing_errors && (
         <p className="flex items-start gap-2 text-sm text-muted-foreground">

@@ -279,6 +279,30 @@ def main() -> int:
         f"cost review mentions {sorted(stray)}, which the portfolio does not list",
     )
 
+    # --- the chart against the headline it sits under ----------------------
+    # A portfolio holding one stock drew a chart 29% below the total printed
+    # directly above it, because the line covers funds only and said so
+    # nowhere. Two plausible numbers disagreeing is worse than one visible
+    # error: neither looks wrong.
+    history = client.get("/api/v1/portfolio/history", headers=auth).json()
+    portfolio = client.get("/api/v1/portfolio", headers=auth).json()
+    if history["points"]:
+        drawn = history["points"][-1]["portfolio_value"]
+        check(
+            "the chart plus what it excludes equals the headline total",
+            close(drawn + history["excluded_value"], portfolio["total_current_value"], tol=2),
+            f"chart {drawn} + excluded {history['excluded_value']} "
+            f"vs headline {portfolio['total_current_value']}",
+        )
+        # Same word, two meanings, one above the other: the headline is the
+        # FIFO cost of units still held, the chart used to be net cash in.
+        check(
+            "'Invested' means the same thing in the chart as in the header",
+            close(history["points"][-1]["invested"], portfolio["total_invested"], tol=2),
+            f"chart {history['points'][-1]['invested']} "
+            f"vs header {portfolio['total_invested']}",
+        )
+
     print(f"\n{CHECKS} consistency checks run")
     if FAILURES:
         print(f"\n{len(FAILURES)} DISAGREE:\n")

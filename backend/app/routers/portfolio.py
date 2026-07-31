@@ -11,6 +11,7 @@ from app.schemas.portfolio import (
     BenchmarkComparisonOut,
     HoldingCreate,
     HoldingOut,
+    PortfolioHistoryOut,
     PortfolioSummaryOut,
     TransactionCreate,
     TransactionOut,
@@ -26,7 +27,7 @@ from app.schemas.portfolio import (
 from app.services.advisor.fund_universe import BENCHMARK_SCHEME_CODE
 from app.services.marketdata import fund_holdings, mutual_fund
 from app.services.marketdata.mutual_fund import MutualFundDataError, NavPoint
-from app.services.marketdata.pricing import get_current_price
+from app.services.marketdata.pricing import get_current_price, price_as_of
 from app.services.portfolio.benchmark import compare_to_benchmark
 from app.services.advisor.fund_evidence import expense_ratios
 from app.services.portfolio.history import HoldingSeries, build_history
@@ -35,6 +36,7 @@ from app.services.marketdata import announcements as filings
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
 from app.services.portfolio.holding_cost import cost_review
+from app.services.portfolio.freshness import stale_days
 from app.services.portfolio.plan_identity import identify, misnamed_as
 from app.services.portfolio.fifo import TxnInput, apply_fifo
 from app.services.portfolio.valuation import HoldingInput, value_portfolio
@@ -181,16 +183,37 @@ def get_portfolio(
     funds = {h.id: h for h in holdings if h.asset_type == "MF"}
     if funds:
         with ThreadPoolExecutor(max_workers=8) as pool:
-            flags = dict(
+            resolved = dict(
                 pool.map(
-                    lambda h: (h.id, misnamed_as(h.identifier, h.name)),
+                    lambda h: (
+                        h.id,
+                        (
+                            misnamed_as(h.identifier, h.name),
+                            price_as_of(h.asset_type, h.identifier),
+                        ),
+                    ),
                     funds.values(),
                 )
             )
+        # Each price is judged against the others in this portfolio, so a
+        # market holiday cannot read as a frozen feed. See
+        # services/portfolio/freshness.py.
+        dates = [d for _, d in resolved.values() if d is not None]
+        today = date.today()
         out = out.model_copy(
             update={
                 "holdings": [
-                    row.model_copy(update={"misnamed_as": flags.get(row.holding_id)})
+                    row.model_copy(
+                        update={
+                            "misnamed_as": resolved.get(row.holding_id, (None, None))[0],
+                            "price_as_of": resolved.get(row.holding_id, (None, None))[1],
+                            "stale_days": stale_days(
+                                resolved.get(row.holding_id, (None, None))[1],
+                                peer_dates=dates,
+                                today=today,
+                            ),
+                        }
+                    )
                     for row in out.holdings
                 ]
             }
@@ -375,7 +398,7 @@ def get_levers(
     )
 
 
-@router.get("/history", response_model=list[HistoryPointOut])
+@router.get("/history", response_model=PortfolioHistoryOut)
 def get_portfolio_history(
     db: Session = Depends(get_db),
     user: User = Depends(current_active_user),
@@ -385,15 +408,28 @@ def get_portfolio_history(
     Only mutual funds carry a usable price history on the free feeds, so stock
     holdings are excluded from the line rather than pinned at their purchase
     price, which would draw a flat segment that looks like a real result.
+
+    What is excluded is returned with the line. It used to be dropped silently,
+    which put a chart 29% below the total printed directly above it on the same
+    page, with nothing to explain the gap -- two plausible numbers disagreeing,
+    which is worse than one visible error.
     """
     holdings = db.query(Holding).filter(Holding.user_id == user.id).all()
     series: list[HoldingSeries] = []
+    excluded: dict[str, str] = {}
     for holding in holdings:
-        if holding.asset_type != "MF" or not holding.transactions:
+        if not holding.transactions:
+            continue
+        if holding.asset_type != "MF":
+            excluded[holding.name] = (
+                "stocks have no price history on the free feeds, so this is not "
+                "in the line"
+            )
             continue
         try:
             navs = mutual_fund.get_nav_history(holding.identifier)
-        except MutualFundDataError:
+        except MutualFundDataError as exc:
+            excluded[holding.name] = f"NAV history could not be fetched ({exc})"
             continue
         series.append(
             HoldingSeries(
@@ -406,8 +442,20 @@ def get_portfolio_history(
             )
         )
 
+    # Priced once so the chart can state, in rupees, how much sits outside it.
+    missing_value = 0.0
+    if excluded:
+        priced = value_portfolio(
+            [_to_input(h) for h in holdings if h.name in excluded],
+            get_current_price,
+            date.today(),
+        )
+        missing_value = priced.total_current_value
+
     if not series:
-        return []
+        return PortfolioHistoryOut(
+            points=[], excluded=excluded, excluded_value=round(missing_value, 2)
+        )
 
     try:
         benchmark_navs = get_benchmark_navs()
@@ -415,10 +463,13 @@ def get_portfolio_history(
         # The portfolio line is still worth drawing without a comparison.
         benchmark_navs = []
 
-    return [
+    points = [
         HistoryPointOut.model_validate(p)
         for p in build_history(series, benchmark_navs, date.today())
     ]
+    return PortfolioHistoryOut(
+        points=points, excluded=excluded, excluded_value=round(missing_value, 2)
+    )
 
 
 @router.get("/overlap", response_model=OverlapOut)
