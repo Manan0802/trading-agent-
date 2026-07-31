@@ -5,7 +5,7 @@ the same thing is worse: nothing errors, nothing logs, and the reader quietly
 stops believing any of it. This checks the seams where the same fact is computed
 by more than one path.
 
-    python scripts/consistency.py [--api http://127.0.0.1:8010]
+    python scripts/consistency.py [--api http://127.0.0.1:8020]
 """
 
 import argparse
@@ -33,7 +33,9 @@ def close(a: float | None, b: float | None, tol: float = 1.0) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--api", default="http://127.0.0.1:8010")
+    # 8000 and 8010 are other projects on this machine. A wrong default does not
+    # error -- it runs the whole harness against a different app and passes.
+    parser.add_argument("--api", default="http://127.0.0.1:8020")
     args = parser.parse_args()
     client = httpx.Client(base_url=args.api.rstrip("/"), timeout=180)
 

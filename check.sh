@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Everything that has to be true before this is worth showing anyone.
 #
-#   ./check.sh            against a server you already have running on :8000
-#   API=http://127.0.0.1:8010 ./check.sh
+#   ./check.sh            against a server you already have running on :8020
+#   API=http://127.0.0.1:9000 ./check.sh    (if it is somewhere else)
 #
 # The unit tests assert what the code is meant to do. The three harnesses after
 # them ask the questions tests do not: does anything 500 on input a form never
@@ -11,7 +11,9 @@
 set -uo pipefail
 
 cd "$(dirname "$0")"
-API="${API:-http://127.0.0.1:8000}"
+# 8000 and 8010 are other projects on this machine. Pointing the gate at
+# one of them does not fail -- it runs every check against a different app.
+API="${API:-http://127.0.0.1:8020}"
 APP="${APP:-http://localhost:5173}"
 FAILED=()
 

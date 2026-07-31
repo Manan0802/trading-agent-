@@ -5,7 +5,7 @@ asks what happens when someone types something the code was never shown — a
 target date in the past, an income of one rupee, a fifty-crore goal, a negative
 holding. A 500 is a bug. So is a 200 carrying a number that cannot be true.
 
-    python scripts/edge_cases.py [--api http://127.0.0.1:8010]
+    python scripts/edge_cases.py [--api http://127.0.0.1:8020]
 """
 
 import argparse
@@ -51,7 +51,9 @@ def all_finite(payload, path="") -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--api", default="http://127.0.0.1:8010")
+    # 8000 and 8010 are other projects on this machine. A wrong default does not
+    # error -- it runs the whole harness against a different app and passes.
+    parser.add_argument("--api", default="http://127.0.0.1:8020")
     args = parser.parse_args()
     api = args.api.rstrip("/")
 

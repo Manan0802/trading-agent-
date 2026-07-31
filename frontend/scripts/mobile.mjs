@@ -14,7 +14,9 @@
  * is really overflowing.
  */
 import { chromium, devices } from 'playwright'
-const API = process.env.API_URL ?? 'http://127.0.0.1:8010'
+// 8000 and 8010 are other projects on this machine. A wrong default here does
+// not error -- it authenticates against a different app and then reports on it.
+const API = process.env.API_URL ?? 'http://127.0.0.1:8020'
 const APP = process.env.APP_URL ?? 'http://localhost:5173'
 const EMAIL = `mb${Date.now()}@example.com`, PW = 'screenshot-account-pw'
 

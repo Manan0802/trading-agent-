@@ -5,7 +5,7 @@ Showing them somebody else's would be a different and much worse kind of
 dishonesty, so this walks every route that takes an id or reads a session and
 tries it as a stranger and as nobody.
 
-    python scripts/isolation.py [--api http://127.0.0.1:8010]
+    python scripts/isolation.py [--api http://127.0.0.1:8020]
 """
 
 import argparse
@@ -41,7 +41,9 @@ def account(client: httpx.Client, tag: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--api", default="http://127.0.0.1:8010")
+    # 8000 and 8010 are other projects on this machine. A wrong default does not
+    # error -- it runs the whole harness against a different app and passes.
+    parser.add_argument("--api", default="http://127.0.0.1:8020")
     args = parser.parse_args()
     client = httpx.Client(base_url=args.api.rstrip("/"), timeout=90)
 

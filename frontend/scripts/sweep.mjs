@@ -9,7 +9,9 @@
  * it is the state least likely to be looked at by hand.
  */
 import { chromium } from 'playwright'
-const API=process.env.API_URL ?? 'http://127.0.0.1:8000', APP=process.env.APP_URL ?? 'http://localhost:5173'
+// 8000 and 8010 are other projects on this machine. A wrong default here does
+// not error -- it authenticates against a different app and then reports on it.
+const API=process.env.API_URL ?? 'http://127.0.0.1:8020', APP=process.env.APP_URL ?? 'http://localhost:5173'
 const EMAIL=`sw+${Date.now()}@example.com`, PW='screenshot-account-pw'
 await fetch(`${API}/api/v1/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:EMAIL,password:PW,name:'Sw',phone:'+919000000333'})})
 const {access_token}=await (await fetch(`${API}/api/v1/auth/jwt/login`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({username:EMAIL,password:PW})})).json()
