@@ -71,6 +71,32 @@ class Settings(BaseSettings):
                 f"JWT_SECRET is {len(self.jwt_secret)} characters. Use at least "
                 f"{MIN_JWT_SECRET_LENGTH} so the signature is not the weak link."
             )
+
+        # A relative SQLite path in production is a container filesystem, and
+        # that is wiped on every redeploy. Nothing errors, nothing logs -- the
+        # app comes back up with an empty database and every holding, goal and
+        # transaction is gone. Absolute paths are allowed because that is a
+        # mounted volume, which is a real choice rather than an accident.
+        if self.database_url.startswith("sqlite:///") and not self.database_url.startswith(
+            "sqlite:////"
+        ):
+            raise ValueError(
+                f"DATABASE_URL is {self.database_url!r}, a SQLite file at a "
+                "relative path. On a hosted container that is ephemeral storage: "
+                "the first redeploy silently deletes every account. Use Postgres, "
+                "or an absolute path on a mounted volume "
+                "(sqlite:////data/nextrade.db)."
+            )
+
+        # allow_credentials is on, so a wildcard origin would let any site read
+        # a logged-in user's portfolio. Browsers reject the combination, which
+        # means it fails as a total CORS outage rather than as a clear error.
+        if "*" in self.allowed_origins:
+            raise ValueError(
+                "ALLOWED_ORIGINS contains '*'. This API sends credentials, so a "
+                "wildcard origin is both unsafe and silently broken in browsers. "
+                "List the frontend's exact origin."
+            )
         return self
 
 

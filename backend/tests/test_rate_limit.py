@@ -150,3 +150,44 @@ class TestSecurityHeaders:
         # Sending it on plain HTTP would pin localhost to HTTPS in the
         # developer's own browser for two years.
         assert "Strict-Transport-Security" not in client.get("/health").headers
+
+
+class TestProductionGuards:
+    """Configuration that would lose data or leak it must not start.
+
+    Each of these is a failure that produces no error at runtime -- an empty
+    database after a redeploy, or a CORS outage that reads as "the API is down".
+    Refusing at startup is the only place they are visible.
+    """
+
+    def _settings(self, **overrides):
+        from app.config import Settings
+
+        base = {
+            "environment": "production",
+            "jwt_secret": "x" * 40,
+            "database_url": "postgresql://u:p@host/db",
+            "allowed_origins": "https://app.example.com",
+        }
+        return Settings(_env_file=None, **{**base, **overrides})
+
+    def test_a_sane_production_config_starts(self):
+        assert self._settings().environment == "production"
+
+    def test_relative_sqlite_is_refused_because_a_redeploy_erases_it(self):
+        with pytest.raises(ValueError, match="ephemeral"):
+            self._settings(database_url="sqlite:///./nextrade.db")
+
+    def test_sqlite_on_a_mounted_volume_is_allowed(self):
+        # An absolute path is a deliberate choice, not the container default.
+        assert self._settings(database_url="sqlite:////data/nextrade.db")
+
+    def test_a_wildcard_origin_is_refused(self):
+        with pytest.raises(ValueError, match="wildcard"):
+            self._settings(allowed_origins="*")
+
+    def test_development_is_left_alone(self):
+        from app.config import Settings
+
+        # Local work must not need Postgres or a generated secret.
+        assert Settings(_env_file=None, environment="development")

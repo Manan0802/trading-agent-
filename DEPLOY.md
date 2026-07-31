@@ -1,0 +1,176 @@
+# Deploying NexTrade
+
+Two halves that deploy separately: a static React bundle, and a FastAPI process
+with a database. The frontend can go anywhere that serves files. The backend
+needs somewhere that keeps a disk and does not sleep.
+
+Nothing here is done for you. This is the list of what to set and, where it
+matters, what goes wrong if you don't.
+
+---
+
+## Before anything
+
+The app refuses to start in production with a broken configuration rather than
+starting and failing quietly later. Four things it checks:
+
+| It refuses if | Because |
+|---|---|
+| `JWT_SECRET` is the example value | It is public in this repository. Anyone could sign a token for any account. |
+| `JWT_SECRET` is under 32 characters | The signature becomes the weak link. |
+| `DATABASE_URL` is a **relative** SQLite path | On a hosted container that is ephemeral storage. The first redeploy silently deletes every account — nothing errors, nothing logs. |
+| `ALLOWED_ORIGINS` contains `*` | This API sends credentials, so a wildcard lets any site read a logged-in user's portfolio. Browsers also reject the combination, so it fails as a total CORS outage rather than a clear error. |
+
+Generate a secret with:
+
+```bash
+openssl rand -hex 32
+```
+
+---
+
+## Backend
+
+Anywhere that runs a long-lived Python process with a persistent disk —
+Coolify, Railway, Fly, Render, or a VPS. **Not** a serverless function: there is
+a background scheduler and a warm disk cache, and both assume the process
+stays up.
+
+```bash
+cd backend
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+### Environment
+
+```bash
+ENVIRONMENT=production
+JWT_SECRET=<openssl rand -hex 32>
+
+# Postgres, or SQLite at an ABSOLUTE path on a mounted volume.
+DATABASE_URL=postgresql://user:pass@host:5432/nextrade
+# DATABASE_URL=sqlite:////data/nextrade.db
+
+# The frontend's exact origin. No wildcard, no trailing slash.
+ALLOWED_ORIGINS=https://nextrade.yourdomain.com
+FRONTEND_URL=https://nextrade.yourdomain.com
+BACKEND_URL=https://api.nextrade.yourdomain.com
+
+# Only if a reverse proxy you control sets X-Forwarded-For. Leave false
+# otherwise: the caller sets that header themselves, and believing it gives
+# every request a fresh rate-limit bucket, which turns the limiter off.
+TRUST_PROXY_HEADER=false
+
+# Optional. Absent means the feature is simply off.
+GOOGLE_OAUTH_CLIENT_ID=
+GOOGLE_OAUTH_CLIENT_SECRET=
+GROQ_API_KEY=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+```
+
+Google OAuth also needs `https://api.<your-domain>/api/v1/auth/google/callback`
+added as an authorised redirect URI in the Google console, or sign-in fails at
+the last step with an error the user cannot act on.
+
+### Disk
+
+Three caches are written next to the backend, and they are worth keeping across
+restarts — a cold start is roughly 40 seconds against 3 warm.
+
+```
+backend/.navcache/        NAV history
+backend/.stockcache/      stock fundamentals
+backend/.holdingscache/   AMC monthly portfolios (multi-MB downloads)
+backend/.newscache/       NSE filings
+```
+
+Point them elsewhere with `NEXTRADE_CACHE_DIR`, `NEXTRADE_STOCK_CACHE_DIR`,
+`NEXTRADE_HOLDINGS_CACHE_DIR`, `NEXTRADE_NEWS_CACHE_DIR`. Losing them costs
+speed, never correctness.
+
+---
+
+## Frontend
+
+Static output. Vercel, Cloudflare Pages, Netlify, or any bucket.
+
+```bash
+cd frontend
+VITE_API_URL=https://api.nextrade.yourdomain.com npm run build
+# -> dist/
+```
+
+`VITE_API_URL` is baked in at build time, not read at runtime. Changing it
+means rebuilding.
+
+Serve `dist/` with SPA fallback — every unknown path rewrites to `index.html`,
+or a refresh on `/portfolio` returns 404.
+
+---
+
+## Rate limits
+
+In-process, so they are per worker: **N workers allow N times the limit**, and a
+restart forgets everything.
+
+```
+auth       10/min   login, register, password reset   per IP
+heavy      20/min   overlap, cost review, research    per user
+default   120/min   everything else                   per user
+/health   exempt
+```
+
+For one instance this is the right trade — no Redis to run, no operational
+story to get wrong. Behind more than one worker it becomes decorative, and the
+fix is to move `_Bucket` in `app/middleware/rate_limit.py` behind Redis.
+
+---
+
+## Verifying a deployment
+
+```bash
+curl https://api.<your-domain>/health
+# {"status":"ok"}
+
+# Security headers present
+curl -sD- -o /dev/null https://api.<your-domain>/health | grep -i x-frame-options
+
+# Rate limiter alive: the 11th should be 429
+for i in $(seq 1 12); do
+  curl -s -o /dev/null -w "%{http_code} " -X POST \
+    https://api.<your-domain>/api/v1/auth/jwt/login \
+    -d "username=nobody@example.com&password=wrong"
+done
+```
+
+Then run the full gate against it:
+
+```bash
+API=https://api.<your-domain> APP=https://<your-domain> ./check.sh
+```
+
+---
+
+## What this app does not do
+
+It never places an order. There is no broker integration and no API key that
+could move money. Recommendations are read, and executed by hand on Groww or
+Zerodha. Nothing in a deployment changes that, and nothing should.
+
+---
+
+## Known limits worth deploying with your eyes open
+
+- **Rate limits are per worker.** See above.
+- **Holdings cover 7 AMCs** — PPFAS, SBI, Nippon, Axis, Kotak, ICICI, HDFC — and
+  HDFC only partially. Anything else reports "holdings n/a", never zero.
+- **The stock score is unproven.** It won on NIFTY 500 and lost on NIFTY 50, and
+  the screen says so. See `docs/does-the-stock-score-work.md`.
+- **Fund ranking is mostly a cost ranking**, because that is the only input that
+  survived testing. See `docs/what-actually-predicts-returns.md`.
+- **Market data comes from public endpoints** — mfapi, AMFI, NSE archives,
+  yfinance — with no contract and no SLA. Each has a cache and a stated
+  fallback; none has a guarantee.
