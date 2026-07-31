@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     backend_url: str = "http://localhost:8000"
 
+    # Whether X-Forwarded-For may be believed for rate-limit counting. Only
+    # true behind a reverse proxy we control: anywhere else the caller sets the
+    # header themselves and gets a fresh bucket on every request, which turns
+    # the limiter off for exactly the attacker it exists to stop.
+    trust_proxy_header: bool = False
+
     @property
     def async_database_url(self) -> str:
         if self.database_url.startswith("sqlite:///"):
