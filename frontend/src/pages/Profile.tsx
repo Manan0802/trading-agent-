@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Panel } from '@/components/ui/panel'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -90,7 +91,7 @@ export function Profile() {
   const tax = data?.tax
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1.5">
         <h1 className="text-2xl font-semibold tracking-tight">Your situation</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
@@ -100,11 +101,13 @@ export function Profile() {
         </p>
       </header>
 
+      {/* The answer beside the inputs that produce it, so changing a number and
+          seeing what it does is one glance rather than a scroll. */}
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
       {tax && (
-        <section className="flex flex-col gap-4">
-          <h2 className="text-sm font-medium">
-            The {tax.recommended === 'new' ? 'new' : 'old'} regime is cheaper for you
-          </h2>
+        <Panel
+          title={`The ${tax.recommended === 'new' ? 'new' : 'old'} regime is cheaper for you`}
+        >
           <MetricRow className="sm:grid-cols-3 lg:grid-cols-3 sm:[&>*:nth-child(3n+1)]:pl-0 sm:[&>*:nth-child(3n)]:border-r-0">
             <Metric
               label="New regime"
@@ -126,9 +129,13 @@ export function Profile() {
             />
           </MetricRow>
           <p className="max-w-3xl text-sm text-muted-foreground">{tax.rationale}</p>
-        </section>
+        </Panel>
       )}
 
+      {/* The form stays a reading column. A settings form is worked through in
+          order, so full width would make every label a long saccade from its
+          field. */}
+      <Panel title="Your numbers" className="xl:order-first">
       <form onSubmit={submit} className="flex max-w-lg flex-col gap-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="salaried">Income type</Label>
@@ -194,6 +201,8 @@ export function Profile() {
           )}
         </div>
       </form>
+      </Panel>
+      </div>
     </div>
   )
 }

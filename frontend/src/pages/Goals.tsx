@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Panel } from '@/components/ui/panel'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { buttonVariants } from '@/components/ui/button'
@@ -140,7 +141,7 @@ export function Goals() {
   const active = data.filter((g) => g.status === 'active')
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-start justify-between gap-6">
         <div className="flex flex-col gap-1.5">
           {active.length > 0 ? (
@@ -186,14 +187,16 @@ export function Goals() {
       )}
 
       {active.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium">Your goals</h2>
-          <ul className="flex flex-col divide-y border-y">
+        <Panel
+          title="Your goals"
+          aside={`${active.length} ${active.length === 1 ? 'goal' : 'goals'}`}
+        >
+          <ul className="flex flex-col divide-y">
             {active.map((goal) => (
               <GoalRow key={goal.id} goal={goal} />
             ))}
           </ul>
-        </section>
+        </Panel>
       )}
     </div>
   )

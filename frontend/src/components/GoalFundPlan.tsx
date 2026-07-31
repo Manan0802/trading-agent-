@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Panel } from '@/components/ui/panel'
 import { AlertTriangle } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -165,7 +166,7 @@ export function GoalFundPlan({ goalId }: { goalId: string }) {
   )
 
   return (
-    <section className="flex flex-col gap-6">
+    <Panel>
       <SectionHeading>
         <p className="max-w-3xl text-sm text-muted-foreground">
           Direct Growth plans only. A regular plan of the same fund carries a
@@ -253,6 +254,6 @@ export function GoalFundPlan({ goalId }: { goalId: string }) {
           rating. Past performance is not a promise of future returns.
         </p>
       </div>
-    </section>
+    </Panel>
   )
 }

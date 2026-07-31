@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Panel } from '@/components/ui/panel'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle } from 'lucide-react'
 import {
@@ -422,8 +423,11 @@ function FundsTab() {
   }, {})
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-6">
+      {/* Controls sit on their own surface, above the results they change, so
+          the page reads as a screen you drive rather than a document. */}
+      <Panel className="flex-row flex-wrap items-end gap-x-6 gap-y-3">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="fund-category">Category</Label>
         <select
           id="fund-category"
@@ -445,6 +449,7 @@ function FundsTab() {
           ))}
         </select>
       </div>
+      </Panel>
 
       {openFund && (
         <FundDetailPanel schemeCode={openFund} onClose={() => setOpenFund(null)} />
@@ -470,14 +475,11 @@ function FundsTab() {
 
       {data && data.ranked.length > 0 && (
         <>
-          <section className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-              <h2 className="text-sm font-medium">Ranked cheapest first</h2>
-              <p className="text-xs text-muted-foreground">
-                Select a fund to see its full record.
-              </p>
-            </div>
-            <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <Panel
+            title="Ranked cheapest first"
+            aside="Select a fund to see its full record."
+          >
+            <div className="-mx-4 overflow-x-auto sm:mx-0">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -504,9 +506,11 @@ function FundsTab() {
                 </TableBody>
               </Table>
             </div>
-          </section>
+          </Panel>
 
-          <div className="flex flex-col gap-3">
+          {/* The reasoning belongs with the ranking, but below it: someone who
+              already trusts the method should not scroll past it every time. */}
+          <Panel title="How this ranking is made" className="text-muted-foreground">
             <p className="max-w-3xl text-sm text-muted-foreground">
               The score is mostly cost, because cost is the only thing here that
               predicts. We tested both: over 52 three-year windows the cheapest
@@ -537,7 +541,7 @@ function FundsTab() {
                 {plainProse(data.unscorable[0].reason)}.
               </p>
             )}
-          </div>
+          </Panel>
         </>
       )}
     </div>

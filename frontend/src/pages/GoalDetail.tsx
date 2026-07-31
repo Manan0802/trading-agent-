@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Panel } from '@/components/ui/panel'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -66,7 +67,7 @@ export function GoalDetail() {
   const sip = data.required_monthly_sip
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold tracking-tight">{data.goal_name}</h1>
@@ -103,30 +104,32 @@ export function GoalDetail() {
 
       {editing && <EditGoal goal={data} onClose={() => setEditing(false)} />}
 
-      <section className="flex flex-col gap-4">
+      {/* The mix and the words about it sit side by side: they are two
+          readings of the same decision, and stacked they read as two topics. */}
+      <div className="grid items-start gap-6 xl:grid-cols-2">
         {/* Not "where the money goes": a sleeve too small to place is dropped
             and its share redistributed, so what is actually bought can differ
             from this. The plan below is the one that reports what happens. */}
-        <h2 className="text-sm font-medium">The mix this goal aims for</h2>
-        <AllocationPie
-          equity={data.equity_allocation ?? 0}
-          debt={data.debt_allocation ?? 0}
-          gold={data.gold_allocation ?? 0}
-        />
-      </section>
+        <Panel title="The mix this goal aims for">
+          <AllocationPie
+            equity={data.equity_allocation ?? 0}
+            debt={data.debt_allocation ?? 0}
+            gold={data.gold_allocation ?? 0}
+          />
+        </Panel>
 
-      {data.llm_explanation && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium">What this means</h2>
-          <p className="max-w-3xl text-sm leading-relaxed">
-            {plainProse(data.llm_explanation)}
-          </p>
-          <p className="max-w-3xl text-xs text-muted-foreground">
-            Every figure on this page is a projected estimate, not a guaranteed
-            return.
-          </p>
-        </section>
-      )}
+        {data.llm_explanation && (
+          <Panel title="What this means">
+            <p className="max-w-3xl text-sm leading-relaxed">
+              {plainProse(data.llm_explanation)}
+            </p>
+            <p className="max-w-3xl text-xs text-muted-foreground">
+              Every figure on this page is a projected estimate, not a guaranteed
+              return.
+            </p>
+          </Panel>
+        )}
+      </div>
 
       {id && <GoalFundPlan goalId={id} />}
 
