@@ -248,6 +248,37 @@ def main() -> int:
             "lever present with nothing flagged",
         )
 
+    # --- the name on a holding against the fund it actually is -------------
+    # The gap that let scheme code 119533 sit in the demo data labelled "ICICI
+    # Prudential Corporate Bond Fund" while AMFI publishes it as Aditya Birla.
+    # Nothing errored; every figure was right, about the wrong fund. Two
+    # separate things are checked, because both were broken.
+    rows = client.get("/api/v1/portfolio", headers=auth).json()["holdings"]
+    funds = [r for r in rows if r["asset_type"] == "MF"]
+    check(
+        "no holding is labelled as a fund it is not",
+        all(r.get("misnamed_as") is None for r in funds),
+        "; ".join(
+            f"{r['name']} ({r['identifier']}) is really {r['misnamed_as']}"
+            for r in funds
+            if r.get("misnamed_as")
+        ),
+    )
+
+    # The portfolio table renders the typed name and the cost review renders
+    # AMFI's, so a mismatch showed two names for one holding on adjacent
+    # screens. Comparing them here is what makes that impossible to reintroduce.
+    reviewed = {f["name"] for f in review.get("flagged", [])} | set(
+        review.get("unpriced", [])
+    )
+    listed = {r["name"] for r in funds}
+    stray = reviewed - listed
+    check(
+        "the cost review names the same holdings the portfolio does",
+        not stray,
+        f"cost review mentions {sorted(stray)}, which the portfolio does not list",
+    )
+
     print(f"\n{CHECKS} consistency checks run")
     if FAILURES:
         print(f"\n{len(FAILURES)} DISAGREE:\n")
