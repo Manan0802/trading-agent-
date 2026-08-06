@@ -1,126 +1,133 @@
 # Do momentum and low volatility pay on the stocks we can buy?
 
-Run 2026-08-06 with `backend/scripts/validate_factors.py`. Eight yearly
-rebalances, one-year forward returns, point in time, both indices separately,
-costs charged.
+Rewritten 2026-08-06 after the harness was rebuilt. The first version used
+eight yearly windows against an external index and could not answer the
+question; what follows is the version that can.
 
-The question behind it: the arithmetic this app does well — tax, cost, XIRR —
-is knowledge anyone can look up. Is there anything in the *prediction* half
-with a real edge on this universe?
-
----
-
-## Read the controls first
-
-A test that only measures the thing you hope for cannot tell you whether the
-harness works. Two controls run alongside every factor:
-
-| control | what it must do | NIFTY 50 | NIFTY 500 |
-|---|---|---|---|
-| `random` | sit near zero everywhere | +0.1% spread, IC +0.018 | +3.7%, IC +0.027 |
-| `reversal` | mirror momentum exactly | −(momentum), IC −(momentum) | mirrored |
-
-Both behaved. `reversal` came back as the exact negative of momentum on both
-runs, which says the ranking arithmetic is consistent, and `random` sat near
-zero on NIFTY 50. **So the harness can be believed.** Every number below is
-about the market, not about the code.
+`backend/scripts/validate_factors.py`. Fifteen years, **non-overlapping**
+windows, point in time, costs charged, benchmarked against the universe itself.
 
 ---
 
-## The result
+## The answer
+
+**Momentum works here. It is real, it is measurable, and it is only worth
+having if you trade it rarely.**
 
 ```
-NIFTY 50 (8 windows, 50 names)
-factor         top q  bottom q   spread  net of cost   top>bot   rank IC
-momentum      20.9%    26.7%    -5.8%       19.9%      4/8      -0.056
-low_vol       15.4%    32.7%   -17.3%       14.4%      1/8      -0.127
-reversal      26.7%    20.9%    +5.8%       25.7%      4/8      +0.056
-random        22.9%    22.8%    +0.1%       21.9%      4/8      +0.018
+NIFTY 500, 220 names, 15 years
 
-NIFTY 500 (8 windows, 220 names)
-momentum      40.2%    39.3%    +0.8%       39.2%      4/8      +0.003
-low_vol       20.2%    53.5%   -33.4%       19.2%      1/8      -0.057
-reversal      39.3%    40.2%    -0.8%       38.3%      4/8      -0.003
-random        38.8%    35.1%    +3.7%       37.8%      5/8      +0.027
+quarterly (60 non-overlapping windows)
+factor         top q  vs bottom   vs univ  net of cost   rank IC       t
+momentum       8.9%      +3.3%     +2.1%        -1.9%    +0.073   +2.99
+low_vol        4.8%      -4.9%     -2.0%        -6.0%    -0.020   -2.67
+reversal       5.7%      -3.3%     -1.2%        -5.2%    -0.073   -1.36
+random         6.9%      +0.0%     +0.0%        -4.0%    -0.009   +0.07
+
+annual (15 non-overlapping windows)
+momentum      40.8%      +7.0%     +8.2%        +7.2%    +0.070   +1.60
+low_vol       19.1%     -27.2%    -13.5%       -14.5%    -0.058   -2.56
+reversal      33.8%      -7.0%     +1.2%        +0.2%    -0.070   +0.20
+random        34.9%      +1.0%     +2.3%        +1.3%    +0.025   +0.52
 ```
 
-### Momentum: nothing here
+**The signal is the same at both horizons** — rank IC +0.073 and +0.070. What
+changes is cost and sample size:
 
-Spread −5.8% on NIFTY 50 and +0.8% on NIFTY 500. **The sign flips with the
-index**, which is exactly what killed the stock score, and rank IC is +0.003 on
-the wider universe — indistinguishable from nothing.
+- **Quarterly proves the signal exists.** t = +2.99 over 60 independent
+  windows. That is not luck. But rebalancing four times a year costs 4%, and
+  the 2.1% edge does not survive it: **net −1.9%**.
+- **Annual shows it survives costs.** +8.2% over the universe, **+7.2% net** of
+  1% turnover. But fifteen windows only give t = +1.60, below the bar.
 
-The line that settles it: on NIFTY 500, **`random` (+3.7%) beat momentum
-(+0.8%)**. A seeded coin flip did better.
+Neither run alone would justify anything. Together they say: the effect is
+real (the quarterly t), and it is only harvestable at low turnover (the annual
+net). That is also exactly what the published 19-year NSE work found —
+low-turnover momentum 19.43% CAGR against high-turnover 8.51%.
 
-### Low volatility: lost on both, and that is not a surprise
-
-−17.3% and −33.4%, winning 1 of 8 windows each time. Consistent, so not noise.
-
-But it is a statement about *this period*, not about the factor. The published
-low-volatility anomaly is a **risk-adjusted** claim, and low-vol reliably
-underperforms in bull markets — 2007, 2017 and 2021 are the standard examples.
-India from 2018 to 2025 was largely a rally. A defensive factor losing a bull
-run is the factor behaving as documented, not failing.
-
-What it does mean for us: **low-vol is not a way to make more money here.** If
-it earns its place it will be for smaller drawdowns, which is a different
-claim and needs a different test.
+**Low volatility loses at every horizon.** −2.0% quarterly, −13.5% annually,
+consistently. It is a risk-adjusted claim and this sample is a bull market, so
+this is the factor behaving as documented rather than failing. It is not a way
+to make more money here.
 
 ---
 
-## The honest limit of this test
+## Why the controls matter, with a worked example
 
-**Eight yearly windows cannot detect a 2-4% annual factor premium.** That is
-the size the literature reports, and the year-to-year spread here is tens of
-percent. The fact that `random` scored +3.7% on one run is the proof: the
-noise is larger than the effect being looked for.
+Two controls run alongside every factor: `random`, a seeded shuffle that must
+score zero, and `reversal`, the negative of momentum which must mirror it.
 
-So the correct conclusion is **not** "momentum is dead." It is:
+**They caught a broken benchmark.** The first version compared each factor's
+top quartile against `^NSEI`, the Nifty 50. Result:
 
-> Nothing in these two factors is strong enough to be visible over eight years
-> on this universe — which also means nothing here is strong enough to bet on.
+```
+random   vs index +4.2%   t = +4.13
+```
 
-Both halves matter. The first says do not declare the factors broken. The
-second says do not ship them either.
+A random quartile beating the index by 4.2%, with a t-statistic that would read
+as overwhelming significance. That is not an edge — it is mid caps outrunning
+large caps across the sample, because the universe was NIFTY 500 and the
+benchmark was NIFTY 50. **Measuring a factor against a different universe
+measures the universe.**
 
-### What would make this test able to answer
+The benchmark is now the same universe, equally weighted, in the same window.
+`random` immediately fell to +0.0% with t = +0.07, and `reversal` came back as
+the exact negative of momentum. Only then were the other rows worth reading.
 
-- **More windows.** Quarterly or monthly rebalances instead of yearly turns 8
-  observations into 30-100. Overlapping, so not independent, but far better
-  powered.
-- **Longer history.** These eight years are one regime. A factor test that has
-  never seen a bear market has not been tested.
-- **A benchmark, not just quartiles.** Top quartile against the index return,
-  which is what an investor actually chooses between.
+Without the controls that +4.2% would have been reported as a finding.
 
-Until those are in, this document is a reason **not** to build a factor screen,
-not evidence against factors.
+---
+
+## Method, and why each choice was made
+
+| choice | why |
+|---|---|
+| **Non-overlapping windows** | Yearly returns sampled quarterly share three quarters of their data; ten such "windows" carry about the information of three, and a t-statistic on them is inflated. Spacing the rebalance to equal the horizon costs sample size and buys the right to do arithmetic. |
+| **Benchmark = the universe** | See above. The alternative an investor actually has is the same set of stocks, not a different index. |
+| **Costs charged, not assumed** | 0.5% a side, a full round trip per rebalance. A gross edge that dies at retail costs is not something you can buy. |
+| **Rank IC, not just quartiles** | The quartile spread collapses 220 names into one win-or-lose bit. IC uses the whole cross-section, which is why it is stable across horizons here while the spread is not. |
+| **Both indices, separately** | The stock score won on NIFTY 500 and lost on NIFTY 50, invisibly, until they were split. |
+| **Price history only** | No fundamentals, no filing lag, no currency — none of the inputs that produced wrong answers before. |
+
+---
+
+## What this does not say
+
+- **Not a trading system.** A rank IC of 0.07 is a real but small edge. It says
+  the top quartile beats the average over many names and many years; it says
+  nothing about any single stock.
+- **Fifteen years is one long expansion.** This sample has no 2008. A factor
+  never tested through a bear market has not been tested.
+- **220 names, not 751.** Limited to keep inside Yahoo's rate limit. The result
+  should be re-run on the full universe.
+- **Annual significance is unproven.** t = +1.60. The net-of-cost figure is the
+  attractive one and it is also the one with the weakest statistics.
 
 ---
 
 ## What this means for an ML or foundation model
 
-The natural next thought is that a model — Qlib, Chronos, TimesFM, a fine-tune —
-might find what simple factors miss. Two things follow from the numbers above,
-and they point in opposite directions.
+The earlier version of this document said a model could not be evaluated because
+the harness could not detect a real effect. **That is now fixed** — the harness
+detects momentum at t = +2.99 and correctly scores random at zero.
 
-**The bar is low.** Momentum scored IC +0.003 and was beaten by random. Anything
-with a genuine edge would clear that easily.
+So a model can now be tested honestly, and it has a defined bar to clear:
 
-**But the measurement cannot yet certify one.** If eight windows cannot
-distinguish momentum from a coin flip, they cannot distinguish a trained model
-from one either — and a model has vastly more ways to fit noise. Running one
-through this harness today would produce a number, and that number would not
-mean anything.
+```
+beat rank IC +0.073 at quarterly horizon
+while turning over little enough that costs do not eat it
+```
 
-**So the order is: fix the harness first, then test models.** Quarterly
-rebalances, a longer history, and a benchmark comparison. That is a day of work
-and it is the difference between a result and a story. A model evaluated on a
-harness that cannot detect a real effect is exactly how people end up
-confidently trading noise.
+That second clause is the hard part and it is where most published results
+quietly fail. Momentum already has the signal; what it lacks is a way to
+harvest it cheaply. A model that produces a *stronger* signal at the *same*
+turnover is worth having. One that needs weekly rebalancing to shine is not,
+whatever its backtest says.
 
 ---
 
-*Reproduce: `python backend/scripts/validate_factors.py --index "NIFTY 50" --limit 50`
-and `--index "NIFTY 500" --limit 220`.*
+*Reproduce:*
+```
+python backend/scripts/validate_factors.py --index "NIFTY 500" --limit 220 --years 15 --horizon quarterly
+python backend/scripts/validate_factors.py --index "NIFTY 500" --limit 220 --years 15 --horizon annual
+```

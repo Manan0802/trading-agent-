@@ -49,9 +49,15 @@ import yfinance as yf  # noqa: E402
 
 from app.services.marketdata.stock_universe import list_stocks  # noqa: E402
 
-# One year forward, in trading days. Shorter and the answer is noise; longer
-# and there are too few independent windows to say anything.
-_FORWARD_DAYS = 250
+# Forward horizons, in trading days. The rebalance interval equals the horizon
+# on purpose, so consecutive windows never overlap.
+#
+# Overlap is the quiet way a backtest lies. Yearly forward returns sampled
+# every quarter share three quarters of their data, so ten "windows" carry
+# roughly the information of three -- and a t-statistic computed on them is
+# inflated by about the square root of that. Non-overlapping costs sample size
+# and buys the right to do arithmetic on the result.
+_HORIZONS = {"quarterly": 63, "annual": 250}
 _LOOKBACK_DAYS = 250
 # Momentum conventionally skips the most recent month: the last few weeks carry
 # short-term reversal, which is a different effect pointing the other way.
@@ -133,13 +139,27 @@ _FACTORS = [
 ]
 
 
-def _forward(history: pd.DataFrame, when: pd.Timestamp) -> float | None:
+def _forward(history: pd.DataFrame, when: pd.Timestamp, days: int) -> float | None:
     upto = history.loc[history.index <= when, "Close"]
     ahead = history.loc[history.index > when, "Close"]
-    if not len(upto) or len(ahead) < _FORWARD_DAYS:
+    if not len(upto) or len(ahead) < days:
         return None
     start = float(upto.iloc[-1])
-    return float(ahead.iloc[_FORWARD_DAYS - 1]) / start - 1.0 if start > 0 else None
+    return float(ahead.iloc[days - 1]) / start - 1.0 if start > 0 else None
+
+
+def _t_stat(values: list[float]) -> float | None:
+    """Fama-MacBeth style: the mean of a per-window series over its own error.
+
+    Legitimate only because the windows do not overlap. On overlapping windows
+    the same number would be inflated and would read as significance.
+    """
+    if len(values) < 3:
+        return None
+    spread = statistics.stdev(values)
+    if spread == 0:
+        return None
+    return statistics.fmean(values) / (spread / len(values) ** 0.5)
 
 
 def _rank_ic(pairs: list[tuple[float, float]]) -> float | None:
@@ -173,21 +193,33 @@ def _rank_ic(pairs: list[tuple[float, float]]) -> float | None:
     return num / den if den else None
 
 
-def _decision_dates(years: int) -> list[pd.Timestamp]:
-    """One rebalance a year, oldest first, each with a full forward year behind."""
-    latest = date.today() - timedelta(days=400)
-    return [
-        pd.Timestamp(date(latest.year - i, latest.month, 1))
-        for i in range(years - 1, -1, -1)
-    ]
+def _decision_dates(years: int, step_months: int) -> list[pd.Timestamp]:
+    """Rebalances, oldest first, each with a full forward horizon behind it.
+
+    Spaced by the horizon so the windows are independent.
+    """
+    last = date.today() - timedelta(days=int(365 * (step_months / 12)) + 40)
+    out: list[pd.Timestamp] = []
+    year, month = last.year, last.month
+    for _ in range(int(years * 12 / step_months)):
+        out.append(pd.Timestamp(date(year, month, 1)))
+        month -= step_months
+        while month <= 0:
+            month += 12
+            year -= 1
+    return sorted(out)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--index", default="NIFTY 500")
     parser.add_argument("--limit", type=int, default=250)
-    parser.add_argument("--years", type=int, default=8)
+    parser.add_argument("--years", type=int, default=15)
+    parser.add_argument("--horizon", choices=sorted(_HORIZONS), default="quarterly")
     args = parser.parse_args()
+
+    forward_days = _HORIZONS[args.horizon]
+    step_months = 3 if args.horizon == "quarterly" else 12
 
     stocks = list_stocks(index=args.index, limit=args.limit)
     print(f"{args.index}: fetching {len(stocks)} price histories...")
@@ -196,32 +228,40 @@ def main() -> int:
         history = _prices(stock.ticker)
         if history is not None:
             histories[stock.ticker] = history
-    print(f"  {len(histories)} usable, {len(_BLOCKED)} rate-limited\n")
 
+    print(f"  {len(histories)} usable, {len(_BLOCKED)} rate-limited\n")
     if _BLOCKED:
-        # A statement about the connection, never reported as one about the
-        # market. This is why the count is printed rather than swallowed.
         print(f"  ! RATE LIMITED on {len(_BLOCKED)} tickers -- results are partial\n")
 
-    dates = _decision_dates(args.years)
-    # Seeded so a rerun is comparable; the control must be reproducible too.
+    dates = _decision_dates(args.years, step_months)
     rng = random.Random(11)
-    results: dict[str, list[tuple[float, float, float, float | None]]] = {
+    # factor -> per-window (top, bottom, index, ic)
+    results: dict[str, list[tuple[float, float, float | None, float | None]]] = {
         f.name: [] for f in _FACTORS
     }
     results["random"] = []
 
     for when in dates:
-        forwards = {t: _forward(h, when) for t, h in histories.items()}
-        forwards = {t: r for t, r in forwards.items() if r is not None}
+        forwards = {
+            t: r
+            for t, h in histories.items()
+            if (r := _forward(h, when, forward_days)) is not None
+        }
         if len(forwards) < _MIN_NAMES:
             continue
+        # The benchmark is this universe, equally weighted, in this window --
+        # not an external index.
+        #
+        # ^NSEI was tried first and the control exposed it: a random quartile
+        # of NIFTY 500 beat NIFTY 50 by 4.2% with t = +4.13, which is not an
+        # edge, it is mid caps outrunning large caps over the sample. Measuring
+        # a factor against a different universe measures the universe. Against
+        # its own mean, a factor has to actually pick.
+        index_return = statistics.fmean(forwards.values())
 
         scored_sets = {
             f.name: {
-                t: s
-                for t in forwards
-                if (s := f.score(histories[t], when)) is not None
+                t: s for t in forwards if (s := f.score(histories[t], when)) is not None
             }
             for f in _FACTORS
         }
@@ -233,46 +273,61 @@ def main() -> int:
                 continue
             order = sorted(common, key=lambda t: -scores[t])
             q = max(2, len(order) // 4)
-            top = statistics.fmean(forwards[t] for t in order[:q])
-            bottom = statistics.fmean(forwards[t] for t in order[-q:])
-            ic = _rank_ic([(scores[t], forwards[t]) for t in common])
-            # One full round trip a year for the top quartile: a long-only
-            # investor sells what left the quartile and buys what entered.
-            # Charged in full, which is the pessimistic reading.
-            net_top = top - 2 * _COST_PER_SIDE
-            results[name].append((top, bottom, net_top, ic))
+            results[name].append((
+                statistics.fmean(forwards[t] for t in order[:q]),
+                statistics.fmean(forwards[t] for t in order[-q:]),
+                index_return,
+                _rank_ic([(scores[t], forwards[t]) for t in common]),
+            ))
 
-    windows = max(len(v) for v in results.values())
-    print(f"{windows} yearly windows, {args.index}, {_FORWARD_DAYS}-day forward\n")
-    print(f"{'factor':<11} {'top q':>8} {'bottom q':>9} {'spread':>8} "
-          f"{'net of cost':>12} {'top>bot':>9} {'rank IC':>9}")
-    print("-" * 72)
+    windows = max((len(v) for v in results.values()), default=0)
+    per_year = 12 / step_months
+    cost = 2 * _COST_PER_SIDE * per_year  # a round trip every rebalance
+    print(f"{windows} non-overlapping {args.horizon} windows, {args.index}, "
+          f"{args.years}y requested\n")
+    print(f"{'factor':<11} {'top q':>8} {'vs bottom':>10} {'vs univ':>9} "
+          f"{'net of cost':>12} {'rank IC':>9} {'t':>7}")
+    print("-" * 74)
+
     for name in [f.name for f in _FACTORS] + ["random"]:
         rows = results[name]
         if not rows:
-            print(f"{name:<11} {'no measurable windows':>50}")
+            print(f"{name:<11} no measurable windows")
             continue
         top = statistics.fmean(r[0] for r in rows)
-        bottom = statistics.fmean(r[1] for r in rows)
-        net = statistics.fmean(r[2] for r in rows)
-        wins = sum(1 for r in rows if r[0] > r[1])
+        vs_bottom = statistics.fmean(r[0] - r[1] for r in rows)
+        paired = [(r[0], r[2]) for r in rows if r[2] is not None]
+        vs_index = statistics.fmean(a - b for a, b in paired) if paired else None
         ics = [r[3] for r in rows if r[3] is not None]
-        ic = statistics.fmean(ics) if ics else float("nan")
-        print(f"{name:<11} {top:>7.1%} {bottom:>8.1%} {top - bottom:>+7.1%} "
-              f"{net:>11.1%} {wins:>5}/{len(rows):<3} {ic:>+9.3f}")
+        ic = statistics.fmean(ics) if ics else None
+        # t on the per-window excess over the index: the quantity an investor
+        # would actually be paid, tested against its own variability.
+        t = _t_stat([a - b for a, b in paired]) if len(paired) >= 3 else None
+        print(
+            f"{name:<11} {top:>7.1%} {vs_bottom:>+10.1%} "
+            f"{(f'{vs_index:+.1%}' if vs_index is not None else '—'):>9} "
+            f"{(f'{vs_index - cost:+.1%}' if vs_index is not None else '—'):>12} "
+            f"{(f'{ic:+.3f}' if ic is not None else '—'):>9} "
+            f"{(f'{t:+.2f}' if t is not None else '—'):>7}"
+        )
 
+    print()
+    print(f"Costs: {cost:.1%} a year, one full round trip per rebalance at "
+          f"{_COST_PER_SIDE:.1%} a side.")
     print()
     if windows < _MIN_WINDOWS_TO_CLAIM:
         print(f"Only {windows} windows. Below {_MIN_WINDOWS_TO_CLAIM} this says "
-              "nothing -- a coin lands the same way twice a quarter of the time.")
+              "nothing.")
         return 0
 
-    print("Read the controls first. `reversal` should lose if momentum wins, and")
-    print("`random` should sit near zero on every column. If either misbehaves,")
-    print("the harness is wrong and no other row here means anything.")
+    print("Controls first: `random` near zero and `t` inside +/-2, `reversal` the")
+    print("mirror of momentum. If either misbehaves nothing else here means anything.")
     print()
-    print("Then read `net of cost`, not `spread`. A gross edge that does not")
-    print("survive one round trip a year is not something you can buy.")
+    print("Then `vs univ`: the top quartile against this same universe equally")
+    print("weighted, which is the alternative you actually have. And `t`: below")
+    print("about 2 the column is consistent with luck.")
+    print("Windows do not overlap, so that t is honest arithmetic rather than the")
+    print("inflated figure overlapping samples produce.")
     return 0
 
 
