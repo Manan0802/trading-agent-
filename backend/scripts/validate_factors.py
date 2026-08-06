@@ -78,9 +78,14 @@ _BLOCKED: list[str] = []
 @dataclass
 class Factor:
     name: str
-    # history -> score on the decision date. Higher is ranked better.
+    # (ticker, history, when) -> score. Higher is ranked better. Price factors
+    # ignore the ticker; fundamentals ignore the history.
     score: object
     note: str
+    # True when the factor reads filed statements, which go back four or five
+    # years against fifteen of price history. Reported separately because the
+    # two cannot carry the same confidence.
+    needs_statements: bool = False
 
 
 def _prices(ticker: str) -> pd.DataFrame | None:
@@ -106,7 +111,7 @@ def _window(history: pd.DataFrame, end: pd.Timestamp, days: int) -> pd.Series | 
     return upto.iloc[-days:] if len(upto) >= days else None
 
 
-def _momentum(history: pd.DataFrame, when: pd.Timestamp) -> float | None:
+def _momentum(_ticker: str, history: pd.DataFrame, when: pd.Timestamp) -> float | None:
     """Return over the year to a month ago."""
     closes = history.loc[history.index <= when, "Close"]
     if len(closes) < _LOOKBACK_DAYS + _SKIP_DAYS:
@@ -116,7 +121,7 @@ def _momentum(history: pd.DataFrame, when: pd.Timestamp) -> float | None:
     return recent / old - 1.0 if old > 0 else None
 
 
-def _low_vol(history: pd.DataFrame, when: pd.Timestamp) -> float | None:
+def _low_vol(_ticker: str, history: pd.DataFrame, when: pd.Timestamp) -> float | None:
     """Negated daily volatility, so that higher still means ranked better."""
     closes = _window(history, when, _LOOKBACK_DAYS)
     if closes is None:
@@ -128,13 +133,130 @@ def _low_vol(history: pd.DataFrame, when: pd.Timestamp) -> float | None:
     return -vol if vol > 0 else None
 
 
+
+# --- fundamentals -----------------------------------------------------------
+#
+# Price history runs fifteen years here; yfinance serves four or five fiscal
+# years of statements. That asymmetry is the whole story for this section and
+# it is stated in the output, not buried: momentum could be tested to t = +2.99
+# because there were sixty independent windows, and no fundamental factor can
+# reach that with three or four annual filings.
+#
+# The filing lag is the other half. A fiscal year ending 31 March is not public
+# that day. Using it as though it were is lookahead, and it is what made the
+# first stock score look like it worked.
+_FILING_LAG_DAYS = 180
+
+_STATEMENTS: dict[str, tuple] = {}
+
+
+def _statements(ticker: str) -> tuple:
+    """(income, balance) for a ticker, fetched once."""
+    if ticker not in _STATEMENTS:
+        try:
+            tk = yf.Ticker(ticker)
+            _STATEMENTS[ticker] = (tk.income_stmt, tk.balance_sheet)
+        except Exception:  # noqa: BLE001
+            _STATEMENTS[ticker] = (None, None)
+    return _STATEMENTS[ticker]
+
+
+def _row(frame, *names: str):
+    if frame is None or frame.empty:
+        return None
+    for name in names:
+        for label in frame.index:
+            if name.lower() in str(label).lower():
+                return frame.loc[label]
+    return None
+
+
+def _as_of_period(series, when: pd.Timestamp):
+    """The most recent period that was actually public on `when`.
+
+    Public means the period ended at least _FILING_LAG_DAYS before the decision
+    date. Without this the test reads a March result in April and calls it
+    knowledge.
+    """
+    if series is None:
+        return None, None
+    cutoff = when - pd.Timedelta(days=_FILING_LAG_DAYS)
+    usable = [(pd.Timestamp(c), series[c]) for c in series.index
+              if pd.notna(series[c]) and pd.Timestamp(c) <= cutoff]
+    if not usable:
+        return None, None
+    usable.sort(key=lambda pair: pair[0])
+    return usable[-1]
+
+
+def _fundamental(ticker: str, when: pd.Timestamp, kind: str) -> float | None:
+    income, balance = _statements(ticker)
+    net_income = _row(income, "Net Income From Continuing Operation", "Net Income")
+    equity = _row(balance, "Stockholders Equity", "Total Equity Gross Minority")
+
+    if kind == "roe":
+        _, ni = _as_of_period(net_income, when)
+        _, eq = _as_of_period(equity, when)
+        if ni is None or eq is None or eq <= 0:
+            return None
+        return float(ni) / float(eq)
+
+    if kind == "earnings_growth":
+        if net_income is None:
+            return None
+        cutoff = when - pd.Timedelta(days=_FILING_LAG_DAYS)
+        periods = sorted(
+            [(pd.Timestamp(c), net_income[c]) for c in net_income.index
+             if pd.notna(net_income[c]) and pd.Timestamp(c) <= cutoff],
+            key=lambda pair: pair[0],
+        )
+        if len(periods) < 2:
+            return None
+        prior, latest = float(periods[-2][1]), float(periods[-1][1])
+        # A negative base makes the ratio meaningless -- a loss shrinking looks
+        # like enormous growth. This exact trap scored a company 94 once.
+        if prior <= 0:
+            return None
+        return latest / prior - 1.0
+
+    if kind == "low_debt":
+        debt = _row(balance, "Total Debt", "Long Term Debt")
+        _, d = _as_of_period(debt, when)
+        _, eq = _as_of_period(equity, when)
+        if d is None or eq is None or eq <= 0:
+            return None
+        # Negated: less debt ranks better, so higher stays better.
+        return -(float(d) / float(eq))
+
+    return None
+
+
+
 _FACTORS = [
     Factor("momentum", _momentum, "12-month return, skipping the last month"),
-    Factor("low_vol", _low_vol, "trailing 12-month daily volatility, low is better"),
+    Factor("low_vol", _low_vol, "trailing 12m daily volatility, low is better"),
+    Factor(
+        "roe",
+        lambda t, _h, w: _fundamental(t, w, "roe"),
+        "net income over shareholders' equity, as filed",
+        needs_statements=True,
+    ),
+    Factor(
+        "earnings_growth",
+        lambda t, _h, w: _fundamental(t, w, "earnings_growth"),
+        "year-on-year net income growth, as filed",
+        needs_statements=True,
+    ),
+    Factor(
+        "low_debt",
+        lambda t, _h, w: _fundamental(t, w, "low_debt"),
+        "total debt over equity, less is better",
+        needs_statements=True,
+    ),
     Factor(
         "reversal",
-        lambda h, w: (-m if (m := _momentum(h, w)) is not None else None),
-        "the inverse of momentum -- a control, it should lose if momentum wins",
+        lambda t, h, w: (-m if (m := _momentum(t, h, w)) is not None else None),
+        "the inverse of momentum -- a control, it should mirror momentum",
     ),
 ]
 
@@ -261,7 +383,9 @@ def main() -> int:
 
         scored_sets = {
             f.name: {
-                t: s for t in forwards if (s := f.score(histories[t], when)) is not None
+                t: s
+                for t in forwards
+                if (s := f.score(t, histories[t], when)) is not None
             }
             for f in _FACTORS
         }
@@ -289,6 +413,7 @@ def main() -> int:
           f"{'net of cost':>12} {'rank IC':>9} {'t':>7}")
     print("-" * 74)
 
+    by_name = {f.name: f for f in _FACTORS}
     for name in [f.name for f in _FACTORS] + ["random"]:
         rows = results[name]
         if not rows:
@@ -303,8 +428,12 @@ def main() -> int:
         # t on the per-window excess over the index: the quantity an investor
         # would actually be paid, tested against its own variability.
         t = _t_stat([a - b for a, b in paired]) if len(paired) >= 3 else None
+        # A statement-based factor is marked, because it is standing on four
+        # or five filings against fifteen years of price history and must not
+        # be read with the same confidence as the row above it.
+        mark = "*" if getattr(by_name.get(name), "needs_statements", False) else " "
         print(
-            f"{name:<11} {top:>7.1%} {vs_bottom:>+10.1%} "
+            f"{name + mark:<11} {top:>7.1%} {vs_bottom:>+10.1%} "
             f"{(f'{vs_index:+.1%}' if vs_index is not None else '—'):>9} "
             f"{(f'{vs_index - cost:+.1%}' if vs_index is not None else '—'):>12} "
             f"{(f'{ic:+.3f}' if ic is not None else '—'):>9} "
@@ -314,6 +443,11 @@ def main() -> int:
     print()
     print(f"Costs: {cost:.1%} a year, one full round trip per rebalance at "
           f"{_COST_PER_SIDE:.1%} a side.")
+    print()
+    print("* reads filed statements. yfinance serves four to five fiscal years,")
+    print("  so after a 180-day filing lag these rows rest on three or four")
+    print("  independent signal updates however many return windows are shown.")
+    print("  Their t is arithmetic on the returns, not evidence about the factor.")
     print()
     if windows < _MIN_WINDOWS_TO_CLAIM:
         print(f"Only {windows} windows. Below {_MIN_WINDOWS_TO_CLAIM} this says "

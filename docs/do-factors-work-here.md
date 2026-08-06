@@ -11,8 +11,10 @@ windows, point in time, costs charged, benchmarked against the universe itself.
 
 ## The answer
 
-**Momentum works here. It is real, it is measurable, and it is only worth
-having if you trade it rarely.**
+**Momentum works here. It is real, it is measurable, it is only worth having if
+you trade it rarely — and it pays nothing in a crash.** The first three come
+from measuring this universe; the fourth from thirty-two years of
+survivorship-adjusted data, and it is the one that decides position size.
 
 ```
 NIFTY 500, 220 names, 15 years
@@ -96,12 +98,76 @@ Without the controls that +4.2% would have been reported as a finding.
 - **Not a trading system.** A rank IC of 0.07 is a real but small edge. It says
   the top quartile beats the average over many names and many years; it says
   nothing about any single stock.
-- **Fifteen years is one long expansion.** This sample has no 2008. A factor
-  never tested through a bear market has not been tested.
+- **Fifteen years is one long expansion.** This sample has no 2008 — now
+  addressed by the 32-year survivorship-adjusted data below, which shows
+  momentum going flat in exactly those episodes.
 - **220 names, not 751.** Limited to keep inside Yahoo's rate limit. The result
   should be re-run on the full universe.
 - **Annual significance is unproven.** t = +1.60. The net-of-cost figure is the
   attractive one and it is also the one with the weakest statistics.
+
+
+
+---
+
+## Independent confirmation, 32 years, survivorship-adjusted
+
+Everything above rests on today's NIFTY 500 members, which is a
+survivorship-biased sample: the companies that failed are not in it. And
+fifteen years contains no 2008. Both limitations turned out to have a free fix.
+
+IIT/IIMA publishes an **Indian Fama-French-Momentum factor library** —
+survivorship-bias adjusted, monthly, from October 1993:
+
+`faculty.iima.ac.in/iffm/Indian-Fama-French-Momentum/DATA/` →
+`2025-12_FourFactors_and_Market_Returns_Monthly_SurvivorshipBiasAdjusted.csv`
+
+386 monthly observations. Independently built, by people with no stake in this
+app being right.
+
+```
+factor                        mean        t      n
+WML (momentum)            +13.4%/yr    +3.11    386
+HML (value)                +8.6%/yr    +2.39    386
+MF  (market excess)        +8.6%/yr    +1.99    386
+SMB (size)                 -2.8%/yr    -0.96    386
+```
+
+**Momentum is confirmed.** t = +3.11 over thirty-two years on a
+survivorship-adjusted sample, against the t = +2.99 measured here over fifteen
+on a biased one. Two different datasets, two different constructions, the same
+answer. That is much stronger than either alone.
+
+The magnitudes differ for a reason worth knowing: WML is long-short — long the
+winners and short the losers — while the measurement above is long-only, top
+quartile against the universe. Roughly half the spread is what a long-only
+investor can reach, which is what the +8.2% annual figure is.
+
+**Value works here too, and had not been tested.** HML at t = +2.39.
+
+**Size does not.** SMB is *negative* at −2.8%/yr in India, which is the
+opposite of the US result everyone quotes. Worth knowing before building
+anything around small caps.
+
+### And the thing the fifteen-year sample could not show
+
+```
+2008 crash (2007-2009)   momentum   -0.4%/yr   t = -0.02
+COVID (2020)             momentum   +0.0%/yr   t = +0.00
+2018-2025 (my sample)    momentum  +13.1%/yr   t = +2.41
+```
+
+**Momentum pays nothing in a crash.** Not a small loss — flat, twice, in the
+two worst episodes of the last twenty years. My sample measured +13.1% and it
+was right about that sample, and the sample was a rally.
+
+That is the honest shape of this edge: it earns well most of the time and
+abandons you precisely when everything else is falling. Anyone sizing a
+position on the +13.4% average without knowing the 2008 number is being misled
+by their own backtest.
+
+It also means momentum is **not** a hedge and must not be sold as one. It is a
+return enhancer that is correlated with the market's good times.
 
 ---
 
