@@ -377,8 +377,12 @@ function RankedRow({
         <TableRow className="hover:bg-transparent">
           <TableCell />
           <TableCell colSpan={6} className="pb-6 whitespace-normal">
-            <p className="max-w-3xl text-sm font-medium">{fund.verdict.headline}</p>
-            <ul className="mt-3 flex max-w-3xl flex-col gap-2">
+            {/* The points used to sit in a 48rem column on a 100rem page, so
+                half the row was dead space and the reasoning ran far enough
+                down that the row above scrolled out of view. Two columns on a
+                wide screen halves the height and fills the width. */}
+            <p className="max-w-4xl text-sm font-medium">{fund.verdict.headline}</p>
+            <ul className="mt-3 grid gap-x-10 gap-y-2 xl:grid-cols-2">
               {fund.verdict.points.map((point) => (
                 <li key={point} className="flex gap-2 text-sm text-muted-foreground">
                   <span aria-hidden className="text-muted-foreground/50">&middot;</span>

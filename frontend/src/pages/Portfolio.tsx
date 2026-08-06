@@ -133,6 +133,17 @@ function HoldingRow({ holding }: { holding: HoldingSummary }) {
       <TableCell className="num text-right text-muted-foreground">
         {formatUnits(holding.units_held)}
       </TableCell>
+      {/* The live NAV or share price. It was fetched, used for every figure on
+          the row, and never shown -- so there was no way to see today's number
+          or tell how old it was. */}
+      <TableCell className="num text-right">
+        <span className="block">{formatInr(holding.current_price)}</span>
+        {holding.price_as_of && (
+          <span className="tnum block text-xs text-muted-foreground">
+            {holding.price_as_of}
+          </span>
+        )}
+      </TableCell>
       <TableCell className="num text-right">{formatInr(holding.invested)}</TableCell>
       <TableCell className="num text-right font-medium">
         {formatInr(holding.current_value)}
@@ -314,6 +325,7 @@ export function Portfolio() {
               <TableRow className="hover:bg-transparent">
                 <TableHead>Holding</TableHead>
                 <TableHead className="text-right">Units</TableHead>
+                <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">Invested</TableHead>
                 <TableHead className="text-right">Value</TableHead>
                 <TableHead className="text-right">Gain</TableHead>
