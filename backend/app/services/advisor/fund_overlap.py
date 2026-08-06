@@ -65,6 +65,11 @@ class Pair:
     # same as zero, and must never be rendered as zero.
     common_weight: float | None = None
     shared_securities: int | None = None
+    # The month these holdings are from. AMCs file within ten days of month
+    # end, so in the first week of a month this is the month before last --
+    # and the figure changes when the new file lands. Without the date that
+    # change has no explanation.
+    holdings_as_of: date | None = None
 
 
 @dataclass(frozen=True)
@@ -156,14 +161,18 @@ def _fully_measured_block(measured: np.ndarray) -> list[int]:
     return keep
 
 
-def _shared(portfolios: dict, a: str, b: str) -> tuple[float | None, int | None]:
-    """Holdings overlap for one pair, or (None, None) if either is unavailable."""
+def _shared(
+    portfolios: dict, a: str, b: str
+) -> tuple[float | None, int | None, date | None]:
+    """Holdings overlap for one pair, or Nones if either side is unavailable."""
     first, second = portfolios.get(a), portfolios.get(b)
     if first is None or second is None:
-        return None, None
+        return None, None, None
     theirs = {h.isin for h in second.holdings}
     count = sum(1 for h in first.holdings if h.isin in theirs)
-    return common_weight(first, second), count
+    # The older of the two: an overlap is only as current as its stalest side.
+    as_of = min(first.as_of, second.as_of)
+    return common_weight(first, second), count, as_of
 
 
 def analyse_overlap(
@@ -226,7 +235,7 @@ def analyse_overlap(
             correlation = float(np.corrcoef(a_returns, b_returns)[0, 1])
             matrix[i, j] = matrix[j, i] = correlation
             measured[i, j] = measured[j, i] = True
-            weight, count = _shared(portfolios, usable[i][0], usable[j][0])
+            weight, count, as_of = _shared(portfolios, usable[i][0], usable[j][0])
             pairs.append(
                 Pair(
                     a=usable[i][0],
@@ -237,6 +246,7 @@ def analyse_overlap(
                     months=int(a_returns.size),
                     common_weight=weight,
                     shared_securities=count,
+                    holdings_as_of=as_of,
                 )
             )
 

@@ -171,6 +171,9 @@ class OverlapPairOut(BaseModel):
     # and the UI must not render it as zero.
     common_weight: float | None = None
     shared_securities: int | None = None
+    # Which month's disclosure the overlap was read from. Shown because AMCs
+    # file up to ten days after month end, so this can lag by five weeks.
+    holdings_as_of: date | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

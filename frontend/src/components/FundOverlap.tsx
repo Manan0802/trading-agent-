@@ -38,6 +38,14 @@ export function FundOverlap() {
     queryFn: fetchOverlap,
   })
 
+  // The oldest month across the pairs: the set is only as current as its
+  // stalest side.
+  const asOf =
+    data?.pairs
+      .map((p) => p.holdings_as_of)
+      .filter((d): d is string => d !== null)
+      .sort()[0] ?? null
+
   if (isLoading) return <Skeleton className="h-32 w-full" />
   if (!data || (data.pairs.length === 0 && Object.keys(data.excluded).length === 0)) {
     return null
@@ -122,6 +130,18 @@ export function FundOverlap() {
         <em>holdings n/a</em>, that AMC does not publish a file we can read yet
         &mdash; unknown, not zero.
       </p>
+
+      {/* AMCs file within ten days of month end, so in the first week of a
+          month this reads the month before last. Without the date, the number
+          simply changes when the new file lands and nothing explains why. */}
+      {asOf && (
+        <p className="max-w-3xl text-xs text-muted-foreground">
+          Holdings are from each AMC&rsquo;s{' '}
+          <span className="tnum">{asOf}</span> disclosure, the latest published.
+          They file within ten days of month end, so this figure moves when the
+          next one lands.
+        </p>
+      )}
 
       {Object.entries(data.excluded).length > 0 && (
         <p className="max-w-3xl text-sm text-muted-foreground">

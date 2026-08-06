@@ -200,6 +200,12 @@ export type Overlap = {
      */
     common_weight: number | null
     shared_securities: number | null
+    /**
+     * Which month's disclosure this was read from. AMCs file up to ten days
+     * after month end, so in the first week of a month this is the month
+     * before last — and the number changes when the new file lands.
+     */
+    holdings_as_of: string | null
   }[]
   effective_positions: number | null
   counted: number
