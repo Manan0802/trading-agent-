@@ -1,0 +1,4 @@
+# Migrations run before the server, every boot. Alembic is idempotent, so a
+# redeploy with no new revision is a no-op -- and the alternative is a schema
+# that drifts silently until the first request that needs the new column.
+web: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
