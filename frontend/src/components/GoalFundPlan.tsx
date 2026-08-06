@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { Panel } from '@/components/ui/panel'
-import { AlertTriangle } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, ChevronRight } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatInr, plainProse } from '@/lib/format'
+import { formatInr, formatPercent, plainProse } from '@/lib/format'
 
 type Verdict = {
   headline: string
@@ -60,44 +61,100 @@ function SectionHeading({ children }: { children?: React.ReactNode }) {
 }
 
 function FundEntry({ fund }: { fund: FundRecommendation }) {
+  const [open, setOpen] = useState(false)
+
   return (
-    <li className="flex flex-col gap-1.5 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-1">
-        <div className="flex flex-col gap-0.5">
-          <p className="font-medium leading-tight">{fund.scheme_name}</p>
-          <p className="text-xs text-muted-foreground">
-            Ranked <span className="tnum">{fund.rank}</span> in{' '}
-            {fund.category.split(' - ').slice(1).join(' - ') || fund.category}
-            {' '}&middot; score <span className="tnum">{fund.score.toFixed(0)}</span> of 100
-          </p>
-        </div>
-        <div className="flex flex-col items-end">
-          <span className="num text-lg font-medium leading-none">
-            {formatInr(fund.monthly_amount)}
-          </span>
-          <span className="mt-1 text-xs text-muted-foreground">per month</span>
-        </div>
-      </div>
-      <p className="max-w-3xl text-sm leading-relaxed">
-        {plainProse(fund.verdict.headline)}
-      </p>
-      <ul className="flex max-w-3xl flex-col gap-1">
-        {fund.verdict.points.map((point) => (
-          <li key={point} className="flex gap-2 text-sm text-muted-foreground">
-            <span aria-hidden className="text-muted-foreground/50">
-              &middot;
+    <li className="py-3">
+      {/* Collapsed by default. Six funds each carrying the same four sentences
+          made a 6,000-pixel page where the numbers you came for -- what to buy
+          and how much -- were buried in prose that repeated verbatim. The
+          reasoning is still one click away, per fund, for anyone who wants it. */}
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex w-full items-start gap-4 text-left"
+      >
+        <ChevronRight
+          aria-hidden
+          className={`mt-1 size-4 shrink-0 text-muted-foreground transition-transform ${
+            open ? 'rotate-90' : ''
+          }`}
+        />
+        <div className="grid min-w-0 flex-1 gap-x-6 gap-y-1 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+          <div className="min-w-0">
+            <p className="truncate font-medium leading-tight">{fund.scheme_name}</p>
+            <p className="text-xs text-muted-foreground">
+              Ranked <span className="tnum">{fund.rank}</span> in{' '}
+              {fund.category.split(' - ').slice(1).join(' - ') || fund.category}
+            </p>
+          </div>
+          <Stat label="Score" value={fund.score.toFixed(0)} />
+          {/* Cost, not past return: it is the one input measured to predict,
+              and it is why this fund is on the list at all. */}
+          {/* formatPercent, not toFixed: every TER crossing this API is a
+              fraction (0.0067), and that helper exists precisely to do the
+              x100. Writing the conversion by hand printed 0.01% for a fund
+              that costs 0.67% -- the same percent-against-fraction mistake
+              this codebase has made twice before. */}
+          <Stat
+            label="Cost / yr"
+            value={
+              fund.direct_ter != null
+                ? formatPercent(fund.direct_ter, { signed: false })
+                : '—'
+            }
+          />
+          <div className="flex flex-col items-start sm:items-end">
+            <span className="num text-lg font-medium leading-none">
+              {formatInr(fund.monthly_amount)}
             </span>
-            <span>{plainProse(point)}</span>
-          </li>
-        ))}
-      </ul>
-      {fund.verdict.caveat && (
-        <p className="flex max-w-3xl items-start gap-2 text-sm text-muted-foreground">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>{plainProse(fund.verdict.caveat)}</span>
-        </p>
+            <span className="mt-1 text-xs text-muted-foreground">per month</span>
+          </div>
+        </div>
+      </button>
+
+      {open && (
+        <div className="mt-3 ml-8 flex flex-col gap-2">
+          <p className="max-w-4xl text-sm leading-relaxed">
+            {plainProse(fund.verdict.headline)}
+          </p>
+          <ul className="grid gap-x-10 gap-y-2 xl:grid-cols-2">
+            {fund.verdict.points.map((point) => (
+              <li key={point} className="flex gap-2 text-sm text-muted-foreground">
+                <span aria-hidden className="text-muted-foreground/50">
+                  &middot;
+                </span>
+                <span>{plainProse(point)}</span>
+              </li>
+            ))}
+          </ul>
+          {fund.verdict.caveat && (
+            <p className="flex max-w-4xl items-start gap-2 text-sm text-muted-foreground">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>{plainProse(fund.verdict.caveat)}</span>
+            </p>
+          )}
+        </div>
       )}
     </li>
+  )
+}
+
+function Stat({
+  label,
+  value,
+  className = '',
+}: {
+  label: string
+  value: string
+  className?: string
+}) {
+  return (
+    <div className="flex flex-col sm:items-end">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className={`num text-sm ${className}`}>{value}</span>
+    </div>
   )
 }
 
