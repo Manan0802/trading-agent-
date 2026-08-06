@@ -149,9 +149,16 @@ export function Goals() {
               <h1 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Every goal, every month
               </h1>
-              <p className="num num-display text-4xl font-semibold leading-none sm:text-5xl">
-                {formatInr(commitment?.total_monthly ?? 0)}
-              </p>
+              {/* A skeleton, not formatInr(0). The commitment query only starts
+                  once the goals resolve, so `?? 0` rendered a confident Rs 0 as
+                  the headline for one frame — a real figure, and wrong. */}
+              {commitment ? (
+                <p className="num num-display text-4xl font-semibold leading-none sm:text-5xl">
+                  {formatInr(commitment.total_monthly)}
+                </p>
+              ) : (
+                <Skeleton className="h-10 w-48 sm:h-12" />
+              )}
               <p className="tnum text-sm text-muted-foreground">
                 Across <span className="tnum">{active.length}</span>{' '}
                 {active.length === 1 ? 'goal' : 'goals'}

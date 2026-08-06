@@ -94,9 +94,9 @@ def _stale(holdings: list[Holding]) -> dict[str, str]:
     a lever worth "Rs X a year" cannot be computed from a NAV that stopped
     moving in 2022 without saying so.
     """
-    funds = [h for h in holdings if h.asset_type == "MF"]
-    if not funds:
+    if not holdings:
         return {}
+    funds = list(holdings)
     with ThreadPoolExecutor(max_workers=8) as pool:
         priced = dict(
             pool.map(lambda h: (h.name, price_as_of(h.asset_type, h.identifier)), funds)
@@ -197,7 +197,9 @@ def get_portfolio(
 
     # Resolved here rather than inside value_portfolio, which is pure arithmetic
     # over lots and should not acquire a network dependency on AMFI.
-    funds = {h.id: h for h in holdings if h.asset_type == "MF"}
+    # Stocks included: a suspended ticker freezes exactly as a wound-up scheme
+    # does, and price_as_of answers for both now.
+    funds = {h.id: h for h in holdings}
     if funds:
         with ThreadPoolExecutor(max_workers=8) as pool:
             resolved = dict(
@@ -205,7 +207,10 @@ def get_portfolio(
                     lambda h: (
                         h.id,
                         (
-                            misnamed_as(h.identifier, h.name),
+                            # AMFI's register has nothing to say about a ticker.
+                            misnamed_as(h.identifier, h.name)
+                            if h.asset_type == "MF"
+                            else None,
                             price_as_of(h.asset_type, h.identifier),
                         ),
                     ),

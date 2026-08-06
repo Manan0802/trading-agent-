@@ -74,3 +74,36 @@ class TestEdges:
 
     def test_todays_price_is_never_stale_however_far_behind_peers_cannot_be(self):
         assert stale_days(TODAY, peer_dates=[TODAY], today=TODAY) is None
+
+
+class TestStocksAreCoveredToo:
+    """A suspended ticker freezes exactly as a wound-up scheme does.
+
+    `price_as_of` used to return None for stocks on the belief that yfinance
+    hands back no trade date. It does -- `regularMarketTime` -- so stocks had
+    strictly less staleness protection than funds on the same page.
+    """
+
+    def test_a_market_timestamp_becomes_a_date(self, monkeypatch):
+        from datetime import datetime
+
+        from app.services.marketdata import stock
+
+        stamp = datetime(2026, 8, 6, 15, 30).timestamp()
+        monkeypatch.setattr(stock, "_info_cached", lambda _: {"regularMarketTime": stamp})
+        assert stock.get_price_date("TATASTEEL.NS") == date(2026, 8, 6)
+
+    def test_a_missing_timestamp_is_unknown_rather_than_today(self, monkeypatch):
+        # Substituting today would assert the price is current, which is the
+        # claim we cannot make.
+        from app.services.marketdata import stock
+
+        monkeypatch.setattr(stock, "_info_cached", lambda _: {"currentPrice": 100.0})
+        assert stock.get_price_date("TATASTEEL.NS") is None
+
+    def test_a_nonsense_timestamp_is_refused(self, monkeypatch):
+        from app.services.marketdata import stock
+
+        for bad in (0, -1, "yesterday", None):
+            monkeypatch.setattr(stock, "_info_cached", lambda _, b=bad: {"regularMarketTime": b})
+            assert stock.get_price_date("X.NS") is None

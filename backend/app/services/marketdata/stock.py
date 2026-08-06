@@ -9,6 +9,7 @@ explicit StockDataError so callers never get a priceless holding.
 import hashlib
 import json
 import os
+from datetime import date, datetime
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -163,6 +164,24 @@ def _price_from(info: dict, ticker: str) -> float:
 
 def get_stock_price(ticker: str) -> float:
     return _price_from(_info_cached(ticker), ticker)
+
+
+def get_price_date(ticker: str) -> date | None:
+    """The day the price above last traded, or None if Yahoo did not say.
+
+    `regularMarketTime` is a Unix timestamp of the last trade. It was
+    previously assumed not to exist -- "yfinance does not hand back a trade
+    date" -- which left stock holdings with strictly less staleness protection
+    than funds on the same page. A suspended or delisted ticker keeps returning
+    its last price, exactly as a wound-up scheme keeps returning its last NAV.
+    """
+    stamp = _info_cached(ticker).get("regularMarketTime")
+    if not isinstance(stamp, (int, float)) or stamp <= 0:
+        return None
+    try:
+        return datetime.fromtimestamp(stamp).date()
+    except (OverflowError, OSError, ValueError):
+        return None
 
 
 def _reported_eps_pair(ticker: str) -> tuple[float | None, float | None]:

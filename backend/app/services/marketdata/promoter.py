@@ -54,6 +54,8 @@ def _parse(html: str) -> list[float]:
     end = _ROW_END.search(body, label.end())
     row = body[label.end() : end.start() if end else label.end() + 2000]
     values = [float(v) for v in _CELL.findall(row)]
+    # Up to four; a recently listed company simply has fewer, and the caller
+    # must say how many it actually got rather than assume four.
     return values[-4:]
 
 

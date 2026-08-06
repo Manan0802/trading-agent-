@@ -132,6 +132,17 @@ def _score_roe(roe: float | None, median: float | None) -> Factor:
     )
 
 
+def _quarters(history: list[float]) -> str:
+    """"four quarters", or the truth when a company has not filed four.
+
+    Screener returns up to four, so a recently listed company has fewer. Saying
+    "four quarters" regardless describes a one-quarter move -- materially faster
+    and more alarming -- as a slow drift.
+    """
+    spans = max(len(history) - 1, 1)
+    return "quarter" if spans == 1 else f"{spans} quarters"
+
+
 def _score_eps_growth(ttm: float | None, previous: float | None) -> Factor:
     if ttm is None or previous is None:
         return _unknown("eps_growth", "earnings history")
@@ -184,8 +195,8 @@ def _promoter_adjustments(history: list[float]) -> list[Adjustment]:
                 name="Promoter selling",
                 points=_PROMOTER_PENALTY,
                 detail=(
-                    f"Promoter stake fell from {history[0]:.1f}% to {history[-1]:.1f}% "
-                    "over the last four quarters"
+                    f"Promoter stake fell from {history[0]:.1f}% to "
+                    f"{history[-1]:.1f}% over the last {_quarters(history)}"
                 ),
             )
         ]
@@ -195,8 +206,8 @@ def _promoter_adjustments(history: list[float]) -> list[Adjustment]:
                 name="Promoter buying",
                 points=_PROMOTER_BONUS,
                 detail=(
-                    f"Promoter stake rose from {history[0]:.1f}% to {history[-1]:.1f}% "
-                    "over the last four quarters"
+                    f"Promoter stake rose from {history[0]:.1f}% to "
+                    f"{history[-1]:.1f}% over the last {_quarters(history)}"
                 ),
             )
         ]

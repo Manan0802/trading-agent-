@@ -33,12 +33,16 @@ def price_as_of(asset_type: str, identifier: str) -> date | None:
     pure arithmetic over a price, and the lookup is cached, so asking twice
     costs nothing.
 
-    Returns None for stocks. yfinance does not hand back a trade date with the
-    price, and inventing one would be worse than admitting we do not have it.
+    Works for stocks too. An earlier version returned None for them on the
+    belief that yfinance hands back no trade date -- it does, as
+    `regularMarketTime` -- which left a suspended or delisted ticker with less
+    protection than a wound-up fund on the same page.
     """
-    if asset_type != "MF":
-        return None
     try:
-        return mutual_fund.get_latest_nav(identifier).date
+        if asset_type == "MF":
+            return mutual_fund.get_latest_nav(identifier).date
+        if asset_type == "STOCK":
+            return stock.get_price_date(identifier)
     except Exception:  # noqa: BLE001 - an unpriceable holding is already flagged
         return None
+    return None
