@@ -287,22 +287,21 @@ export function Portfolio() {
         </MetricRow>
       </Panel>
 
+      {/* Actions first. The chart says how it has gone; this says what to do,
+          and a page that opens with a chart invites reading rather than acting. */}
+      <Levers />
+
       <BenchmarkVerdict />
 
-      {/* Two thirds to the chart: a trend needs horizontal room to be a trend,
-          while the levers are a short ranked list that reads fine narrow. */}
-      <div className="grid gap-6 xl:grid-cols-3">
-        {history && (
-          <Panel className="xl:col-span-2">
-            <PortfolioChart
-              points={history.points}
-              excluded={history.excluded}
-              excludedValue={history.excluded_value}
-            />
-          </Panel>
-        )}
-        <Levers />
-      </div>
+      {history && (
+        <Panel>
+          <PortfolioChart
+            points={history.points}
+            excluded={history.excluded}
+            excludedValue={history.excluded_value}
+          />
+        </Panel>
+      )}
 
       {data.has_pricing_errors && (
         <p className="flex items-start gap-2 text-sm text-muted-foreground">

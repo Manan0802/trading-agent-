@@ -13,9 +13,11 @@ import { fetchLevers } from '@/lib/portfolio-api'
  * their attention.
  */
 export function Levers({
+  className = '',
   yearsRemaining,
   monthlySip,
 }: {
+  className?: string
   /** Left undefined outside a goal, so the server uses the stored profile
    *  horizon rather than a number this component invented. */
   yearsRemaining?: number
@@ -30,14 +32,30 @@ export function Levers({
   if (isLoading) return <Skeleton className="h-40 w-full" />
   if (!data || data.levers.length === 0) return null
 
+  const worthDoing = data.levers.filter((l) => l.lifetime_value > 0)
+  const total = worthDoing.reduce((sum, l) => sum + l.lifetime_value, 0)
+
   return (
-    <Panel className="xl:col-span-1">
+    <Panel className={className}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <h2 className="text-sm font-medium">What actually moves your money</h2>
+        <h2 className="text-sm font-medium">Do these</h2>
         <p className="text-xs text-muted-foreground">
           Over the next <span className="tnum">{data.years_remaining}</span> years
         </p>
       </div>
+
+      {/* The headline is the sum, because the individual figures do not add up
+          in a reader's head and the question is always "is this worth my
+          afternoon". A list of four numbers does not answer that. */}
+      {worthDoing.length > 0 && (
+        <p className="max-w-3xl text-sm">
+          Doing {worthDoing.length === 1 ? 'this' : `these ${worthDoing.length}`}{' '}
+          {worthDoing.length === 1 ? 'one thing' : 'things'} is worth about{' '}
+          <span className="num font-medium text-gain">{formatInr(total)}</span>{' '}
+          to you. Everything below the line has been measured and is worth
+          nothing &mdash; that is not a gap in the app, it is the finding.
+        </p>
+      )}
 
       <ul className="flex flex-col divide-y border-y">
         {data.levers.map((lever) => {
