@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 """Read-only endpoints for looking things up before deciding anything."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -279,3 +281,29 @@ def get_stock(
         return stock.get_stock_fundamentals(ticker)
     except stock.StockDataError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/evidence")
+def get_factor_evidence():
+    """What has actually been shown to work, and what has not.
+
+    Deliberately unauthenticated and deliberately static. This is not the
+    user's data -- it is thirty-two years of published Indian factor returns,
+    survivorship-bias adjusted, built by academics with no stake in this app.
+
+    Served from a committed file rather than computed: the underlying series
+    updates monthly and a thirty-two-year regression has no business running on
+    a page load. `built_on` travels with it so a stale file cannot pass for a
+    fresh one. Rebuild with scripts/build_factor_evidence.py.
+    """
+    path = Path(__file__).resolve().parent.parent / "data" / "factor_evidence.json"
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        # A missing file is an outage, not an empty result. Returning {} would
+        # render as "nothing has been shown to work", which is a claim.
+        raise HTTPException(
+            503,
+            "The factor evidence file is missing or unreadable. Run "
+            "scripts/build_factor_evidence.py to rebuild it.",
+        ) from exc

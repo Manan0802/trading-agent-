@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { FactorEvidence } from '@/components/FactorEvidence'
 import { Panel } from '@/components/ui/panel'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle } from 'lucide-react'
@@ -430,6 +431,8 @@ function FundsTab() {
     <div className="flex flex-col gap-6">
       {/* Controls sit on their own surface, above the results they change, so
           the page reads as a screen you drive rather than a document. */}
+      <FactorEvidence />
+
       <Panel className="flex-row flex-wrap items-end gap-x-6 gap-y-3">
       <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="fund-category">Category</Label>

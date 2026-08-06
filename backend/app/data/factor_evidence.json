@@ -1,0 +1,333 @@
+{
+  "built_on": "2026-08-06",
+  "source": {
+    "name": "IIMA Indian Fama-French-Momentum library",
+    "url": "https://faculty.iima.ac.in/iffm/Indian-Fama-French-Momentum/DATA/2025-12_FourFactors_and_Market_Returns_Monthly_SurvivorshipBiasAdjusted.csv",
+    "note": "Survivorship-bias adjusted, monthly, from October 1993. Built independently of this app."
+  },
+  "period": {
+    "from": "1993-10",
+    "to": "2025-12",
+    "months": 387
+  },
+  "factors": [
+    {
+      "code": "WML",
+      "name": "Momentum",
+      "plain": "Past winners minus past losers. Buy what has been going up.",
+      "annual_return": 13.41,
+      "t_stat": 3.11,
+      "months": 386,
+      "significant": true,
+      "episodes": [
+        {
+          "label": "2008 crash",
+          "annual_return": 5.26,
+          "t_stat": 0.18,
+          "months": 15,
+          "significant": false
+        },
+        {
+          "label": "2009 rebound",
+          "annual_return": -53.5,
+          "t_stat": -1.2,
+          "months": 9,
+          "significant": false
+        },
+        {
+          "label": "COVID crash",
+          "annual_return": 35.79,
+          "t_stat": 0.48,
+          "months": 4,
+          "significant": false
+        },
+        {
+          "label": "COVID rebound",
+          "annual_return": -33.87,
+          "t_stat": -1.2,
+          "months": 9,
+          "significant": false
+        },
+        {
+          "label": "Last 8 years",
+          "annual_return": 13.07,
+          "t_stat": 2.41,
+          "months": 96,
+          "significant": true
+        }
+      ]
+    },
+    {
+      "code": "HML",
+      "name": "Value",
+      "plain": "Cheap minus expensive, on book-to-market. Buy what looks cheap.",
+      "annual_return": 8.56,
+      "t_stat": 2.39,
+      "months": 386,
+      "significant": true,
+      "episodes": [
+        {
+          "label": "2008 crash",
+          "annual_return": 5.85,
+          "t_stat": 0.39,
+          "months": 15,
+          "significant": false
+        },
+        {
+          "label": "2009 rebound",
+          "annual_return": 20.17,
+          "t_stat": 1.21,
+          "months": 9,
+          "significant": false
+        },
+        {
+          "label": "COVID crash",
+          "annual_return": -40.7,
+          "t_stat": -0.9,
+          "months": 4,
+          "significant": false
+        },
+        {
+          "label": "COVID rebound",
+          "annual_return": 43.9,
+          "t_stat": 1.48,
+          "months": 9,
+          "significant": false
+        },
+        {
+          "label": "Last 8 years",
+          "annual_return": 8.4,
+          "t_stat": 1.47,
+          "months": 96,
+          "significant": false
+        }
+      ]
+    },
+    {
+      "code": "SMB",
+      "name": "Size",
+      "plain": "Small companies minus large ones. Buy the smaller half.",
+      "annual_return": -2.82,
+      "t_stat": -0.96,
+      "months": 386,
+      "significant": false,
+      "episodes": [
+        {
+          "label": "2008 crash",
+          "annual_return": -45.89,
+          "t_stat": -3.62,
+          "months": 15,
+          "significant": true
+        },
+        {
+          "label": "2009 rebound",
+          "annual_return": 43.08,
+          "t_stat": 2.32,
+          "months": 9,
+          "significant": true
+        },
+        {
+          "label": "COVID crash",
+          "annual_return": -12.09,
+          "t_stat": -0.21,
+          "months": 4,
+          "significant": false
+        },
+        {
+          "label": "COVID rebound",
+          "annual_return": 15.49,
+          "t_stat": 0.83,
+          "months": 9,
+          "significant": false
+        },
+        {
+          "label": "Last 8 years",
+          "annual_return": -3.53,
+          "t_stat": -0.66,
+          "months": 96,
+          "significant": false
+        }
+      ]
+    },
+    {
+      "code": "MF",
+      "name": "The market itself",
+      "plain": "What the whole market returned above the risk-free rate.",
+      "annual_return": 8.61,
+      "t_stat": 1.99,
+      "months": 386,
+      "significant": false,
+      "episodes": [
+        {
+          "label": "2008 crash",
+          "annual_return": -64.66,
+          "t_stat": -1.77,
+          "months": 15,
+          "significant": false
+        },
+        {
+          "label": "2009 rebound",
+          "annual_return": 91.62,
+          "t_stat": 1.96,
+          "months": 9,
+          "significant": false
+        },
+        {
+          "label": "COVID crash",
+          "annual_return": -31.01,
+          "t_stat": -0.38,
+          "months": 4,
+          "significant": false
+        },
+        {
+          "label": "COVID rebound",
+          "annual_return": 66.75,
+          "t_stat": 3.81,
+          "months": 9,
+          "significant": true
+        },
+        {
+          "label": "Last 8 years",
+          "annual_return": 9.28,
+          "t_stat": 1.56,
+          "months": 96,
+          "significant": false
+        }
+      ]
+    }
+  ],
+  "momentum_curve": [
+    {
+      "date": "1993-12",
+      "value": 1.122
+    },
+    {
+      "date": "1994-12",
+      "value": 0.778
+    },
+    {
+      "date": "1995-12",
+      "value": 0.814
+    },
+    {
+      "date": "1996-12",
+      "value": 1.105
+    },
+    {
+      "date": "1997-12",
+      "value": 1.517
+    },
+    {
+      "date": "1998-12",
+      "value": 1.033
+    },
+    {
+      "date": "1999-12",
+      "value": 1.62
+    },
+    {
+      "date": "2000-12",
+      "value": 1.036
+    },
+    {
+      "date": "2001-12",
+      "value": 1.316
+    },
+    {
+      "date": "2002-12",
+      "value": 1.538
+    },
+    {
+      "date": "2003-12",
+      "value": 1.869
+    },
+    {
+      "date": "2004-12",
+      "value": 2.301
+    },
+    {
+      "date": "2005-12",
+      "value": 2.605
+    },
+    {
+      "date": "2006-12",
+      "value": 3.901
+    },
+    {
+      "date": "2007-12",
+      "value": 5.285
+    },
+    {
+      "date": "2008-12",
+      "value": 4.778
+    },
+    {
+      "date": "2009-12",
+      "value": 3.323
+    },
+    {
+      "date": "2010-12",
+      "value": 3.963
+    },
+    {
+      "date": "2011-12",
+      "value": 6.029
+    },
+    {
+      "date": "2012-12",
+      "value": 5.856
+    },
+    {
+      "date": "2013-12",
+      "value": 6.704
+    },
+    {
+      "date": "2014-12",
+      "value": 7.46
+    },
+    {
+      "date": "2015-12",
+      "value": 9.493
+    },
+    {
+      "date": "2016-12",
+      "value": 9.329
+    },
+    {
+      "date": "2017-12",
+      "value": 10.885
+    },
+    {
+      "date": "2018-12",
+      "value": 13.37
+    },
+    {
+      "date": "2019-12",
+      "value": 17.33
+    },
+    {
+      "date": "2020-12",
+      "value": 16.671
+    },
+    {
+      "date": "2021-12",
+      "value": 21.894
+    },
+    {
+      "date": "2022-12",
+      "value": 21.869
+    },
+    {
+      "date": "2023-12",
+      "value": 24.669
+    },
+    {
+      "date": "2024-12",
+      "value": 29.743
+    },
+    {
+      "date": "2025-12",
+      "value": 28.098
+    }
+  ]
+}

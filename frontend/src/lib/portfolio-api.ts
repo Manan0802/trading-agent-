@@ -228,3 +228,24 @@ export async function fetchLevers(params: {
 }): Promise<Levers> {
   return (await api.get('/api/v1/portfolio/levers', { params })).data
 }
+
+export type FactorEvidence = {
+  built_on: string
+  source: { name: string; url: string; note: string }
+  period: { from: string; to: string; months: number }
+  factors: {
+    code: string
+    name: string
+    plain: string
+    annual_return: number
+    t_stat: number
+    months: number
+    significant: boolean
+    episodes: { label: string; annual_return: number; t_stat: number }[]
+  }[]
+  momentum_curve: { date: string; value: number }[]
+}
+
+export async function fetchFactorEvidence(): Promise<FactorEvidence> {
+  return (await api.get('/api/v1/research/evidence')).data
+}
