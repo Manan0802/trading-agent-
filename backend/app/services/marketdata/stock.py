@@ -73,6 +73,7 @@ class StockFundamentals:
 
 
 def clear_cache() -> None:
+    _HISTORY.clear()
     _cache.clear()
     try:
         for entry in _DISK_CACHE_DIR.glob("*.json"):
@@ -164,6 +165,39 @@ def _price_from(info: dict, ticker: str) -> float:
 
 def get_stock_price(ticker: str) -> float:
     return _price_from(_info_cached(ticker), ticker)
+
+
+_HISTORY: dict[str, Any] = {}
+
+
+def get_price_history(ticker: str, period: str = "2y"):
+    """Daily closes, cached in memory for the life of the process.
+
+    Momentum ranks the whole universe in one request, so the same histories are
+    read repeatedly within a page load. Kept in memory rather than on disk
+    because a DataFrame is not JSON and the disk cache here stores JSON; a
+    restart refetches, which costs one slow first request and no correctness.
+
+    Returns None rather than raising: an unavailable stock is simply unranked,
+    and one delisted ticker must not fail a screen over seven hundred names.
+    """
+    if ticker in _HISTORY:
+        return _HISTORY[ticker]
+    try:
+        frame = yf.Ticker(ticker).history(period=period, auto_adjust=True)
+    except Exception:  # noqa: BLE001
+        _HISTORY[ticker] = None
+        return None
+    if frame is None or frame.empty:
+        _HISTORY[ticker] = None
+        return None
+    # yfinance indexes NSE history in Asia/Kolkata. Every date this app
+    # compares against is a calendar date, so the index is flattened once here
+    # rather than at each comparison, where a tz mismatch raises.
+    if getattr(frame.index, "tz", None) is not None:
+        frame.index = frame.index.tz_localize(None)
+    _HISTORY[ticker] = frame
+    return frame
 
 
 def get_price_date(ticker: str) -> date | None:

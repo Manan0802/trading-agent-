@@ -307,3 +307,94 @@ def get_factor_evidence():
             "The factor evidence file is missing or unreadable. Run "
             "scripts/build_factor_evidence.py to rebuild it.",
         ) from exc
+
+
+@router.get("/evidence")
+def get_factor_evidence():
+    """What has actually been shown to work, and what has not.
+
+    Deliberately unauthenticated and deliberately static. This is not the
+    user's data -- it is thirty-two years of published Indian factor returns,
+    survivorship-bias adjusted, built by academics with no stake in this app.
+
+    Served from a committed file rather than computed: the underlying series
+    updates monthly and a thirty-two-year regression has no business running on
+    a page load. `built_on` travels with it so a stale file cannot pass for a
+    fresh one. Rebuild with scripts/build_factor_evidence.py.
+    """
+    path = Path(__file__).resolve().parent.parent / "data" / "factor_evidence.json"
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        # A missing file is an outage, not an empty result. Returning {} would
+        # render as "nothing has been shown to work", which is a claim.
+        raise HTTPException(
+            503,
+            "The factor evidence file is missing or unreadable. Run "
+            "scripts/build_factor_evidence.py to rebuild it.",
+        ) from exc
+
+
+# Not under /stocks/, deliberately. This ranks the universe rather than
+# describing one stock, and behind /stocks/{ticker} it resolved as a ticker
+# named "momentum" -- FastAPI matches in definition order, so a path that does
+# not collide is safer than one that depends on where it sits in the file.
+@router.get("/momentum")
+def get_momentum_ranking(
+    index: str = "NIFTY 500",
+    limit: int = 60,
+    user: User = Depends(current_active_user),
+):
+    """Stocks ranked by the one signal in this app measured to predict.
+
+    Momentum, on the definition that was validated -- twelve-month return
+    skipping the most recent month. See services/advisor/momentum.py for why
+    the skip is not optional and what the risk is.
+
+    Coverage is stated rather than implied. A screen that silently ranks the
+    first sixty of five hundred and calls them the best is lying by omission,
+    which is the same failure as a fund list that hides the funds it could not
+    price.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.services.advisor import momentum as mom
+    from app.services.marketdata.stock_universe import list_stocks
+
+    candidates = list_stocks(index=index, limit=limit)
+    if not candidates:
+        raise HTTPException(404, f"No stocks found for index {index!r}")
+
+    def measure(entry):
+        history = stock.get_price_history(entry.ticker)
+        return entry, mom.score(entry.ticker, history)
+
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        measured = list(pool.map(measure, candidates))
+
+    scored = [(e, s) for e, s in measured if s is not None]
+    scored.sort(key=lambda pair: -pair[1])
+    unranked = [e.symbol for e, s in measured if s is None]
+
+    start, end = mom.window()
+    return {
+        "index": index,
+        "measured_from": start.isoformat(),
+        "measured_to": end.isoformat(),
+        "ranked": [
+            {
+                "rank": i,
+                "symbol": entry.symbol,
+                "name": entry.name,
+                "industry": entry.industry,
+                "momentum": round(value, 4),
+                "band": mom.band(i, len(scored)),
+            }
+            for i, (entry, value) in enumerate(scored, start=1)
+        ],
+        "considered": len(candidates),
+        # Named, not just counted: a symbol the reader holds should be findable
+        # in this list rather than merely missing from the other one.
+        "unranked": unranked,
+        "rebound_loss": mom.REBOUND_LOSS_2009,
+    }

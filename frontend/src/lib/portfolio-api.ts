@@ -249,3 +249,26 @@ export type FactorEvidence = {
 export async function fetchFactorEvidence(): Promise<FactorEvidence> {
   return (await api.get('/api/v1/research/evidence')).data
 }
+
+export type MomentumRanking = {
+  index: string
+  measured_from: string
+  measured_to: string
+  ranked: {
+    rank: number
+    symbol: string
+    name: string
+    industry: string | null
+    momentum: number
+    band: string
+  }[]
+  considered: number
+  /** Named, not just counted, so a symbol you hold is findable here. */
+  unranked: string[]
+  /** What the same measurement lost through the 2009 rebound. */
+  rebound_loss: number
+}
+
+export async function fetchMomentum(limit = 60): Promise<MomentumRanking> {
+  return (await api.get('/api/v1/research/momentum', { params: { limit } })).data
+}

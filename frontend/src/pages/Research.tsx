@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { MomentumScreen } from '@/components/MomentumScreen'
 import { FactorEvidence } from '@/components/FactorEvidence'
 import { Panel } from '@/components/ui/panel'
 import { useQuery } from '@tanstack/react-query'
@@ -1037,7 +1038,10 @@ export function Research() {
           <FundsTab />
         </TabsContent>
         <TabsContent value="stocks">
-          <StocksTab />
+          <div className="flex flex-col gap-6">
+            <MomentumScreen />
+            <StocksTab />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
