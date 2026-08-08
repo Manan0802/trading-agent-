@@ -12,7 +12,7 @@ import argparse
 import sys
 from datetime import date, timedelta
 
-import httpx
+from _ratelimit import PatientClient
 
 FAILURES: list[str] = []
 CHECKS = 0
@@ -37,7 +37,11 @@ def main() -> int:
     # error -- it runs the whole harness against a different app and passes.
     parser.add_argument("--api", default="http://127.0.0.1:8020")
     args = parser.parse_args()
-    client = httpx.Client(base_url=args.api.rstrip("/"), timeout=180)
+    # Patient, because this harness runs third in ./check.sh and the two before
+    # it have usually spent the minute's anonymous budget. A 429 body has no
+    # "regime" key, so the old client turned a rate limit into a KeyError
+    # traceback halfway through the run. See scripts/_ratelimit.py.
+    client = PatientClient(base_url=args.api.rstrip("/"), timeout=180)
 
     email = f"consistency{id(client)}@example.com"
     client.post(

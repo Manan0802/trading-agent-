@@ -22,6 +22,15 @@ step() {
   echo "── $1 ─────────────────────────────────────────"
 }
 
+# Every harness below is `harness | tail`, so the pipeline's exit status is
+# tail's unless pipefail is set -- and `set -o pipefail` at the top of this file
+# does NOT reach a child `bash -c`. Without the flag here, seven of the nine
+# checks could not fail: this script printed "All clear" on a run where
+# mobile.mjs had exited 1 and had said so on the line above the green tick.
+sh() {
+  bash -o pipefail -c "$1"
+}
+
 run() {
   local name="$1"; shift
   if "$@"; then
@@ -32,11 +41,23 @@ run() {
   fi
 }
 
+# The gate's own control, in the spirit of the `random` and `reversal` columns
+# in the factor harness: prove the instrument can register a failure before
+# trusting anything it says. A green run means nothing if a red one is
+# impossible.
+if sh "false | tail -1"; then
+  echo "BROKEN: this script cannot detect a failing check, so every result"
+  echo "below would be meaningless. Fix sh()/run() before trusting it."
+  exit 2
+fi
+
 step "unit tests"
-run "pytest" bash -c "cd backend && venv/bin/python -m pytest -q 2>&1 | tail -3"
+run "pytest" sh "cd backend && venv/bin/python -m pytest -q 2>&1 | tail -3"
 
 step "frontend build"
-run "typecheck and build" bash -c "cd frontend && npm run build 2>&1 | grep -E 'error|✓ built'"
+# Filtered with tail, not grep: `grep -E 'error|✓ built'` matched the word
+# "error" too, so a build that failed loudly satisfied its own success check.
+run "typecheck and build" sh "cd frontend && npm run build 2>&1 | tail -3"
 
 if ! curl -sf -o /dev/null "$API/docs"; then
   echo
@@ -44,24 +65,24 @@ if ! curl -sf -o /dev/null "$API/docs"; then
   echo "Start one, or pass API=... , then run this again."
 else
   step "adversarial inputs"
-  run "no 500s, no NaN" bash -c "cd backend && venv/bin/python scripts/edge_cases.py --api '$API' | tail -4"
+  run "no 500s, no NaN" sh "cd backend && venv/bin/python scripts/edge_cases.py --api '$API' | tail -4"
 
   step "cross-view consistency"
-  run "the same fact agrees with itself" bash -c "cd backend && venv/bin/python scripts/consistency.py --api '$API' | tail -4"
+  run "the same fact agrees with itself" sh "cd backend && venv/bin/python scripts/consistency.py --api '$API' | tail -4"
 
   step "account isolation"
-  run "nothing crosses between accounts" bash -c "cd backend && venv/bin/python scripts/isolation.py --api '$API' | tail -4"
+  run "nothing crosses between accounts" sh "cd backend && venv/bin/python scripts/isolation.py --api '$API' | tail -4"
 
   if curl -sf -o /dev/null "$APP"; then
     step "every page, both themes"
-    run "seeded" bash -c "cd frontend && API_URL='$API' APP_URL='$APP' node scripts/sweep.mjs"
-    run "brand new account" bash -c "cd frontend && API_URL='$API' APP_URL='$APP' node scripts/sweep.mjs --empty"
+    run "seeded" sh "cd frontend && API_URL='$API' APP_URL='$APP' node scripts/sweep.mjs"
+    run "brand new account" sh "cd frontend && API_URL='$API' APP_URL='$APP' node scripts/sweep.mjs --empty"
 
     step "every page on a phone"
-    run "fits, and every control is thumb-sized" bash -c "cd frontend && API_URL='$API' APP_URL='$APP' node scripts/mobile.mjs | tail -3"
+    run "fits, and every control is thumb-sized" sh "cd frontend && API_URL='$API' APP_URL='$APP' node scripts/mobile.mjs | tail -3"
 
     step "without a mouse, without sight"
-    run "labels, headings, contrast, tab order" bash -c "cd frontend && API_URL='$API' APP_URL='$APP' node scripts/a11y.mjs | tail -3"
+    run "labels, headings, contrast, tab order" sh "cd frontend && API_URL='$API' APP_URL='$APP' node scripts/a11y.mjs | tail -3"
   else
     echo
     echo "No web app on $APP — skipping the page sweep."

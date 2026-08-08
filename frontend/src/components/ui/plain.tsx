@@ -36,7 +36,11 @@ export function Plain({
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        // A 12px line of text is a 16px-tall tap target, which is half of what
+        // a thumb can reliably hit. `min-h-8` gives it the full 32px and the
+        // negative margin gives the extra height back to the layout, so the
+        // control grows without the page moving.
+        className="-my-2 flex min-h-8 w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
         <ChevronRight
           aria-hidden

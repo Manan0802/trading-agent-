@@ -15,6 +15,8 @@ from datetime import date, timedelta
 
 import httpx
 
+from _ratelimit import PatientClient
+
 FAILURES: list[str] = []
 CHECKS = 0
 
@@ -57,7 +59,12 @@ def main() -> int:
     args = parser.parse_args()
     api = args.api.rstrip("/")
 
-    client = httpx.Client(base_url=api, timeout=60)
+    # Patient, so the run does not quietly shrink. Every value assertion here
+    # is guarded by `if status_code == 200`, and a 429 is not a 500 — so under
+    # our own rate limit this harness stayed green while doing less work, and
+    # the only sign was the printed check count dropping from 148 to 136.
+    # A coverage number that moves on its own is worse than a red one.
+    client = PatientClient(base_url=api, timeout=60)
     email = f"edge{date.today().isoformat()}{id(client)}@example.com"
     client.post(
         "/api/v1/auth/register",

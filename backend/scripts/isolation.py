@@ -14,7 +14,14 @@ from datetime import date, timedelta
 
 import httpx
 
+from _ratelimit import PatientClient
+
 FAILURES: list[str] = []
+# A check the rate limiter would not let us run. Kept apart from FAILURES on
+# purpose: "we could not test this" and "this leaked" are different sentences,
+# and printing the second one for the first would send someone hunting a breach
+# that never happened.
+INCONCLUSIVE: list[str] = []
 CHECKS = 0
 
 
@@ -23,6 +30,13 @@ def check(what: str, ok: bool, detail: str = "") -> None:
     CHECKS += 1
     if not ok:
         FAILURES.append(f"{what}: {detail}")
+
+
+def untestable(what: str, detail: str) -> None:
+    """Counted as attempted, reported apart from a leak."""
+    global CHECKS
+    CHECKS += 1
+    INCONCLUSIVE.append(f"{what}: {detail}")
 
 
 def account(client: httpx.Client, tag: str) -> dict:
@@ -45,7 +59,9 @@ def main() -> int:
     # error -- it runs the whole harness against a different app and passes.
     parser.add_argument("--api", default="http://127.0.0.1:8020")
     args = parser.parse_args()
-    client = httpx.Client(base_url=args.api.rstrip("/"), timeout=90)
+    # Patient: these routes are meant to answer 401, and a 429 from our own
+    # earlier harnesses would be recorded as a leak. See scripts/_ratelimit.py.
+    client = PatientClient(base_url=args.api.rstrip("/"), timeout=90)
 
     owner = account(client, "owner")
     stranger = account(client, "stranger")
@@ -144,12 +160,12 @@ def main() -> int:
         ("DELETE", f"/api/v1/goals/{goal['id']}"),
     ]
     for method, path in anonymous:
+        label = f"unauthenticated {method} {path.split('/api/v1')[-1][:44]}"
         r = client.request(method, path, json={})
-        check(
-            f"unauthenticated {method} {path.split('/api/v1')[-1][:44]}",
-            r.status_code in (401, 403),
-            f"HTTP {r.status_code}",
-        )
+        if r.status_code == 429:
+            untestable(label, "still rate limited after waiting")
+            continue
+        check(label, r.status_code in (401, 403), f"HTTP {r.status_code}")
 
     # --- a forged token must not open anything ---------------------------
     for label, header in [
@@ -160,6 +176,9 @@ def main() -> int:
         ("a token with the algorithm stripped", {"Authorization": "Bearer eyJhbGciOiJub25lIn0.e30."}),
     ]:
         r = client.get("/api/v1/profile", headers=header)
+        if r.status_code == 429:
+            untestable(f"{label} is rejected", "still rate limited after waiting")
+            continue
         check(f"{label} is rejected", r.status_code in (401, 403), f"HTTP {r.status_code}")
 
     # --- the owner still has everything ----------------------------------
@@ -179,6 +198,15 @@ def main() -> int:
         print(f"\n{len(FAILURES)} LEAKED:\n")
         for f in FAILURES:
             print(f"  {f}")
+        return 1
+    if INCONCLUSIVE:
+        # Still a non-zero exit. An isolation check that did not run is not an
+        # isolation check that passed, and this is the one harness where
+        # assuming the best is unacceptable.
+        print(f"\n{len(INCONCLUSIVE)} COULD NOT BE TESTED (rate limited, not leaked):\n")
+        for f in INCONCLUSIVE:
+            print(f"  {f}")
+        print("\nRe-run in a minute, or restart the API to clear its buckets.")
         return 1
     print("nothing crosses between accounts")
     return 0
