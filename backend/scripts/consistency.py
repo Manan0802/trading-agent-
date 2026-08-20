@@ -309,6 +309,96 @@ def main() -> int:
             f"vs header {portfolio['total_invested']}",
         )
 
+    # ── the screener ─────────────────────────────────────────────────────
+    #
+    # Three surfaces read the same nightly run, and the fund score is the number
+    # a reader carries between them. If it differs by a decimal on one of them,
+    # nothing errors and the page quietly stops being believable.
+    screen = client.get("/api/v1/screener/top-funds?per_category=3", headers=auth)
+    if screen.status_code == 503:
+        print("  screener has no completed run yet; skipping its checks")
+    elif screen.status_code == 200:
+        grouped = screen.json()
+        flat = client.get("/api/v1/screener/funds", headers=auth).json()
+        cov = grouped["coverage"]
+
+        by_code = {f["scheme_code"]: f for f in flat["funds"]}
+        sampled = [f for g in grouped["groups"] for f in g["funds"]][:8]
+        for fund in sampled:
+            code = fund["scheme_code"]
+            single = client.get(f"/api/v1/screener/funds/{code}", headers=auth).json()
+            check(
+                "a fund's score is the same on all three screener views",
+                fund["fund_score"] == by_code.get(code, {}).get("fund_score")
+                == single["fund_score"],
+                f"{code}: grouped {fund['fund_score']}, flat "
+                f"{by_code.get(code, {}).get('fund_score')}, single {single['fund_score']}",
+            )
+            check(
+                "a fund's rank is the same on all three screener views",
+                fund["rank"] == by_code.get(code, {}).get("rank") == single["rank"],
+                f"{code}: {fund['rank']} / {by_code.get(code, {}).get('rank')} / {single['rank']}",
+            )
+
+        # The coverage line is the only claim on the page about the page itself.
+        check(
+            "the screener's coverage line adds up",
+            cov["scored"] + len(cov["unscorable"]) <= cov["universe"],
+            f"{cov['scored']} scored + {len(cov['unscorable'])} named "
+            f"> {cov['universe']} in the universe",
+        )
+        check(
+            "every category is either ranked or named as too thin",
+            cov["categories_ranked"] + len(cov["thin_categories"]) == cov["categories_total"],
+            f"{cov['categories_ranked']} + {len(cov['thin_categories'])} "
+            f"!= {cov['categories_total']}",
+        )
+
+        # A filter must not renumber. If the rank were derived client-side,
+        # "rank 3" would silently become "third of what is showing".
+        equity = client.get("/api/v1/screener/funds?asset_class=Equity", headers=auth)
+        if equity.status_code == 200:
+            for fund in equity.json()["funds"][:10]:
+                check(
+                    "a filter narrows the list without renumbering it",
+                    fund["rank"] == by_code.get(fund["scheme_code"], {}).get("rank"),
+                    f"{fund['scheme_code']}: {fund['rank']} filtered vs "
+                    f"{by_code.get(fund['scheme_code'], {}).get('rank')} unfiltered",
+                )
+
+        # ── A DISAGREEMENT THAT MUST STAY ONE ────────────────────────────
+        #
+        # Research and the screener rank the SAME funds in DIFFERENT orders, on
+        # purpose. Research scores on cost, which is the thing this project
+        # measured as predictive; the screener scores on trailing record, which
+        # is the industry-standard method it is a port of. The same fund can be
+        # first on one and twenty-second on the other.
+        #
+        # Nobody should ever "fix" that. What must agree is the SET of funds:
+        # if one is missing names the other has, one of them is losing funds,
+        # and that is a bug in whichever is smaller. Only the set is checked.
+        first = grouped["groups"][0] if grouped["groups"] else None
+        if first and first.get("sub_category"):
+            category = f"{first['category']} - {first['sub_category']}"
+            research = client.get(
+                f"/api/v1/research/fund-rankings/{category}", headers=auth
+            )
+            if research.status_code == 200:
+                theirs = {f["scheme_code"] for f in research.json().get("ranked", [])}
+                ours = {
+                    f["scheme_code"] for f in flat["funds"]
+                    if f["sub_category"] == first["sub_category"]
+                }
+                if theirs and ours:
+                    missing = theirs - ours
+                    check(
+                        "research and the screener cover the same funds "
+                        "(their ORDER is meant to differ)",
+                        not missing,
+                        f"{category}: research has {len(missing)} fund(s) the "
+                        f"screener does not, e.g. {sorted(missing)[:3]}",
+                    )
+
     print(f"\n{CHECKS} consistency checks run")
     if FAILURES:
         print(f"\n{len(FAILURES)} DISAGREE:\n")
