@@ -29,3 +29,11 @@ numpy>=2.0,<3.0
 # a missing engine surfaces as "unreadable workbook" at request time.
 openpyxl>=3.1
 xlrd>=2.0.1
+
+# Only used by the basket optimiser, which is a faithful port of an SLSQP
+# problem: maximise the weighted score less a volatility penalty, subject to a
+# sum-to-one equality and per-slot box bounds. A different solver reaches a
+# different corner of the same feasible set, so matching the reference means
+# matching scipy's SLSQP rather than approximating it. ~19 MB, and nothing else
+# in the app needs it.
+scipy>=1.14,<2.0
