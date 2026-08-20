@@ -412,6 +412,7 @@ def _basket_out(result) -> BasketOut:
         strategy=result.strategy,
         regime=result.regime,
         filled=result.filled,
+        allocated=result.allocated,
         success=result.success,
         as_of=result.as_of,
         notes=result.notes,
@@ -419,6 +420,7 @@ def _basket_out(result) -> BasketOut:
         slots=[
             BasketSlotOut(
                 slot_key=s.slot_key,
+                label=s.label,
                 scheme_code=s.scheme_code,
                 name=s.name,
                 category=s.category,

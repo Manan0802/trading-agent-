@@ -293,6 +293,10 @@ class BasketSlotOut(BaseModel):
     """
 
     slot_key: str
+    # The sleeve in plain words. The key is upstream's and carries its
+    # punctuation; the optimiser's notes quote the label too, so the page and
+    # its notes name the same thing.
+    label: str
     scheme_code: str | None
     name: str | None
     category: str | None
@@ -317,7 +321,12 @@ class BasketOut(BaseModel):
     strategy: str
     regime: str
     slots: list[BasketSlotOut]
+    # Sleeves that found a fund, and sleeves that actually got money. They
+    # differ: MAXX fills all five and allocates one of them 0.0%, so "5 of 5
+    # filled" over a table containing an empty sleeve is true and misleading at
+    # the same time.
     filled: int
+    allocated: int
     success: bool
     as_of: date | None
     # Anything the ported optimiser did that a reader would not otherwise be

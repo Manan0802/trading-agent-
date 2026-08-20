@@ -57,6 +57,7 @@ DEFAULT_REGIME = "neutral"
 @dataclass(frozen=True)
 class SlotFill:
     slot_key: str
+    label: str
     scheme_code: str | None
     name: str | None
     category: str | None
@@ -83,7 +84,19 @@ class BasketResult:
 
     @property
     def filled(self) -> int:
+        """Sleeves that found a fund. Not the same as sleeves holding money."""
         return sum(1 for s in self.slots if s.scheme_code)
+
+    @property
+    def allocated(self) -> int:
+        """Sleeves that actually got weight.
+
+        MAXX fills all five and gives one of them 0.0% -- the optimiser picked
+        Zerodha Gold ETF FoF, scored it, and then allocated it nothing. Reporting
+        only `filled` says "5 of 5 sleeves filled" over a table with an empty
+        sleeve in it, which is true and misleading at once.
+        """
+        return sum(1 for s in self.slots if (s.weight or 0.0) > 0.0)
 
 
 def _pool_funds(session) -> tuple[list[port.PoolFund], date | None]:
@@ -207,6 +220,7 @@ def build(
             slots=[
                 SlotFill(
                     slot_key=slot,
+                    label=basket_slots.label_for_slot(slot),
                     scheme_code=fund.code if fund else None,
                     name=getattr(catalogue.get(fund.code), "name", None) if fund else None,
                     category=fund.category if fund else None,
@@ -239,7 +253,8 @@ def build(
                 "the per-slot caps could not sum to 1, so the optimiser rescaled "
                 "them: "
                 + ", ".join(
-                    f"{s} asked {a[1]:.0%} allowed {p[1]:.0%}"
+                    f"{basket_slots.label_for_slot(s)} asked {a[1]:.0%} "
+                    f"allowed {p[1]:.0%}"
                     for (s, _f), a, p in zip(chosen, asked, applied)
                     if abs(a[1] - p[1]) > 1e-9
                 )
@@ -249,8 +264,14 @@ def build(
             returns, asked, strategy, regime, objective, scores=scores, return_raw=True
         )
         weights, raw = list(np.asarray(weights)), list(np.asarray(raw))
+        # Rounded the same way the field is before it is formatted. Otherwise
+        # the note reads "15.9%" off the raw float while the table one line
+        # below reads "16.0%" off `round(w, 4)` -- the same number printed two
+        # ways, which is exactly the kind of small disagreement that makes a
+        # reader stop trusting both.
         breached = [
-            f"{s} {w:.1%} against a {p[1]:.0%} cap"
+            f"{basket_slots.label_for_slot(s)} {round(float(w), 4):.1%} "
+            f"against a {p[1]:.0%} cap"
             for (s, _f), w, p in zip(chosen, weights, applied)
             if w > p[1] + 1e-9
         ]
@@ -258,6 +279,18 @@ def build(
             notes.append(
                 "the tactical overlay pushed a slot past the cap the optimiser "
                 "respected: " + ", ".join(breached)
+            )
+        if not success:
+            # Worth saying out loud, because the failure makes the page look
+            # BETTER. On the all-attempts-failed path the ported optimiser
+            # returns clipped equal weights and never reaches the tactical
+            # overlay -- so no cap is breached, no note appears, and a run that
+            # did not converge is indistinguishable from a clean one except that
+            # it looks tidier.
+            notes.append(
+                "the optimiser did not converge, so these are fallback weights "
+                "rather than an optimised allocation, and the usual momentum "
+                "adjustment was skipped"
             )
 
     filled = {s: (f, w, r) for (s, f), w, r in zip(chosen, weights, raw)}
@@ -270,6 +303,7 @@ def build(
         slots.append(
             SlotFill(
                 slot_key=slot_key,
+                label=basket_slots.label_for_slot(slot_key),
                 scheme_code=fund.code if fund else None,
                 name=getattr(meta, "name", None),
                 category=fund.category if fund else None,

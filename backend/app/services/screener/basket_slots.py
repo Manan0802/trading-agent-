@@ -73,6 +73,29 @@ SLOT_CAVEATS: dict[str, str] = {
 }
 
 
+# What to call each sleeve in front of a reader. The keys are upstream's and
+# carry its punctuation -- `Flexi / Multi::Flexi Cap Fund` -- which is fine
+# inside the port and unreadable on a page.
+#
+# The notes the optimiser produces quote sleeves by key, so anything that
+# renames a sleeve on screen has to rename it in the notes too, or the page
+# points at a row nobody can find. `label_for_slot` is used in both places.
+SLOT_LABELS: dict[str, str] = {
+    "Equity Index Fund": "Index funds",
+    "Sectoral/ Thematic": "Sectoral and thematic",
+    "Flexi / Multi::Flexi Cap Fund": "Flexi cap",
+    "Commodity::Gold": "Gold",
+    "Commodity::Silver": "Silver",
+    "Equity Scheme::Large & Mid Cap Fund": "Large and mid cap",
+    "Debt Scheme::Liquid Fund": "Liquid",
+}
+
+
+def label_for_slot(slot_key: str) -> str:
+    """A sleeve's name in plain words, falling back to the key itself."""
+    return SLOT_LABELS.get(slot_key, slot_key)
+
+
 class UnmappedSlot(Exception):
     """A slot key with no traa category behind it.
 

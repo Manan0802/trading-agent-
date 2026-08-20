@@ -247,3 +247,76 @@ export type StockFilters = {
 export async function fetchScreenedStocks(filters: StockFilters): Promise<StockScreen> {
   return (await api.get('/api/v1/screener/stocks', { params: live(filters) })).data
 }
+
+/* -------------------------------------------------------------- baskets */
+
+/**
+ * The two model baskets: a fixed set of sleeves, each filled by the best-scoring
+ * fund that fits it, then weighted by an optimiser ported from the reference
+ * implementation.
+ *
+ * UNITS, and they are the FUND units, not the stock ones above. `weight`,
+ * `weight_within_bounds`, `cap_asked` and `cap_applied` are all FRACTIONS —
+ * 0.405 means 40.5% — so they go to formatPercent, which multiplies by 100
+ * itself. `score` is the same 0-to-1 fund score the funds tab shows, so it goes
+ * through Screener's `score100`. `pool_size` is a count of funds.
+ */
+export type BasketSlot = {
+  /** The sleeve's key, e.g. "Commodity::Gold". Quoted verbatim by `notes`. */
+  slot_key: string
+  /** The sleeve in plain words. `slot_key` carries the reference's own
+   *  punctuation (`Flexi / Multi::Flexi Cap Fund`); the optimiser's notes quote
+   *  this label too, so the table and its notes name the same thing. */
+  label: string
+  /** Null when nothing eligible could fill the sleeve; `reason` says why. */
+  scheme_code: string | null
+  name: string | null
+  category: string | null
+  score: number | null
+  /**
+   * What the basket actually holds, AFTER a momentum overlay that renormalises
+   * without re-checking the caps. So this one CAN sit above `cap_applied`.
+   */
+  weight: number | null
+  /** What the optimiser itself agreed to, before that overlay. Never above the cap. */
+  weight_within_bounds: number | null
+  /** What the sleeve asked for, and what the optimiser could actually enforce. */
+  cap_asked: number
+  cap_applied: number
+  /** How many funds competed for this sleeve. "Best of 2" is not "best of 90". */
+  pool_size: number
+  /** A pre-written sentence. Render it as-is. */
+  caveat: string | null
+  /** A pre-written sentence, present when the sleeve holds nothing. */
+  reason: string | null
+}
+
+export type Basket = {
+  basket_id: string
+  name: string
+  strategy: string
+  regime: string
+  slots: BasketSlot[]
+  /** How many of `slots` found a fund. */
+  /** Sleeves that found a fund. */
+  filled: number
+  /** Sleeves that actually got money. Lower than `filled` when the optimiser
+   *  picks a fund and then allocates it 0% — which MAXX's gold sleeve does. */
+  allocated: number
+  success: boolean
+  as_of: string | null
+  /** Per-run findings, already written as sentences. Render as-is. */
+  notes: string[]
+  /** The standing disclosures, the same three on every response. Render as-is. */
+  method_notes: string[]
+}
+
+export type BasketFilters = {
+  strategy?: string
+  regime?: string
+}
+
+/** Same 404-on-blank rule as every other screener endpoint, so the same `live`. */
+export async function fetchBaskets(filters: BasketFilters): Promise<{ baskets: Basket[] }> {
+  return (await api.get('/api/v1/screener/baskets', { params: live(filters) })).data
+}

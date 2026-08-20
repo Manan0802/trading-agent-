@@ -171,3 +171,15 @@ def test_the_funds_behind_a_slot_look_like_what_the_slot_asked_for(slot, words):
     assert hits / len(names) > 0.5, (
         f"{slot}: only {hits} of {len(names)} funds look like {words}"
     )
+
+
+def test_every_slot_has_a_plain_words_label():
+    """`Flexi / Multi::Flexi Cap Fund` is upstream's key. It is fine inside the
+    port and unreadable on a page."""
+    for slot in bs.SLOT_CATEGORIES:
+        label = bs.label_for_slot(slot)
+        assert label and "::" not in label, f"{slot} still shows its raw key"
+
+
+def test_an_unlabelled_slot_falls_back_to_its_key_rather_than_blank():
+    assert bs.label_for_slot("Commodity::Platinum") == "Commodity::Platinum"

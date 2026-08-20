@@ -29,9 +29,12 @@ import {
 } from '@/lib/format'
 import {
   fetchAllFunds,
+  fetchBaskets,
   fetchScreenedStocks,
   fetchScreenerCategories,
   fetchTopFunds,
+  type Basket,
+  type BasketSlot,
   type ScoredStock,
   type ScreenedFund,
   type ScreenerCoverage,
@@ -1513,6 +1516,213 @@ function StocksScreen() {
   )
 }
 
+/* -------------------------------------------------------------- tab: baskets */
+
+/**
+ * A blank strategy is not "no strategy": the API then lets each basket use its
+ * own default, which is aggressive for MAXX and balanced for the other one.
+ * Naming a single one here would misreport whichever basket did not get it.
+ */
+const BASKET_STRATEGIES = [
+  { value: '', label: "Each basket's own" },
+  { value: 'conservative', label: 'Conservative' },
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'aggressive', label: 'Aggressive' },
+]
+
+/** The API's own default is neutral, so that is what the select starts on. */
+const BASKET_REGIMES = [
+  { value: 'bullish', label: 'Bullish' },
+  { value: 'neutral', label: 'Neutral' },
+  { value: 'bearish', label: 'Bearish' },
+]
+
+/** One sleeve: what it holds, what the optimiser agreed to, and what it kept. */
+function SleeveRow({ slot }: { slot: BasketSlot }) {
+  // The optimiser honours every cap. The momentum overlay that runs after it
+  // scales the weights and renormalises without checking them again, which is
+  // the one way a basket ends up holding more of a sleeve than its cap allows.
+  // `weight_within_bounds` is the number that never breaches; `weight` is the
+  // number that is actually held. Both are on the row, and this marks the gap.
+  const overCap = slot.weight !== null && slot.weight > slot.cap_applied
+
+  return (
+    <TableRow className="bg-card hover:bg-muted">
+      <TableCell className="sticky left-0 z-10 bg-inherit align-top whitespace-normal shadow-[inset_-1px_0_0_0_var(--border)]">
+        {/* A fixed inner width, because max-width does not apply to a table
+            cell in an auto-layout table. Same trick as NameCell above. */}
+        <span className="block w-32 font-medium sm:w-48">{slot.label}</span>
+      </TableCell>
+      <TableCell className="align-top whitespace-normal">
+        <span className="block w-40 sm:w-72">
+          {slot.name ?? (
+            <span className="text-muted-foreground">
+              {slot.reason ?? 'No fund in this sleeve.'}
+            </span>
+          )}
+        </span>
+      </TableCell>
+      <TableCell className="num text-right align-top">{score100(slot.score)}</TableCell>
+      <TableCell className="text-right align-top">
+        {/* Badge first, number last: the figures are tabular and the column is
+            only readable if they all end on the same right edge. */}
+        {overCap && (
+          <Badge variant="outline" className="mr-2 align-middle">
+            over cap
+          </Badge>
+        )}
+        <span className={cn('num', overCap && 'text-loss')}>
+          {formatPercent(slot.weight, { signed: false })}
+        </span>
+      </TableCell>
+      <TableCell className="num text-right align-top text-muted-foreground">
+        {formatPercent(slot.weight_within_bounds, { signed: false })}
+      </TableCell>
+      <TableCell className="num text-right align-top text-muted-foreground">
+        {formatPercent(slot.cap_applied, { signed: false })}
+      </TableCell>
+      <TableCell className="num text-right align-top text-muted-foreground">
+        {count(slot.pool_size)}
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function BasketPanel({ basket }: { basket: Basket }) {
+  const caveated = basket.slots.filter((s) => s.caveat)
+
+  return (
+    <Panel
+      // The basket's name IS this panel's heading. A second heading inside a
+      // Panel that already has one is an h3 under an h2 under nothing.
+      title={basket.name}
+      aside={
+        <>
+          {/* Two numbers, because they differ. The optimiser can pick a fund
+              for a sleeve and then allocate it 0%, so "5 of 5 filled" over a
+              table containing an empty sleeve is true and misleading at once. */}
+          <span className="tnum">{basket.allocated}</span> of{' '}
+          <span className="tnum">{basket.slots.length}</span> sleeves hold money
+          {basket.allocated < basket.filled && (
+            <>
+              {' '}&middot; {basket.filled - basket.allocated} filled at 0%
+            </>
+          )}
+          {basket.as_of && (
+            <>
+              {' · as of '}
+              <span className="tnum">{basket.as_of}</span>
+            </>
+          )}
+        </>
+      }
+    >
+      <TableScroller>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-card hover:bg-card">
+              <TableHead className="sticky left-0 z-10 bg-inherit shadow-[inset_-1px_0_0_0_var(--border)]">
+                <span className="block w-32 sm:w-48">Sleeve</span>
+              </TableHead>
+              <TableHead>
+                <span className="block w-40 sm:w-72">Fund</span>
+              </TableHead>
+              <TableHead className="text-right">Score</TableHead>
+              <TableHead className="text-right">Weight</TableHead>
+              <TableHead className="text-right">Agreed</TableHead>
+              <TableHead className="text-right">Cap</TableHead>
+              <TableHead className="text-right">Peers</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {basket.slots.map((slot) => (
+              <SleeveRow key={slot.slot_key} slot={slot} />
+            ))}
+          </TableBody>
+        </Table>
+      </TableScroller>
+
+      {/* What this particular run did. The API writes them as sentences and
+          they name their sleeves by the same key the Sleeve column shows, so
+          they are repeated here unchanged rather than rebuilt. */}
+      {basket.notes.map((note) => (
+        <Notice key={note}>{note}</Notice>
+      ))}
+
+      {caveated.map((slot) => (
+        <Notice key={slot.slot_key}>
+          {slot.label}: {slot.caveat}
+        </Notice>
+      ))}
+    </Panel>
+  )
+}
+
+function BasketsScreen() {
+  // React state rather than the URL. ?tab=basket is the address every harness
+  // opens, and these two settings provably change nothing in the answer, so
+  // there is no state here worth making linkable.
+  const [strategy, setStrategy] = useState('')
+  const [regime, setRegime] = useState('neutral')
+
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['screener-baskets', strategy, regime],
+    queryFn: () => fetchBaskets({ strategy, regime }),
+    // Keeps the last answer on screen while a new one loads, so the two selects
+    // do not unmount under the hand that is using them.
+    placeholderData: (previous) => previous,
+    retry: false,
+  })
+
+  // Identical on every basket, so said once, above both of them.
+  const methodNotes = data?.baskets[0]?.method_notes ?? []
+
+  return (
+    <div className="flex flex-col gap-8">
+      <Panel title="Strategy and market view">
+        <div className="flex flex-row flex-wrap items-end gap-x-6 gap-y-3">
+          <Field id="basket-strategy" label="Strategy" value={strategy} onChange={setStrategy}>
+            {BASKET_STRATEGIES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </Field>
+
+          <Field id="basket-regime" label="Market view" value={regime} onChange={setRegime}>
+            {BASKET_REGIMES.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </Field>
+        </div>
+
+        {/* The three things the ported optimiser does that nothing in its own
+            output admits to. They sit against the two selects, not in a
+            disclosure further down, because the first of them is about the two
+            selects: they are here only because the reference offers them. */}
+        {methodNotes.map((note) => (
+          <Notice key={note}>{note}</Notice>
+        ))}
+      </Panel>
+
+      {isLoading ? (
+        <ScreenerLoading />
+      ) : isError || !data ? (
+        <Notice>
+          {errorSentence(
+            error,
+            'The baskets are not answering right now. Refresh the page, and if it keeps failing the fund scores have not been rebuilt rather than your connection being down.',
+          )}
+        </Notice>
+      ) : (
+        data.baskets.map((basket) => <BasketPanel key={basket.basket_id} basket={basket} />)
+      )}
+    </div>
+  )
+}
+
 /* -------------------------------------------------------------------- page */
 
 function FundsScreen() {
@@ -1696,7 +1906,16 @@ const TABS = [
     intro:
       'Every company in the chosen index, marked out of 100 on the ten-factor method the industry uses. Worked out by NexTrade from public data, not a licensed rating, and not a recommendation to buy.',
   },
+  {
+    key: 'basket' as const,
+    label: 'Baskets',
+    heading: 'Model baskets',
+    intro:
+      'Two ready-made baskets: a fixed set of sleeves, each filled by the best-scoring fund that fits it, then weighted by an optimiser ported from the reference implementation. Worked out by NexTrade from public data, not a licensed rating, and not a recommendation to buy.',
+  },
 ]
+
+type TabKey = (typeof TABS)[number]['key']
 
 /**
  * Two links, not a Tabs component.
@@ -1705,13 +1924,13 @@ const TABS = [
  * a page no harness on this project can open: they all address a screen by its
  * path. `?tab=stocks` is a URL somebody can send, bookmark, and screenshot.
  */
-function ScreenerTabs({ params, active }: { params: URLSearchParams; active: 'funds' | 'stocks' }) {
+function ScreenerTabs({ params, active }: { params: URLSearchParams; active: TabKey }) {
   return (
     <nav aria-label="Screener" className="flex flex-wrap items-center gap-1">
       {TABS.map((tab) => {
         const next = new URLSearchParams(params)
-        if (tab.key === 'stocks') next.set('tab', 'stocks')
-        else next.delete('tab')
+        if (tab.key === 'funds') next.delete('tab')
+        else next.set('tab', tab.key)
         const query = next.toString()
         return (
           <Link
@@ -1738,8 +1957,9 @@ function ScreenerTabs({ params, active }: { params: URLSearchParams; active: 'fu
 
 export function Screener() {
   const [params] = useSearchParams()
-  const active = params.get('tab') === 'stocks' ? 'stocks' : 'funds'
-  const tab = TABS.find((t) => t.key === active) ?? TABS[0]
+  const requested = params.get('tab')
+  const tab = TABS.find((t) => t.key === requested) ?? TABS[0]
+  const active = tab.key
 
   return (
     <div className="flex flex-col gap-8">
@@ -1754,7 +1974,13 @@ export function Screener() {
         <p className="max-w-3xl text-sm text-muted-foreground">{tab.intro}</p>
       </header>
 
-      {active === 'stocks' ? <StocksScreen /> : <FundsScreen />}
+      {active === 'stocks' ? (
+        <StocksScreen />
+      ) : active === 'basket' ? (
+        <BasketsScreen />
+      ) : (
+        <FundsScreen />
+      )}
     </div>
   )
 }

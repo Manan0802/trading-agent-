@@ -34,6 +34,7 @@ const PAGES = [
   ['screener', '/screener'],
   ['screener-all', '/screener?view=all'],
   ['screener-stocks', '/screener?tab=stocks'],
+  ['screener-basket', '/screener?tab=basket'],
   ['goals', '/goals'],
   ['goal', `/goals/${goal.id}`],
   ['profile', '/profile'],

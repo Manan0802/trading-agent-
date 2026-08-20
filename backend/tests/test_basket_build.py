@@ -561,3 +561,115 @@ def test_a_fund_with_scattered_gaps_is_kept_but_its_missing_days_are_dropped():
         "about it"
     )
     assert len(frame) > 100, "dropping the gappy days should not empty the frame"
+
+
+def test_a_sleeve_holding_nothing_is_not_counted_as_allocated():
+    """MAXX fills all five sleeves and gives one of them 0.0%.
+
+    The optimiser picks a gold fund, scores it, and then allocates it nothing.
+    Reporting only `filled` puts "5 of 5 sleeves filled" over a table with an
+    empty sleeve in it — true, and misleading at the same time.
+    """
+    seed_every_slot()
+    result = build("MAXX")
+    empty = [s for s in result.slots if s.scheme_code and (s.weight or 0.0) == 0.0]
+    assert result.filled == len(result.slots)
+    assert result.allocated == result.filled - len(empty)
+    if empty:
+        assert result.allocated < result.filled
+
+
+def test_the_breach_note_prints_the_same_number_the_table_shows():
+    """They disagreed by 0.1pp. The note formatted the raw float (15.9%) while
+    the field is `round(w, 4)` (16.0%) — the same number printed two ways, one
+    line apart, which is how a reader stops believing both."""
+    seed_every_slot()
+
+    # The fixture has to sit exactly where the two printings disagree, or the
+    # assertion below cannot tell them apart and passes whichever way the code
+    # formats. Searched rather than hardcoded: a literal that straddles the
+    # boundary on one float layout may not on another, and an earlier version
+    # of this test used one that did not, so the sabotage reverting the fix
+    # walked straight through.
+    boundary = next(
+        w
+        for w in (0.4 + i * 1e-5 for i in range(1, 500))
+        if f"{w:.1%}" != f"{round(w, 4):.1%}"
+    )
+
+    real = port.optimize_portfolio
+
+    def breaching(returns, bounds, *a, **kw):
+        adjusted, ok, raw = real(returns, bounds, *a, **{**kw, "return_raw": True})
+        adjusted = list(np.asarray(adjusted, dtype=float))
+        adjusted[0] = boundary
+        return (adjusted, ok, raw) if kw.get("return_raw") else (adjusted, ok)
+
+    monkeypatch_ = pytest.MonkeyPatch()
+    monkeypatch_.setattr(port, "optimize_portfolio", breaching)
+    try:
+        result = build("MAXX")
+    finally:
+        monkeypatch_.undo()
+
+    note = next((n for n in result.notes if "tactical overlay" in n), None)
+    assert note, result.notes
+    breached = [
+        s for s in result.slots
+        if s.weight is not None and s.weight > s.bounds_applied[1] + 1e-9
+    ]
+    assert breached, "the fixture did not breach a cap, so this proves nothing"
+    for slot in breached:
+        assert f"{slot.weight:.1%}" in note, (
+            f"the table shows {slot.weight:.1%} and the note says something else: {note}"
+        )
+
+
+def test_a_solve_that_did_not_converge_says_so(monkeypatch):
+    """The failure makes the page look BETTER, which is why it has to be said.
+
+    On the all-attempts-failed path the ported optimiser returns clipped equal
+    weights and never reaches the tactical overlay — so no cap is breached, no
+    note appears, and a run that did not converge is indistinguishable from a
+    clean one except that it looks tidier.
+    """
+    seed_every_slot()
+    real = port.optimize_portfolio
+
+    def failing(returns, bounds, *a, **kw):
+        adjusted, _ok, raw = real(returns, bounds, *a, **{**kw, "return_raw": True})
+        return (adjusted, False, raw) if kw.get("return_raw") else (adjusted, False)
+
+    monkeypatch.setattr(port, "optimize_portfolio", failing)
+    result = build("MAXX")
+    assert result.success is False
+    assert any("did not converge" in n for n in result.notes), result.notes
+    assert any("fallback weights" in n for n in result.notes)
+
+
+def test_the_notes_name_sleeves_the_same_way_the_table_does():
+    """The optimiser's notes quote sleeves, and the table lists them. If one
+    used the raw key and the other a friendly label, the note would point at a
+    row the reader cannot find."""
+    seed_every_slot()
+    real = port.optimize_portfolio
+
+    def breaching(returns, bounds, *a, **kw):
+        adjusted, ok, raw = real(returns, bounds, *a, **{**kw, "return_raw": True})
+        adjusted = list(np.asarray(adjusted, dtype=float))
+        adjusted[0] = bounds[0][1] + 0.05
+        return (adjusted, ok, raw) if kw.get("return_raw") else (adjusted, ok)
+
+    monkeypatch_ = pytest.MonkeyPatch()
+    monkeypatch_.setattr(port, "optimize_portfolio", breaching)
+    try:
+        result = build("MAXX")
+    finally:
+        monkeypatch_.undo()
+
+    note = next(n for n in result.notes if "tactical overlay" in n)
+    labels = {s.label for s in result.slots}
+    assert any(label in note for label in labels), (
+        f"the note names no sleeve the table shows: {note}"
+    )
+    assert "::" not in note, f"the note is quoting a raw slot key: {note}"
