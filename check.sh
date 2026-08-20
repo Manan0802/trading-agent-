@@ -54,6 +54,23 @@ fi
 step "unit tests"
 run "pytest" sh "cd backend && venv/bin/python -m pytest -q 2>&1 | tail -3"
 
+# The scoring engine is a transcription of another codebase's arithmetic, so the
+# question is not "does it run" but "does it still equal the thing it copied" --
+# under a different pandas major, which is where a silent drift would hide.
+# Needs a pinned oracle interpreter; absent one, say so rather than pass quietly.
+PARITY_PY="backend/.parity-venv/bin/python"
+if [ -x "$PARITY_PY" ]; then
+  step "scoring parity across library versions"
+  run "our numbers still equal the reference" sh "
+    $PARITY_PY backend/scripts/verify_scoring_parity.py --mode oracle --out /tmp/_o.json >/dev/null &&
+    backend/venv/bin/python backend/scripts/verify_scoring_parity.py --mode port --out /tmp/_p.json >/dev/null &&
+    backend/venv/bin/python backend/scripts/verify_scoring_parity.py --compare /tmp/_o.json /tmp/_p.json | tail -3"
+else
+  echo
+  echo "No parity interpreter at $PARITY_PY - skipping the cross-version scoring check."
+  echo "Create it with:  python3.12 -m venv backend/.parity-venv && backend/.parity-venv/bin/pip install 'numpy==1.26.4' 'pandas==2.2.2'"
+fi
+
 step "frontend build"
 # Filtered with tail, not grep: `grep -E 'error|✓ built'` matched the word
 # "error" too, so a build that failed loudly satisfied its own success check.
