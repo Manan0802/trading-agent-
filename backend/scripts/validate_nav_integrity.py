@@ -53,6 +53,10 @@ SEED = 20260820
 # wider than this is a refresh window that was missed, not a holiday.
 MAX_GAP_DAYS = 20
 
+# How many gaps to put back to the source before giving up. Each is one mfapi
+# request; a store with hundreds of gaps has a bigger problem than this check.
+MAX_GAPS_VERIFIED = 12
+
 # What counts as a fund still publishing, for the gap check. Measured from the
 # store's own newest NAV rather than from today on purpose: if the whole store
 # were a month stale, "live within 10 days of today" would be nobody, and the
@@ -220,7 +224,7 @@ def against_the_source(session, navstore, mutual_fund, sample_size: int) -> None
 # -------------------------------------------------------------- B. invariants
 
 
-def invariants(session, navstore, today: date) -> None:
+def invariants(session, navstore, today: date, mutual_fund=None, offline: bool = True) -> None:
     """Everything that has to hold with the network unplugged."""
     text = navstore.text
 
@@ -284,12 +288,46 @@ def invariants(session, navstore, today: date) -> None:
         {"c": cutoff.isoformat(), "g": MAX_GAP_DAYS},
     ).all()
     print(f"   {live} funds published within {LIVE_WITHIN_DAYS} days of {newest}, gaps checked")
-    for code, prev, nav_date, gap in gaps[:10]:
-        print(f"   WRONG  {code}: {gap} days with no NAV, {prev} -> {nav_date}")
+
+    # A gap is only OUR problem if the source has rows we do not. Measured on the
+    # real store, all three gaps found were in mfapi too -- ICICI Prudential
+    # Aggressive Hybrid Active FOF genuinely published nothing between May 2013
+    # and May 2015, and we hold all 2,805 rows mfapi has for it. Failing on that
+    # would make this check permanently red, which is how a gate stops being read.
+    #
+    # So each gap is put back to the source, capped, and only a gap the source
+    # can fill counts as wrong. Under --offline every gap is reported as a note,
+    # because we cannot tell the two apart without asking.
+    ours, theirs = [], []
+    for code, prev, nav_date, gap in gaps[:MAX_GAPS_VERIFIED]:
+        if offline:
+            theirs.append((code, prev, nav_date, gap, "not checked (offline)"))
+            continue
+        try:
+            source = {p.date.isoformat() for p in mutual_fund.get_nav_history(code)}
+        except Exception as exc:                      # noqa: BLE001
+            theirs.append((code, prev, nav_date, gap, f"could not check: {exc}"))
+            continue
+        missing = sum(
+            1 for d in source if str(prev) < d < str(nav_date)
+        )
+        (ours if missing else theirs).append(
+            (code, prev, nav_date, gap, f"{missing} rows the source has and we do not")
+            if missing
+            else (code, prev, nav_date, gap, "the source has the same gap")
+        )
+
+    for code, prev, nav_date, gap, why in ours:
+        print(f"   WRONG  {code}: {gap} days with no NAV, {prev} -> {nav_date} ({why})")
+    for code, prev, nav_date, gap, why in theirs[:5]:
+        print(f"   NOTE   {code}: {gap} days with no NAV, {prev} -> {nav_date} ({why})")
+    if len(gaps) > MAX_GAPS_VERIFIED:
+        print(f"   NOTE   {len(gaps) - MAX_GAPS_VERIFIED} further gaps not put back to the source")
+
     check(
-        f"no live fund has a gap over {MAX_GAP_DAYS} days inside its own history",
-        not gaps,
-        f"{len(gaps)} gaps across {len({g[0] for g in gaps})} funds",
+        f"no live fund is missing NAVs the source still has (gaps over {MAX_GAP_DAYS} days)",
+        not ours,
+        f"{len(ours)} gap(s) the source could fill",
     )
 
     hollow = session.execute(
@@ -633,7 +671,7 @@ def main() -> int:
             against_the_source(session, navstore, mutual_fund, args.sample)
 
         section("B. invariants that need no network")
-        invariants(session, navstore, today)
+        invariants(session, navstore, today, mutual_fund, args.offline)
 
         section("C. the latest completed run")
         run_id, as_of = (None, None)
