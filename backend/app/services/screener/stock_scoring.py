@@ -71,6 +71,10 @@ BUCKETS = [
     (0,  "Bearish"),
 ]
 
+# The labels alone, in the order they are awarded. A filter offering "Strong
+# Buy" has to spell it exactly as the scorer does.
+BUCKET_LABELS = tuple(label for _threshold, label in BUCKETS)
+
 # ── Bonus / penalty magnitudes (stock_scorer.py BP) ──────────────────────────
 # Their promoter numbers are symmetric (-3 / +3). traa's own scorer is not
 # (-6 / +4), on the view that a promoter selling tells you more than a promoter

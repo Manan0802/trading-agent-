@@ -419,3 +419,183 @@ def test_an_expanded_row_gets_its_bullets():
     code = with_bullets[0]["scheme_code"]
     single = client.get(f"/api/v1/screener/funds/{code}", headers=headers).json()
     assert single["reasons"] == with_bullets[0]["reasons"]
+
+
+# ═══════════════════════════════════════════════════════════ stocks
+
+
+import pandas as pd  # noqa: E402
+
+from app.services.marketdata import stock as stock_data  # noqa: E402
+from app.services.marketdata.stock import StockFundamentals  # noqa: E402
+from app.services.screener import stock_scoring  # noqa: E402
+
+
+def _fundamentals(**over) -> StockFundamentals:
+    base = dict(
+        ticker="X.NS", name="Test Ltd", price=600.0, previous_close=595.0,
+        currency="INR", sector="Technology", industry="Software", market_cap=1e12,
+        pe_ratio=24.0, eps=25.0, book_value=120.0, dividend_yield_pct=1.4,
+        week52_high=700.0, week52_low=400.0, roe=0.18,
+        eps_reported=25.0, eps_previous_year=20.0,
+    )
+    base.update(over)
+    return StockFundamentals(**base)
+
+
+@pytest.fixture
+def offline_stocks(monkeypatch):
+    """Every stock endpoint test runs without a network.
+
+    The real path fetches yfinance once per company; a test suite that did that
+    would be slow and would fail whenever yfinance did.
+    """
+    closes = pd.Series(
+        [400.0 + i * 0.5 for i in range(400)],
+        index=pd.bdate_range("2025-01-01", periods=400),
+    )
+    monkeypatch.setattr(
+        stock_data, "get_stock_fundamentals",
+        lambda t: _fundamentals(ticker=t, name=f"{t} Ltd"),
+    )
+    monkeypatch.setattr(
+        stock_data, "get_price_history",
+        lambda t, period="2y": pd.DataFrame({"Close": closes}),
+    )
+
+
+def test_the_stock_screen_requires_a_signed_in_user():
+    assert client.get("/api/v1/screener/stocks").status_code == 401
+    assert client.get("/api/v1/screener/stocks/TCS.NS").status_code == 401
+
+
+def test_the_stock_screen_returns_scored_companies_and_its_coverage(offline_stocks):
+    body = client.get("/api/v1/screener/stocks?limit=8", headers=auth()).json()
+    assert len(body["stocks"]) == 8
+    cov = body["coverage"]
+    assert cov["matched"] >= cov["scored"]
+    assert cov["scored"] + len(cov["unscorable"]) == 8
+    assert cov["benchmark_stocks"] > 100
+
+
+def test_the_stocks_come_back_best_first(offline_stocks):
+    body = client.get("/api/v1/screener/stocks?limit=10", headers=auth()).json()
+    totals = [s["total"] for s in body["stocks"]]
+    assert totals == sorted(totals, reverse=True)
+
+
+def test_every_stock_carries_all_ten_factors_with_their_weights(offline_stocks):
+    body = client.get("/api/v1/screener/stocks?limit=4", headers=auth()).json()
+    for stock in body["stocks"]:
+        assert len(stock["factors"]) == 10
+        assert sum(f["max"] for f in stock["factors"]) == pytest.approx(100.0)
+        for f in stock["factors"]:
+            assert f["detail"], "a factor with no explanation is a number with no meaning"
+            assert 0.0 <= f["score"] <= f["max"] or f["key"] == "roe"
+
+
+def test_the_two_halves_of_the_score_are_shown_separately(offline_stocks):
+    """The disclosure says how much of the total is momentum. A reader should be
+    able to see it rather than take it on trust."""
+    stock = client.get("/api/v1/screener/stocks?limit=1", headers=auth()).json()["stocks"][0]
+    assert stock["fundamental"] > 0 and stock["technical"] > 0
+    assert stock["fundamental"] + stock["technical"] == pytest.approx(stock["total"], abs=0.05)
+
+
+def test_the_dead_delivery_factor_is_disclosed_on_every_response(offline_stocks):
+    """NSE's quote-equity returns 403, so 9 of the 100 points are the same
+    neutral half for every stock, forever. Upstream never says so."""
+    cov = client.get("/api/v1/screener/stocks?limit=2", headers=auth()).json()["coverage"]
+    assert cov["neutral_factors"]
+    assert "9 points" in cov["neutral_factors"][0]
+    assert "403" in cov["neutral_factors"][0] or "refuses" in cov["neutral_factors"][0]
+
+
+def test_the_momentum_share_is_disclosed_on_every_response(offline_stocks):
+    """41 of the 100 points are indicators traa's own scorer excludes on
+    measured grounds. Ported faithfully and said out loud."""
+    cov = client.get("/api/v1/screener/stocks?limit=2", headers=auth()).json()["coverage"]
+    assert "41" in cov["method_note"]
+    assert "Research" in cov["method_note"]
+
+
+def test_the_peer_group_each_stock_was_priced_against_is_named(offline_stocks):
+    """Upstream silently uses a default benchmark for an unmapped sector and
+    never surfaces it."""
+    for stock in client.get(
+        "/api/v1/screener/stocks?limit=4", headers=auth()
+    ).json()["stocks"]:
+        assert stock["benchmark_sector"]
+        assert stock["benchmark_constituents"] > 0
+
+
+def test_a_company_too_new_to_score_is_named_not_dropped(monkeypatch):
+    """Fourteen closes is a perfect 100 "Strong Buy" in the unguarded port. It
+    must reach the screen as a named exclusion instead."""
+    short = pd.Series(
+        [400.0 + i for i in range(14)], index=pd.bdate_range("2026-01-01", periods=14)
+    )
+    monkeypatch.setattr(stock_data, "get_stock_fundamentals", lambda t: _fundamentals(ticker=t))
+    monkeypatch.setattr(
+        stock_data, "get_price_history", lambda t, period="2y": pd.DataFrame({"Close": short})
+    )
+    cov = client.get("/api/v1/screener/stocks?limit=5", headers=auth()).json()["coverage"]
+    assert cov["scored"] == 0
+    assert len(cov["unscorable"]) == 5
+    assert all("15 needed" in u["reason"] for u in cov["unscorable"])
+
+
+def test_no_stock_ever_comes_back_at_a_perfect_hundred(offline_stocks):
+    """The signature of a NaN passing through `max(0, min(100, nan))`."""
+    for stock in client.get(
+        "/api/v1/screener/stocks?limit=20", headers=auth()
+    ).json()["stocks"]:
+        assert stock["total"] < 100.0
+
+
+@pytest.mark.parametrize(
+    "query,what",
+    [("index=NIFTY%20999", "index"), ("bucket=Screaming%20Buy", "bucket"),
+     ("industry=Nonsense", "industry")],
+)
+def test_an_unknown_stock_filter_is_a_404_that_names_the_valid_values(query, what, offline_stocks):
+    r = client.get(f"/api/v1/screener/stocks?{query}&limit=2", headers=auth())
+    assert r.status_code == 404
+    assert what in r.json()["detail"]
+
+
+@pytest.mark.parametrize("limit", [0, 201, -1])
+def test_an_out_of_range_stock_limit_is_rejected(limit, offline_stocks):
+    assert client.get(
+        f"/api/v1/screener/stocks?limit={limit}", headers=auth()
+    ).status_code == 422
+
+
+def test_the_bucket_filter_uses_the_scorers_own_labels(offline_stocks):
+    body = client.get("/api/v1/screener/stocks?limit=2", headers=auth()).json()
+    assert body["buckets"] == list(stock_scoring.BUCKET_LABELS)
+    for label in body["buckets"]:
+        assert client.get(
+            f"/api/v1/screener/stocks?bucket={label}&limit=4", headers=auth()
+        ).status_code == 200
+
+
+def test_one_stock_can_be_fetched_on_its_own(offline_stocks):
+    listed = client.get("/api/v1/screener/stocks?limit=1", headers=auth()).json()["stocks"][0]
+    body = client.get(f"/api/v1/screener/stocks/{listed['ticker']}", headers=auth()).json()
+    assert body["ticker"] == listed["ticker"]
+    assert body["total"] == listed["total"]
+    assert len(body["factors"]) == 10
+
+
+def test_a_ticker_outside_the_universe_is_a_404(offline_stocks):
+    assert client.get(
+        "/api/v1/screener/stocks/NOTAREALTICKER.NS", headers=auth()
+    ).status_code == 404
+
+
+def test_the_stock_screen_is_on_the_heavy_rate_limit_tier():
+    """One yfinance fetch per company. 120/min of a cold NIFTY 500 is a way to
+    get the whole app throttled by upstream rather than by us."""
+    assert rate_limit.tier_for("/api/v1/screener/stocks") is rate_limit.HEAVY
+    assert rate_limit.tier_for("/api/v1/screener/stocks/TCS.NS") is rate_limit.HEAVY

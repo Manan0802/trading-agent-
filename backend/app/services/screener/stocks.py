@@ -68,6 +68,8 @@ class ScoredStock:
     industry: str | None
     total: float
     bucket: str
+    fundamental: float
+    technical: float
     factors: list[dict]
     adjustments: list[dict]
     price: float | None
@@ -164,6 +166,8 @@ def _score_one(entry) -> ScoredStock | UnscorableStock:
         industry=fundamentals.industry,
         total=round(float(result["total"]), 2),
         bucket=str(result.get("bucket", "")),
+        fundamental=round(float(result.get("fundamental") or 0.0), 2),
+        technical=round(float(result.get("technical") or 0.0), 2),
         factors=list(result.get("factors", [])),
         adjustments=list(result.get("adjustments", [])),
         price=fundamentals.price,
@@ -174,21 +178,34 @@ def _score_one(entry) -> ScoredStock | UnscorableStock:
     )
 
 
-def rank(index: str | None = None, limit: int | None = None) -> tuple[list, list]:
-    """Score a universe and return it ranked, plus everything that could not be.
+def rank_entries(entries) -> tuple[list, list]:
+    """Score the stocks given and return them ranked, plus what could not be.
+
+    Takes the entries rather than a filter, because the caller has already
+    applied one and re-deriving the universe here would apply it twice.
 
     Returns `(scored, unscorable)`. Every stock offered appears in exactly one
     of the two, because a screen that silently drops names is indistinguishable
     from one that lost them.
     """
-    universe = stock_universe.list_stocks(index=index) if index else stock_universe.list_stocks()
-    if limit:
-        universe = universe[:limit]
+    entries = list(entries)
+    if not entries:
+        return [], []
 
     with ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
-        results = list(pool.map(_score_one, universe))
+        results = list(pool.map(_score_one, entries))
 
     scored = [r for r in results if isinstance(r, ScoredStock)]
     unscorable = [r for r in results if isinstance(r, UnscorableStock)]
-    scored.sort(key=lambda s: -s.total)
+    # Ties break on ticker rather than arbitrarily, matching the Research page's
+    # ranking, so the same universe always comes back in the same order and
+    # someone comparing two visits is not looking at noise.
+    scored.sort(key=lambda s: (-s.total, s.ticker))
     return scored, unscorable
+
+
+def rank(index: str | None = None, limit: int | None = None) -> tuple[list, list]:
+    """Convenience wrapper for scripts and smoke tests. The router uses
+    `rank_entries`, because it has already filtered."""
+    universe = stock_universe.list_stocks(index=index) if index else stock_universe.list_stocks()
+    return rank_entries(universe[:limit] if limit else universe)

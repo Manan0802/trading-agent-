@@ -176,3 +176,104 @@ class CategoryCoverageOut(BaseModel):
     grades: list[str]
     risk_tiers: list[str]
     coverage: ScreenerCoverageOut
+
+
+# ── Stocks ───────────────────────────────────────────────────────────────────
+
+
+class StockFactorOut(BaseModel):
+    """One of the ten scoring factors, as the expanded row renders it.
+
+    `max` is the factor's weight -- the port calls it that and the name is kept
+    so the wire shape and the source agree. `pct` is `score / max`, precomputed
+    upstream; it is what a bar in the UI is drawn from.
+    """
+
+    key: str
+    label: str
+    category: str
+    max: float
+    score: float
+    pct: float
+    detail: str
+
+
+class StockAdjustmentOut(BaseModel):
+    """A bonus or penalty applied on top of the ten factors.
+
+    `points` can be zero: several of these are informational rows upstream
+    pushes in purely so the UI has something to render, and a zero-point row is
+    not a scoring event. The screen should show the detail and not the number.
+    """
+
+    key: str
+    label: str
+    points: float
+    detail: str
+    type: str
+
+
+class ScoredStockOut(BaseModel):
+    ticker: str
+    symbol: str
+    name: str
+    sector: str | None
+    industry: str | None
+    # 0-100, unlike the fund score which is 0-1. Different model, different
+    # scale, and pretending otherwise would invite a comparison that means
+    # nothing.
+    total: float
+    bucket: str
+    # The two halves of the score, as upstream splits them. Worth showing
+    # separately: the disclosure says how much of the total is momentum, and a
+    # reader should be able to see it rather than take it on trust.
+    fundamental: float
+    technical: float
+    price: float | None
+    factors: list[StockFactorOut]
+    adjustments: list[StockAdjustmentOut]
+    # True when the long-window indicators fell back to stubs: the stock has a
+    # real RSI and MACD but no 200-day average, so its trend factor is measured
+    # against a shorter history than every other stock's.
+    thin_history: bool
+    # Which peer group the valuation factors actually compared against, and how
+    # many companies are in it. Upstream silently uses a default for an unmapped
+    # sector and never says so.
+    benchmark_sector: str
+    benchmark_constituents: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UnscorableStockOut(BaseModel):
+    ticker: str
+    symbol: str
+    name: str
+    reason: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StockCoverageOut(BaseModel):
+    index: str
+    matched: int
+    scored: int
+    unscorable: list[UnscorableStockOut]
+    thin_history: int
+    # Peer medians drift with the market; "cheap versus peers" needs to say
+    # when peers was measured and how many of them there were.
+    benchmark_stocks: int
+    # Stated on every response: delivery is 9 of the 100 points and its only
+    # source refuses to serve us, so every stock scores the same neutral half.
+    neutral_factors: list[str]
+    # 41 of the 100 points are momentum indicators, which traa's own stock
+    # scorer excludes on measured grounds. Ported faithfully and disclosed.
+    method_note: str
+
+
+class StockScreenOut(BaseModel):
+    stocks: list[ScoredStockOut]
+    buckets: list[str]
+    industries: list[str]
+    indices: list[str]
+    coverage: StockCoverageOut

@@ -85,6 +85,10 @@ _HEAVY_PATHS = (
     # which is what the screen actually uses -- "…/top-funds" does not start
     # with "…/funds". test_rate_limit.py pins both so this cannot drift.
     "/api/v1/screener/funds",
+    # Scored live against yfinance, one fetch per company. Warm it is fast; a
+    # cold NIFTY 500 is minutes, and 120/min of that is a way to get the whole
+    # app rate-limited by upstream rather than by us.
+    "/api/v1/screener/stocks",
 )
 
 # Costs nothing and is what a load balancer polls. Limiting it would take the

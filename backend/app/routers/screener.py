@@ -26,6 +26,10 @@ from app.schemas.screener import (
     DominanceOut,
     FundReasonOut,
     FundUniverseOut,
+    ScoredStockOut,
+    StockCoverageOut,
+    StockScreenOut,
+    UnscorableStockOut,
     ScreenedFundOut,
     ScreenerCoverageOut,
     ThinCategoryOut,
@@ -33,7 +37,15 @@ from app.schemas.screener import (
     UnscorableFundOut,
 )
 from app.services.advisor import fund_catalogue
-from app.services.screener import navstore, scoring, serve
+from app.services.marketdata import stock_universe
+from app.services.screener import (
+    navstore,
+    scoring,
+    sector_benchmarks,
+    serve,
+    stock_scoring,
+    stocks,
+)
 
 router = APIRouter(prefix="/api/v1/screener", tags=["screener"])
 
@@ -274,3 +286,94 @@ def one_fund(
         status_code=404,
         detail=f"scheme {scheme_code} is not in the latest ranking",
     )
+
+
+# ── Stocks ───────────────────────────────────────────────────────────────────
+
+DEFAULT_INDEX = "NIFTY 50"
+DEFAULT_STOCK_LIMIT = 50
+MAX_STOCK_LIMIT = 200
+
+# What the screen says on every response, because the alternative is a number
+# that looks like it means more than it does.
+#
+# The first is a fact about the exchange: NSE's quote-equity endpoint returns
+# 403, so `_score_delivery` awards its neutral half to every stock, forever.
+# Upstream never surfaces this and its own scores carry the same constant.
+#
+# The second is a decision. Forty-one of the hundred points are momentum
+# indicators -- RSI, MACD, EMA trend and support -- and traa's own stock scorer
+# excludes exactly those on measured grounds. The method is being reproduced
+# because it is the one this screen is a port of, not because it is endorsed.
+NEUTRAL_FACTORS = [
+    "Delivery volume (9 points) — the exchange refuses the request, so every "
+    "stock scores the same neutral half on it.",
+]
+METHOD_NOTE = (
+    "41 of these 100 points are momentum indicators. This is the industry-"
+    "standard method reproduced as it is written; our own measurements do not "
+    "support those factors, and the Research page ranks the same companies "
+    "without them."
+)
+
+
+@router.get("/stocks", response_model=StockScreenOut)
+def screen_stocks(
+    index: str = Query(DEFAULT_INDEX),
+    industry: str | None = None,
+    bucket: str | None = None,
+    limit: int = Query(DEFAULT_STOCK_LIMIT, ge=1, le=MAX_STOCK_LIMIT),
+    user: User = Depends(current_active_user),
+) -> StockScreenOut:
+    """Every company in the filter, scored on the ported ten-factor model.
+
+    Scored live rather than precomputed, matching the Research page's existing
+    stock ranking: the fundamentals fetcher already caches on disk for twelve
+    hours, so a cold universe is slow once and warm afterwards. The cap exists
+    because a wider index on a cold cache is minutes, not seconds -- and the
+    coverage line reports how many companies matched against how many were
+    actually priced, so a truncated answer says so.
+    """
+    _check_choice(index, set(stock_universe.INDEX_CHOICES), "index")
+    _check_choice(bucket, set(stock_scoring.BUCKET_LABELS), "bucket")
+    known_industries = stock_universe.industries()
+    _check_choice(industry, set(known_industries), "industry")
+
+    matched = stock_universe.list_stocks(index=index, industry=industry)
+    scored, unscorable = stocks.rank_entries(matched[:limit])
+
+    if bucket:
+        scored = [s for s in scored if s.bucket == bucket]
+
+    return StockScreenOut(
+        stocks=[ScoredStockOut.model_validate(s) for s in scored],
+        buckets=list(stock_scoring.BUCKET_LABELS),
+        industries=known_industries,
+        indices=list(stock_universe.INDEX_CHOICES),
+        coverage=StockCoverageOut(
+            index=index,
+            matched=len(matched),
+            scored=len(scored),
+            unscorable=[UnscorableStockOut.model_validate(u) for u in unscorable],
+            thin_history=sum(1 for s in scored if s.thin_history),
+            benchmark_stocks=sector_benchmarks.built_from(),
+            neutral_factors=NEUTRAL_FACTORS,
+            method_note=METHOD_NOTE,
+        ),
+    )
+
+
+@router.get("/stocks/{ticker}", response_model=ScoredStockOut)
+def one_stock(
+    ticker: str,
+    user: User = Depends(current_active_user),
+) -> ScoredStockOut:
+    """One company's full factor breakdown, for the expanded row."""
+    entry = stock_universe.lookup(ticker)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"{ticker} is not in the stock universe")
+    scored, unscorable = stocks.rank_entries([entry])
+    if scored:
+        return ScoredStockOut.model_validate(scored[0])
+    reason = unscorable[0].reason if unscorable else "could not be scored"
+    raise HTTPException(status_code=404, detail=f"{ticker} could not be scored: {reason}")
