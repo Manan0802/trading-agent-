@@ -29,7 +29,9 @@ build/
 Thumbs.db
 .idea/
 .vscode/
-.navcache/
+.navcache
+# The NAV spine: ~184 MB of public, rederivable data. Never committed.
+.navstore//
 .stockcache/
 .newscache/
 .holdingscache/
