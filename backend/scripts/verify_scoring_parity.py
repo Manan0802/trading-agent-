@@ -31,7 +31,9 @@ import random
 import sys
 from pathlib import Path
 
-BACHATT_SERVER = Path.home() / "BachattDev" / "sip-optimizer" / "server"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from app.services.screener import reference  # noqa: E402  (stdlib-only, safe under any venv)
+
 QUALITY_COLUMNS = ["roll1y", "roll6m", "roll3m", "roll1m", "ret3y", "ret1y", "ret3m", "vol"]
 
 
@@ -69,15 +71,15 @@ class _StubLogger:
         return lambda *a, **k: None
 
 
-def _lift(path: Path, names: set[str], into: dict) -> dict:
-    tree = ast.parse(path.read_text())
+def _lift(rel_path: str, names: set[str], into: dict) -> dict:
+    tree = ast.parse(reference.read_source(rel_path))
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in names:
-            exec(compile(ast.Module([node], []), str(path), "exec"), into)
+            exec(compile(ast.Module([node], []), rel_path, "exec"), into)
         elif isinstance(node, ast.Assign) and any(
             isinstance(t, ast.Name) and t.id in names for t in node.targets
         ):
-            exec(compile(ast.Module([node], []), str(path), "exec"), into)
+            exec(compile(ast.Module([node], []), rel_path, "exec"), into)
     return into
 
 
@@ -98,16 +100,16 @@ def run_oracle(fx: dict) -> dict:
     import pandas as pd
 
     ns = {"np": np, "pd": pd, "logger": _StubLogger(), "__name__": "oracle"}
-    _lift(BACHATT_SERVER / "utils" / "helpers.py", {"nav_to_log_returns"}, ns)
-    _lift(BACHATT_SERVER / "services" / "performance.py",
+    _lift("utils/helpers.py", {"nav_to_log_returns"}, ns)
+    _lift("services/performance.py",
           {"_cap_log_returns_for_metrics", "_MAX_DAILY_SIMPLE_FOR_METRICS"}, ns)
-    _lift(BACHATT_SERVER / "scripts" / "fill_metrics.py",
+    _lift("scripts/fill_metrics.py",
           {"_minmax", "_hybrid", "_make_oos_hybrid", "_compute_quality", "_grade_cutoffs",
            "_grade_from_cutoffs", "compute_momentum_drawdown", "LOOKBACK", "WARMUP",
            "_LINEAR_WEIGHTS", "_TOTAL_WEIGHT", "DRAWDOWN_THRESHOLD",
            "MOMENTUM_MAGNITUDE_CAP", "DRAWDOWN_MAGNITUDE_CAP", "GRADE_PCTL_VERY_GOOD",
            "GRADE_PCTL_GOOD", "GRADE_PCTL_AVG", "MIN_GRADE_CUTOFF_GAP"}, ns)
-    _lift(BACHATT_SERVER / "scripts" / "fill_risk_scores.py",
+    _lift("scripts/fill_risk_scores.py",
           {"compute_bachatt_risk_score", "_tier_for_score", "W_VOLATILITY", "W_DRAWDOWN",
            "W_SORTINO", "W_MOMENTUM", "_TIER_LOW", "_TIER_LOW_MOD", "_TIER_MODERATE",
            "_TIER_MOD_HIGH", "_TIER_HIGH", "_TIER_VERY_HIGH"}, ns)
@@ -139,7 +141,6 @@ def run_oracle(fx: dict) -> dict:
 
 
 def run_port(fx: dict) -> dict:
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     import numpy as np
     import pandas as pd
 
@@ -214,7 +215,11 @@ def main() -> int:
 
     fx = build_fixture()
     result = run_oracle(fx) if args.mode == "oracle" else run_port(fx)
-    Path(args.out).write_text(json.dumps(result, indent=1))
+    out = Path(args.out).resolve()
+    # Belt: our own output must never be written anywhere inside the reference tree.
+    if reference.available() and out.is_relative_to(reference.root().resolve()):
+        raise SystemExit(f"refusing to write inside the reference checkout: {out}")
+    out.write_text(json.dumps(result, indent=1))
     print(f"{args.mode} written to {args.out}")
     return 0
 

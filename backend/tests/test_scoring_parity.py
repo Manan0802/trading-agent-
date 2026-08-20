@@ -31,31 +31,36 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from app.services.screener import reference
 from app.services.screener import scoring as port
 
-BACHATT_SERVER = Path.home() / "BachattDev" / "sip-optimizer" / "server"
-FILL_METRICS = BACHATT_SERVER / "scripts" / "fill_metrics.py"
-PERFORMANCE = BACHATT_SERVER / "services" / "performance.py"
-HELPERS = BACHATT_SERVER / "utils" / "helpers.py"
-FILL_RISK = BACHATT_SERVER / "scripts" / "fill_risk_scores.py"
+FILL_METRICS = "scripts/fill_metrics.py"
+PERFORMANCE = "services/performance.py"
+HELPERS = "utils/helpers.py"
+FILL_RISK = "scripts/fill_risk_scores.py"
 
 oracle_required = pytest.mark.skipif(
-    not FILL_METRICS.exists(),
-    reason=f"Bachatt source not on this machine ({FILL_METRICS})",
+    not reference.available(),
+    reason=f"reference checkout not present at {reference.root()}",
 )
 
 _QUALITY_COLUMNS = ["roll1y", "roll6m", "roll3m", "roll1m", "ret3y", "ret1y", "ret3m", "vol"]
 
 
-def _lift(path: Path, names: set[str], into: dict) -> dict:
-    """Exec the named module-level functions/constants from `path` into `into`."""
-    tree = ast.parse(path.read_text())
+def _lift(rel_path: str, names: set[str], into: dict) -> dict:
+    """Exec the named module-level functions/constants from a reference file.
+
+    Read through `reference.read_source` -- the only door to that tree, and one
+    with no write side.
+    """
+    source = reference.read_source(rel_path)
+    tree = ast.parse(source)
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in names:
-            exec(compile(ast.Module([node], []), str(path), "exec"), into)
+            exec(compile(ast.Module([node], []), rel_path, "exec"), into)
         elif isinstance(node, ast.Assign):
             if any(isinstance(t, ast.Name) and t.id in names for t in node.targets):
-                exec(compile(ast.Module([node], []), str(path), "exec"), into)
+                exec(compile(ast.Module([node], []), rel_path, "exec"), into)
     return into
 
 
