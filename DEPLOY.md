@@ -91,6 +91,48 @@ Point them elsewhere with `NEXTRADE_CACHE_DIR`, `NEXTRADE_STOCK_CACHE_DIR`,
 `NEXTRADE_HOLDINGS_CACHE_DIR`, `NEXTRADE_NEWS_CACHE_DIR`. Losing them costs
 speed, never correctness.
 
+### The NAV store is different, and needs real disk
+
+```
+backend/.navstore/nav.db   5.2M NAV rows across 4,939 funds, ~175 MB
+```
+
+`NEXTRADE_NAV_DB` moves it. **Losing this one is not free.** It is what the
+whole fund screener reads, and rebuilding it takes 2-3 minutes of crawling
+mfapi for all 4,957 funds — during which `/api/v1/screener/*` returns **503
+with the rebuild progress in the message**, not an empty ranking. Put it on a
+persistent volume, or accept a few minutes of that after every redeploy.
+
+It is deliberately a separate SQLite file rather than a table in
+`DATABASE_URL`. That database is under a megabyte; this is 175 MB of public,
+rederivable, nightly-rewritten data, and sharing a durability class with
+accounts and goals would put it in every backup and every free-tier quota.
+`alembic upgrade head` also runs on every deploy, and a migration against 5.2M
+rows is not something to do on a boot.
+
+Build it with:
+
+```bash
+venv/bin/python scripts/backfill_nav_history.py     # resumable; safe to interrupt
+```
+
+### Two scheduled jobs, and one switch you must set on multi-instance
+
+| job | when (IST) | what |
+|---|---|---|
+| `nav_refresh` | 23:45 | Capture the day's NAVs from AMFI, then gap-fill from mfapi |
+| `screener_score` | 00:15 | Score the whole universe and publish the run (~8 s) |
+
+Split on purpose: AMFI's file carries only each scheme's **latest** NAV, so a
+missed capture is recoverable only through mfapi's one-day-lagged mirror, while
+scoring can be re-run any time from NAVs already stored. A scorer bug must not
+cost a day of history.
+
+**`SCREENER_JOB_ENABLED=0` on every instance but one.** APScheduler's
+`max_instances=1` is per *process*, so `--workers N` or a second container means
+N concurrent nightly runs against one store. The pipeline has its own in-flight
+guard as well, but the switch is the one that costs nothing.
+
 ---
 
 ## Frontend

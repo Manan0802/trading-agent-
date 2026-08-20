@@ -14,9 +14,50 @@ from app.schemas.user import UserCreate, UserRead, UserUpdate
 settings = get_settings()
 
 
+def _warn_if_the_nav_store_is_empty() -> None:
+    """Say so loudly at boot, and say exactly what to run.
+
+    Deliberately NOT an automatic backfill. That would crawl mfapi for 4,957
+    funds on every container restart -- three minutes of startup and a lot of
+    load on a free API, repeated for a problem that only exists once. The
+    screener already answers 503 with the rebuild progress in the message, so a
+    request explains itself; this makes the logs explain it too, because the
+    operator is the one who can fix it.
+    """
+    import logging
+
+    from app.services.screener import navstore
+
+    log = logging.getLogger("nextrade.startup")
+    try:
+        navstore.ensure_schema()
+        with navstore.session() as session:
+            stats = navstore.store_stats(session)
+            served = navstore.latest_run_id(session)
+    except Exception:  # noqa: BLE001 -- never block startup on a cache
+        log.exception("could not check the NAV store")
+        return
+
+    if stats["funds"] == 0:
+        log.warning(
+            "NAV store at %s is empty, so the fund screener will answer 503. "
+            "Build it with: venv/bin/python scripts/backfill_nav_history.py",
+            navstore.db_path(),
+        )
+    elif served is None:
+        log.warning(
+            "NAV store holds %s funds but nothing has been scored yet, so the "
+            "fund screener will answer 503. The nightly job runs at 00:15 IST, "
+            "or run it now with: python -c "
+            "'from app.services.screener import pipeline; pipeline.run_nightly()'",
+            f"{stats['funds']:,}",
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     start_scheduler()
+    _warn_if_the_nav_store_is_empty()
     yield
 
 

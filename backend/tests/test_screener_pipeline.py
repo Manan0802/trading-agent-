@@ -486,3 +486,98 @@ def test_the_nav_refresh_job_never_raises(monkeypatch):
 
     monkeypatch.setattr(amfi, "refresh", lambda: (_ for _ in ()).throw(RuntimeError("AMFI down")))
     sched.nav_refresh_job()  # must not raise
+
+
+# --------------------------------------------------- the startup warning
+
+
+def test_an_empty_nav_store_says_so_at_boot_and_names_the_command():
+    """Deliberately a warning, not an automatic backfill.
+
+    Auto-crawling would hit mfapi for 4,957 funds on every container restart --
+    three minutes of startup and real load on a free API, repeated for a problem
+    that exists once. The screener already answers 503 with the rebuild progress
+    in the message; this makes the logs explain it to the one person who can fix
+    it.
+    """
+    import logging
+
+    from app.main import _warn_if_the_nav_store_is_empty
+
+    records = []
+
+    class Capture(logging.Handler):
+        def emit(self, record):
+            records.append(record.getMessage())
+
+    log = logging.getLogger("nextrade.startup")
+    handler = Capture()
+    log.addHandler(handler)
+    try:
+        _warn_if_the_nav_store_is_empty()
+    finally:
+        log.removeHandler(handler)
+
+    assert records, "an empty store booted silently"
+    assert "backfill_nav_history.py" in records[0], records[0]
+
+
+def test_a_healthy_store_boots_silently():
+    import logging
+
+    from app.main import _warn_if_the_nav_store_is_empty
+
+    seed(eligible_codes(4))
+    run()
+
+    records = []
+
+    class Capture(logging.Handler):
+        def emit(self, record):
+            records.append(record.getMessage())
+
+    log = logging.getLogger("nextrade.startup")
+    handler = Capture()
+    log.addHandler(handler)
+    try:
+        _warn_if_the_nav_store_is_empty()
+    finally:
+        log.removeHandler(handler)
+
+    assert records == [], f"a healthy store warned anyway: {records}"
+
+
+def test_a_store_with_navs_but_no_run_says_the_other_thing():
+    """Different problem, different instruction: the data is there, nothing has
+    scored it yet."""
+    import logging
+
+    from app.main import _warn_if_the_nav_store_is_empty
+
+    seed(eligible_codes(4))          # NAVs, but no pipeline run
+
+    records = []
+
+    class Capture(logging.Handler):
+        def emit(self, record):
+            records.append(record.getMessage())
+
+    log = logging.getLogger("nextrade.startup")
+    handler = Capture()
+    log.addHandler(handler)
+    try:
+        _warn_if_the_nav_store_is_empty()
+    finally:
+        log.removeHandler(handler)
+
+    assert records and "nothing has been scored yet" in records[0]
+
+
+def test_the_startup_check_never_blocks_boot(monkeypatch):
+    """A cache problem must not stop the app from starting."""
+    from app.main import _warn_if_the_nav_store_is_empty
+
+    monkeypatch.setattr(
+        navstore, "ensure_schema", lambda: (_ for _ in ()).throw(OSError("disk gone"))
+    )
+    _warn_if_the_nav_store_is_empty()  # must not raise
