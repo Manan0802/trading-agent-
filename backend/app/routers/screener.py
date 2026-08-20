@@ -25,6 +25,9 @@ from app.schemas.screener import (
     CategoryOut,
     DominanceOut,
     FundReasonOut,
+    BasketListOut,
+    BasketOut,
+    BasketSlotOut,
     FundUniverseOut,
     ScoredStockOut,
     StockCoverageOut,
@@ -39,6 +42,7 @@ from app.schemas.screener import (
 from app.services.advisor import fund_catalogue
 from app.services.marketdata import stock_universe
 from app.services.screener import (
+    basket_build,
     navstore,
     scoring,
     sector_benchmarks,
@@ -377,3 +381,100 @@ def one_stock(
         return ScoredStockOut.model_validate(scored[0])
     reason = unscorable[0].reason if unscorable else "could not be scored"
     raise HTTPException(status_code=404, detail=f"{ticker} could not be scored: {reason}")
+
+
+# ── Baskets ──────────────────────────────────────────────────────────────────
+
+BASKET_IDS = ("MAXX", "BALANCED")
+STRATEGIES = ("conservative", "balanced", "aggressive")
+REGIMES = ("bullish", "neutral", "bearish")
+
+# Said on every basket, because all three were confirmed by running the ported
+# optimiser and none of them is visible in its output.
+BASKET_METHOD_NOTES = [
+    "The strategy and market-view settings do not change the allocation. The "
+    "loss floor they set enters the maths as a constant while the constraint is "
+    "unmet, and it essentially always is, so all nine combinations return the "
+    "same weights.",
+    "The final weights can sit slightly above a sleeve's cap. The optimiser "
+    "respects every cap, then a momentum adjustment scales the weights and "
+    "renormalises without checking them again. Both numbers are shown.",
+    "Minimum investment is not considered. That data comes from a distributor "
+    "feed we have no equivalent of, so a sleeve may name a fund with a minimum "
+    "you cannot meet.",
+]
+
+
+def _basket_out(result) -> BasketOut:
+    return BasketOut(
+        basket_id=result.basket_id,
+        name=result.name,
+        strategy=result.strategy,
+        regime=result.regime,
+        filled=result.filled,
+        success=result.success,
+        as_of=result.as_of,
+        notes=result.notes,
+        method_notes=BASKET_METHOD_NOTES,
+        slots=[
+            BasketSlotOut(
+                slot_key=s.slot_key,
+                scheme_code=s.scheme_code,
+                name=s.name,
+                category=s.category,
+                score=s.score,
+                weight=s.weight,
+                weight_within_bounds=s.weight_within_bounds,
+                cap_asked=s.bounds_asked[1],
+                cap_applied=s.bounds_applied[1],
+                pool_size=s.pool_size,
+                caveat=s.caveat,
+                reason=s.reason,
+            )
+            for s in result.slots
+        ],
+    )
+
+
+@router.get("/baskets", response_model=BasketListOut)
+def baskets(
+    strategy: str | None = None,
+    regime: str = "neutral",
+    user: User = Depends(current_active_user),
+) -> BasketListOut:
+    """Every basket, built from the latest scored run."""
+    _check_choice(strategy, set(STRATEGIES), "strategy")
+    _check_choice(regime, set(REGIMES), "regime")
+    with navstore.session() as session:
+        try:
+            return BasketListOut(
+                baskets=[
+                    _basket_out(
+                        basket_build.build(
+                            session, basket_id, strategy=strategy, regime=regime
+                        )
+                    )
+                    for basket_id in BASKET_IDS
+                ]
+            )
+        except serve.NoCompletedRun as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get("/baskets/{basket_id}", response_model=BasketOut)
+def one_basket(
+    basket_id: str,
+    strategy: str | None = None,
+    regime: str = "neutral",
+    user: User = Depends(current_active_user),
+) -> BasketOut:
+    _check_choice(basket_id, set(BASKET_IDS), "basket")
+    _check_choice(strategy, set(STRATEGIES), "strategy")
+    _check_choice(regime, set(REGIMES), "regime")
+    with navstore.session() as session:
+        try:
+            return _basket_out(
+                basket_build.build(session, basket_id, strategy=strategy, regime=regime)
+            )
+        except serve.NoCompletedRun as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc

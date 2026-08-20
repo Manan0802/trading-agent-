@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +21,7 @@ import {
 import {
   NO_VALUE,
   categoryGroup,
+  formatInr,
   formatPercent,
   formatRatio,
   gainClass,
@@ -28,11 +29,15 @@ import {
 } from '@/lib/format'
 import {
   fetchAllFunds,
+  fetchScreenedStocks,
   fetchScreenerCategories,
   fetchTopFunds,
+  type ScoredStock,
   type ScreenedFund,
   type ScreenerCoverage,
   type ScreenerFilters,
+  type StockCoverage,
+  type StockFilters,
 } from '@/lib/screener-api'
 import { cn } from '@/lib/utils'
 
@@ -344,8 +349,10 @@ function Field({
 }
 
 /**
- * The scheme name, its position and its house, in the one column that stays
- * put while the other twenty-one scroll past it.
+ * The name, its position and one line of context, in the one column that stays
+ * put while the others scroll past it. Shared by both tables: the tap-target
+ * rule on the button below is the kind of thing that regresses the moment
+ * there are two copies of it.
  *
  * `bg-card` sits on the row and `bg-inherit` on this cell: `bg-card` here would
  * kill the hover tint and leave a seam, and `bg-inherit` on a transparent row
@@ -353,12 +360,15 @@ function Field({
  * `bg-muted` for the same reason — the stock `bg-muted/50` is translucent.
  */
 function NameCell({
-  fund,
+  title,
+  subtitle,
   position,
   isOpen,
   onToggle,
 }: {
-  fund: ScreenedFund
+  title: string
+  /** One quiet line under the name: the fund house, or the ticker and industry. */
+  subtitle: string
   position: number
   isOpen: boolean
   onToggle: () => void
@@ -380,12 +390,9 @@ function NameCell({
             // full 36px and the negative margin hands the extra back to the row.
             className="-my-2 flex min-h-9 w-fit items-center text-left text-sm font-medium leading-tight underline-offset-4 hover:underline"
           >
-            {fund.name}
+            {title}
           </button>
-          <span className="mt-1 block text-xs text-muted-foreground">
-            {fund.fund_house}
-            {fund.is_new ? ' · too new to rank' : ''}
-          </span>
+          <span className="mt-1 block text-xs text-muted-foreground">{subtitle}</span>
         </span>
       </div>
     </TableCell>
@@ -477,20 +484,23 @@ function DetailRow({ fund, span }: { fund: ScreenedFund; span: number }) {
   )
 }
 
-function HeadRow({
+function HeadRow<K extends string>({
+  firstLabel,
   columns,
   sort,
   onSort,
 }: {
-  columns: Column[]
-  sort: { key: SortKey; dir: 1 | -1 } | null
+  /** What the sticky first column is called. It holds two things, not one. */
+  firstLabel: string
+  columns: { id: string; label: string; longLabel: string; sortKey: K | null }[]
+  sort: { key: K; dir: 1 | -1 } | null
   /** Omitted on the grouped view, where the order is stated and nothing to sort. */
-  onSort?: (key: SortKey) => void
+  onSort?: (key: K) => void
 }) {
   return (
     <TableRow className="bg-card hover:bg-card">
       <TableHead className="sticky left-0 z-10 bg-inherit shadow-[inset_-1px_0_0_0_var(--border)]">
-        <span className="block w-40 sm:w-72">Rank and scheme</span>
+        <span className="block w-40 sm:w-72">{firstLabel}</span>
       </TableHead>
       {columns.map((column) => {
         const key = column.sortKey
@@ -545,12 +555,12 @@ function ScreenerLoading() {
   )
 }
 
-function errorSentence(error: unknown): string {
+function errorSentence(
+  error: unknown,
+  fallback = 'The fund screener is not answering right now. Refresh the page, and if it keeps failing the NAV feed is down rather than your connection.',
+): string {
   const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-  return plainProse(
-    detail ??
-      'The fund screener is not answering right now. Refresh the page, and if it keeps failing the NAV feed is down rather than your connection.',
-  )
+  return plainProse(detail ?? fallback)
 }
 
 /** Everything the run itself admits to. Always rendered, never behind a tab. */
@@ -726,7 +736,7 @@ function TopFundsView({
         <TableScroller>
           <Table>
             <TableHeader>
-              <HeadRow columns={columns} sort={null} />
+              <HeadRow firstLabel="Rank and scheme" columns={columns} sort={null} />
             </TableHeader>
             <TableBody>
               {data.groups.map((g) => (
@@ -859,7 +869,7 @@ function AllFundsView({
             <TableScroller>
               <Table>
                 <TableHeader>
-                  <HeadRow columns={columns} sort={sort} onSort={onSort} />
+                  <HeadRow firstLabel="Rank and scheme" columns={columns} sort={sort} onSort={onSort} />
                 </TableHeader>
                 <TableBody>
                   {visible.map((f) => (
@@ -940,7 +950,13 @@ function FundRows({
   return (
     <>
       <TableRow className="bg-card hover:bg-muted has-aria-expanded:bg-muted">
-        <NameCell fund={fund} position={position} isOpen={isOpen} onToggle={onToggle} />
+        <NameCell
+          title={fund.name}
+          subtitle={`${fund.fund_house}${fund.is_new ? ' · too new to rank' : ''}`}
+          position={position}
+          isOpen={isOpen}
+          onToggle={onToggle}
+        />
         {columns.map((column) => (
           <TableCell
             key={column.id}
@@ -955,13 +971,555 @@ function FundRows({
   )
 }
 
+/* --------------------------------------------------------------- tab: stocks */
+
+/**
+ * Nothing on a stock row is a fraction.
+ *
+ * `total`, `fundamental`, `technical` and every factor's `score` and `max` are
+ * already points out of 100, so `formatPercent` — which multiplies by a
+ * hundred — would turn a score of 56 into 5,592%. This is the funds tab's
+ * `score100` inverted, and the two must never be confused.
+ */
+function points(value: number | null): string {
+  if (value === null || value === undefined) return NO_VALUE
+  return value.toFixed(0)
+}
+
+type StockSortKey = keyof Pick<
+  ScoredStock,
+  'total' | 'fundamental' | 'technical' | 'benchmark_constituents' | 'price'
+>
+
+type StockColumn = {
+  id: string
+  label: string
+  /** What the sort button says out loud. "Peers" is not a sentence. */
+  longLabel: string
+  sortKey: StockSortKey | null
+  className?: string
+  cell: (stock: ScoredStock) => ReactNode
+}
+
+const STOCK_COLUMNS: StockColumn[] = [
+  {
+    id: 'total',
+    label: 'Score',
+    longLabel: 'the score out of 100',
+    sortKey: 'total',
+    className: 'num text-right font-medium',
+    cell: (s) => points(s.total),
+  },
+  {
+    id: 'bucket',
+    label: 'Bucket',
+    // Not sortable: it is a band of the score, so ordering by it is ordering by
+    // score with the ties thrown away.
+    longLabel: 'bucket',
+    sortKey: null,
+    className: 'text-right',
+    cell: (s) => (
+      // The grade badges from the funds tab, reused rather than recoloured:
+      // a sixth colour on this page would be a new thing to learn.
+      <Badge
+        variant={
+          s.bucket === 'Strong Buy' ? 'default' : s.bucket === 'Buy' ? 'secondary' : 'outline'
+        }
+      >
+        {s.bucket}
+      </Badge>
+    ),
+  },
+  {
+    id: 'fundamental',
+    label: 'Fundamental',
+    longLabel: 'the points that came from the business',
+    sortKey: 'fundamental',
+    className: 'num text-right',
+    cell: (s) => points(s.fundamental),
+  },
+  {
+    id: 'technical',
+    label: 'Technical',
+    longLabel: 'the points that came from momentum',
+    sortKey: 'technical',
+    className: 'num text-right',
+    cell: (s) => points(s.technical),
+  },
+  {
+    id: 'sector',
+    label: 'Sector',
+    longLabel: 'sector',
+    sortKey: null,
+    className: 'text-right text-muted-foreground',
+    cell: (s) => s.sector ?? NO_VALUE,
+  },
+  {
+    id: 'benchmark_constituents',
+    label: 'Peers',
+    longLabel: 'how many companies its valuation was compared against',
+    sortKey: 'benchmark_constituents',
+    className: 'num text-right text-muted-foreground',
+    cell: (s) => count(s.benchmark_constituents),
+  },
+  {
+    id: 'price',
+    label: 'Price',
+    longLabel: 'the share price',
+    sortKey: 'price',
+    className: 'num text-right text-muted-foreground',
+    cell: (s) => formatInr(s.price),
+  },
+]
+
+const STOCK_SPAN = STOCK_COLUMNS.length + 1
+
+/** The two halves of the hundred, and which one the disclosure is about. */
+const FACTOR_GROUPS = [
+  { category: 'fundamental' as const, title: 'The business' },
+  { category: 'technical' as const, title: 'Momentum and technicals' },
+]
+
+/**
+ * How much of a score came from the business and how much from momentum.
+ *
+ * aria-hidden, and both numbers are written out in the sentence above it: the
+ * bar is the thing you notice, the sentence is the thing you can read.
+ */
+function SplitBar({
+  fundamental,
+  technical,
+  total,
+}: {
+  fundamental: number
+  technical: number
+  total: number
+}) {
+  return (
+    <div
+      aria-hidden
+      className="flex h-1.5 w-full max-w-md overflow-hidden rounded-full bg-secondary"
+    >
+      <div className="h-full bg-primary" style={{ width: `${(fundamental / total) * 100}%` }} />
+      <div
+        className="h-full bg-muted-foreground"
+        style={{ width: `${(technical / total) * 100}%` }}
+      />
+    </div>
+  )
+}
+
+/** All ten factors, split by half, plus who the peers actually were. */
+function StockDetailRow({ stock }: { stock: ScoredStock }) {
+  const groups = FACTOR_GROUPS.map((g) => {
+    const factors = stock.factors.filter((f) => f.category === g.category)
+    return {
+      ...g,
+      factors,
+      // Summed rather than hardcoded at 50: the weights are the API's to
+      // change, and a hardcoded denominator would go quietly wrong.
+      max: factors.reduce((n, f) => n + f.max, 0),
+      scored: g.category === 'fundamental' ? stock.fundamental : stock.technical,
+    }
+  })
+  const outOf = groups.reduce((n, g) => n + g.max, 0)
+
+  return (
+    <TableRow className="bg-card hover:bg-card">
+      <TableCell colSpan={STOCK_SPAN} className="p-0 whitespace-normal">
+        {/* Sticks to the left edge of the scroller, so the reasoning stays
+            readable however far right the table has been dragged. */}
+        <div className="sticky left-0 flex w-[19rem] flex-col gap-5 p-2 pb-6 sm:w-[46rem] lg:w-[64rem]">
+          <div className="flex flex-col gap-2">
+            <p className="max-w-3xl text-sm">
+              <span className="tnum">{points(stock.total)}</span> points out of{' '}
+              <span className="tnum">{outOf}</span>:{' '}
+              <span className="tnum">{stock.fundamental.toFixed(1)}</span> from the business and{' '}
+              <span className="tnum">{stock.technical.toFixed(1)}</span> from momentum and
+              technicals.
+            </p>
+            <SplitBar
+              fundamental={stock.fundamental}
+              technical={stock.technical}
+              total={outOf}
+            />
+          </div>
+
+          {groups.map((group) => (
+            <div key={group.category} className="flex flex-col gap-2">
+              <p className="text-sm font-medium">
+                {group.title} — <span className="tnum">{group.scored.toFixed(1)}</span> of{' '}
+                <span className="tnum">{group.max}</span> points
+              </p>
+              <ul className="grid gap-x-10 gap-y-2 xl:grid-cols-2">
+                {group.factors.map((factor) => (
+                  <li key={factor.key} className="flex flex-col text-sm">
+                    <span>
+                      {factor.label} — <span className="tnum">{factor.score.toFixed(1)}</span> of{' '}
+                      <span className="tnum">{factor.max}</span>
+                    </span>
+                    {/* Written upstream, sentence and all. Rebuilding it here
+                        from the numbers is how two screens start disagreeing. */}
+                    <span className="text-xs text-muted-foreground">{factor.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+
+          {stock.adjustments.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium">On top of the ten factors</p>
+              <ul className="flex flex-col gap-2">
+                {stock.adjustments.map((adjustment) => (
+                  <li key={adjustment.key} className="flex flex-col text-sm">
+                    <span>
+                      {adjustment.label}
+                      {/* Zero is not a scoring event. Several of these rows
+                          exist only to say something, and "+0.0" reads as one. */}
+                      {adjustment.points !== 0 && (
+                        <>
+                          {' — '}
+                          <span className="tnum">
+                            {adjustment.points > 0 ? '+' : '−'}
+                            {Math.abs(adjustment.points).toFixed(1)}
+                          </span>{' '}
+                          points
+                        </>
+                      )}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{adjustment.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Cheap or expensive is measured against{' '}
+            <span className="tnum">{count(stock.benchmark_constituents)}</span> companies in{' '}
+            {stock.benchmark_sector}
+            {stock.sector && stock.sector !== stock.benchmark_sector
+              ? `, which is not its own sector of ${stock.sector} — nothing here has a peer set for that one.`
+              : '.'}
+            {stock.thin_history
+              ? ' It has under 200 days of price history, so its trend factor is measured against a shorter average than everything else here.'
+              : ''}
+          </p>
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+/** A company's row, plus its ten factors underneath when it is the open one. */
+function StockRows({
+  stock,
+  position,
+  isOpen,
+  onToggle,
+}: {
+  stock: ScoredStock
+  position: number
+  isOpen: boolean
+  onToggle: () => void
+}) {
+  return (
+    <>
+      <TableRow className="bg-card hover:bg-muted has-aria-expanded:bg-muted">
+        <NameCell
+          title={stock.name}
+          subtitle={`${stock.symbol}${stock.industry ? ` · ${stock.industry}` : ''}`}
+          position={position}
+          isOpen={isOpen}
+          onToggle={onToggle}
+        />
+        {STOCK_COLUMNS.map((column) => (
+          <TableCell key={column.id} className={cn('align-top', column.className)}>
+            {column.cell(stock)}
+          </TableCell>
+        ))}
+      </TableRow>
+      {isOpen && <StockDetailRow stock={stock} />}
+    </>
+  )
+}
+
+/** Everything the stock run itself admits to. Always rendered, never behind a tab. */
+function StockCoveragePanel({ coverage }: { coverage: StockCoverage }) {
+  const grouped = new Map<string, number>()
+  for (const item of coverage.unscorable) {
+    grouped.set(item.reason, (grouped.get(item.reason) ?? 0) + 1)
+  }
+
+  return (
+    <Panel title="What this covers">
+      <p className="max-w-3xl text-sm">
+        Showing <span className="tnum">{count(coverage.scored)}</span> of{' '}
+        <span className="tnum">{count(coverage.matched)}</span> companies in {coverage.index}. Peer
+        medians come from <span className="tnum">{count(coverage.benchmark_stocks)}</span>{' '}
+        companies.
+      </p>
+
+      {coverage.thin_history > 0 && (
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          <span className="tnum">{count(coverage.thin_history)}</span>{' '}
+          {coverage.thin_history === 1 ? 'company has' : 'companies have'} under 200 days of price
+          history, so their trend factor is measured against a shorter average.
+        </p>
+      )}
+
+      {coverage.unscorable.length > 0 && (
+        <Plain
+          label="why they were left out"
+          detail={
+            <ul className="flex flex-col gap-1">
+              {[...grouped.entries()].map(([reason, n]) => (
+                <li key={reason}>
+                  <span className="tnum">{n}</span> {reason}
+                </li>
+              ))}
+            </ul>
+          }
+        >
+          <span className="tnum">{count(coverage.unscorable.length)}</span> companies in this
+          filter could not be scored at all and are missing from the table below.
+        </Plain>
+      )}
+    </Panel>
+  )
+}
+
+function StockMethodPanel() {
+  return (
+    <Panel title="How this is worked out">
+      <Plain
+        label="what the hundred points are made of"
+        detail={
+          <div className="flex flex-col gap-2">
+            <p>
+              Fifty points come from the business: what it costs against its sector median (15),
+              whether earnings grew (12), return on equity (10), price against book value (8) and
+              dividend yield (5). The other fifty come from the share price: RSI (12), MACD (12),
+              where the price sits against its 50 and 200 day averages (10), delivery volume (9)
+              and how far it is above its support level (7).
+            </p>
+            <p>
+              Every figure on this tab is points out of 100, not a percentage. The funds tab scores
+              between 0 and 1 and shows it out of 100; these two numbers look alike and mean
+              nothing to each other.
+            </p>
+          </div>
+        }
+      >
+        Each company is marked out of 100 — half on what the business is worth against its sector,
+        half on what the share price has been doing lately. This is the industry-standard method
+        reproduced as it is written, not our own, and where the two disagree the Research page is
+        the one carrying the evidence.
+      </Plain>
+    </Panel>
+  )
+}
+
+const STOCK_LIMITS = [25, 50, 100, 200]
+
+// The API's default. Kept here only so a control is never rendered empty --
+// every response reports `coverage.index`, which is what the select shows once
+// the answer arrives.
+const DEFAULT_INDEX = 'NIFTY 50'
+
+function StocksScreen() {
+  // Named here rather than left blank so the Index select has something to
+  // render on first paint. It matches the API's own default, and the API
+  // reports back which index it used, so a mismatch would show immediately.
+  const [filters, setFilters] = useState<StockFilters>({ index: DEFAULT_INDEX })
+  // 50 rows across eight columns is a page that stays responsive; 200 is the
+  // API's ceiling and is there for somebody who asks for it, not by default.
+  const [limit, setLimit] = useState(50)
+  const [sort, setSort] = useState<{ key: StockSortKey; dir: 1 | -1 } | null>(null)
+  const [openTicker, setOpenTicker] = useState<string | null>(null)
+
+  const { data, isLoading, isFetching, isError, error } = useQuery({
+    queryKey: ['screener-stocks', filters, limit],
+    queryFn: () => fetchScreenedStocks({ ...filters, limit }),
+    // Keeps the last answer on screen while a new filter loads, so the four
+    // selects do not unmount under the hand that is using them.
+    placeholderData: (previous) => previous,
+    retry: false,
+  })
+
+  const rows = useMemo(() => data?.stocks ?? [], [data])
+  const sorted = useMemo(() => {
+    if (!sort) return rows
+    // Never in place: React Query hands back the cached array, and mutating it
+    // makes the # column drift on an unrelated refetch.
+    return [...rows].sort((a, b) => cmp(a[sort.key], b[sort.key], sort.dir))
+  }, [rows, sort])
+
+  function setFilter(key: keyof StockFilters, value: string) {
+    setFilters((f) => ({ ...f, [key]: value }))
+    setOpenTicker(null)
+  }
+
+  function onSort(key: StockSortKey) {
+    setOpenTicker(null)
+    setSort((s) => (s?.key === key ? { key, dir: s.dir === -1 ? 1 : -1 } : { key, dir: -1 }))
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      {/* Outside every loading branch: these four are the only way back out of
+          a filter that returned nothing. */}
+      <Panel className="flex-row flex-wrap items-end gap-x-6 gap-y-3">
+        <Field
+          id="stocks-index"
+          label="Index"
+          // The API picks the default and reports it back, so the select shows
+          // what was actually used rather than a copy of the default kept here.
+          value={filters.index ?? data?.coverage.index ?? ''}
+          onChange={(v) => setFilter('index', v)}
+        >
+          {/* The options arrive with the response, and the first response can
+              take seconds on a cold cache, so on first paint this select was
+              rendering completely blank -- a labelled control with nothing in
+              it, which reads as broken rather than as loading. While the list
+              is unknown it holds the one value we do know: whatever is
+              currently selected. Never blank, and never claiming an option the
+              API has not confirmed. */}
+          {(data?.indices ?? [filters.index ?? DEFAULT_INDEX]).map((i) => (
+            <option key={i} value={i}>
+              {i}
+            </option>
+          ))}
+        </Field>
+
+        <Field
+          id="stocks-industry"
+          label="Industry"
+          value={filters.industry ?? ''}
+          onChange={(v) => setFilter('industry', v)}
+        >
+          <option value="">Every industry</option>
+          {(data?.industries ?? []).map((i) => (
+            <option key={i} value={i}>
+              {i}
+            </option>
+          ))}
+        </Field>
+
+        <Field
+          id="stocks-bucket"
+          label="Bucket"
+          value={filters.bucket ?? ''}
+          onChange={(v) => setFilter('bucket', v)}
+        >
+          <option value="">Every bucket</option>
+          {(data?.buckets ?? []).map((b) => (
+            <option key={b} value={b}>
+              {b}
+            </option>
+          ))}
+        </Field>
+
+        <Field
+          id="stocks-limit"
+          label="Companies"
+          value={String(limit)}
+          onChange={(v) => {
+            setLimit(Number(v))
+            setOpenTicker(null)
+          }}
+        >
+          {STOCK_LIMITS.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </Field>
+      </Panel>
+
+      {isLoading ? (
+        <ScreenerLoading />
+      ) : isError || !data ? (
+        <Notice>
+          {errorSentence(
+            error,
+            'The stock screener is not answering right now. Refresh the page, and if it keeps failing the price feed is down rather than your connection.',
+          )}
+        </Notice>
+      ) : (
+        <>
+          <Panel
+            title="Companies, scored out of 100"
+            aside={
+              // Every company is priced and scored on the request, so a wider
+              // index on a cold cache is a genuine wait. Without this the last
+              // answer just sits there looking like the new one.
+              isFetching
+                ? 'Working these out'
+                : sort
+                  ? 'Sorted by the column you chose'
+                  : 'Highest score first'
+            }
+          >
+            {/* Both of these are on the page, above the table, on purpose. The
+                first says nine of the hundred points separate nobody; the
+                second says forty-one of them are a method we do not hold to.
+                Neither survives being folded into a disclosure nobody opens. */}
+            {data.coverage.neutral_factors.map((sentence) => (
+              <Notice key={sentence}>{sentence}</Notice>
+            ))}
+            <Notice>{data.coverage.method_note}</Notice>
+
+            {sorted.length === 0 ? (
+              <Notice>Nothing matches those filters. Widen one of them and try again.</Notice>
+            ) : (
+              <TableScroller>
+                <Table>
+                  <TableHeader>
+                    <HeadRow
+                      firstLabel="Rank and company"
+                      columns={STOCK_COLUMNS}
+                      sort={sort}
+                      onSort={onSort}
+                    />
+                  </TableHeader>
+                  <TableBody>
+                    {sorted.map((stock, i) => (
+                      <StockRows
+                        key={stock.ticker}
+                        stock={stock}
+                        // The API has no rank field, so this is a position in
+                        // the order on screen and renumbers when it is sorted.
+                        position={i + 1}
+                        isOpen={openTicker === stock.ticker}
+                        onToggle={() =>
+                          setOpenTicker(openTicker === stock.ticker ? null : stock.ticker)
+                        }
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableScroller>
+            )}
+          </Panel>
+
+          <StockCoveragePanel coverage={data.coverage} />
+        </>
+      )}
+
+      <StockMethodPanel />
+    </div>
+  )
+}
+
 /* -------------------------------------------------------------------- page */
 
-export function Screener() {
+function FundsScreen() {
   const [params, setParams] = useSearchParams()
   // The sub-view lives in the URL rather than in state: every harness on this
   // project addresses a page by its path, so a view only reachable by clicking
-  // a tab is untested by construction. Phases 5 and 6 add ?tab=, which is why
+  // a tab is untested by construction. ?tab= lives alongside it, which is why
   // the existing params are carried through rather than replaced.
   const view = params.get('view') === 'all' ? 'all' : 'top'
 
@@ -1002,18 +1560,6 @@ export function Screener() {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Outside every loading branch on purpose. Panel emits an h2, so a page
-          whose h1 only appears once the data lands starts at h2 while it is
-          fetching, and the heading order check fails on the loading state. */}
-      <header className="flex flex-col gap-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight">Top funds</h1>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          Every Indian mutual fund with enough NAV history to judge, scored on its record and ranked
-          inside its own category. Worked out by NexTrade from public data, not a licensed rating,
-          and not a recommendation to buy.
-        </p>
-      </header>
-
       <Panel className="flex-row flex-wrap items-end gap-x-6 gap-y-3">
         <Field
           id="screener-category"
@@ -1130,6 +1676,85 @@ export function Screener() {
       )}
 
       <MethodPanel />
+    </div>
+  )
+}
+
+
+const TABS = [
+  {
+    key: 'funds' as const,
+    label: 'Funds',
+    heading: 'Top funds',
+    intro:
+      'Every Indian mutual fund with enough NAV history to judge, scored on its record and ranked inside its own category. Worked out by NexTrade from public data, not a licensed rating, and not a recommendation to buy.',
+  },
+  {
+    key: 'stocks' as const,
+    label: 'Stocks',
+    heading: 'Top stocks',
+    intro:
+      'Every company in the chosen index, marked out of 100 on the ten-factor method the industry uses. Worked out by NexTrade from public data, not a licensed rating, and not a recommendation to buy.',
+  },
+]
+
+/**
+ * Two links, not a Tabs component.
+ *
+ * Base UI's Tabs holds its selection in React state, and a tab held in state is
+ * a page no harness on this project can open: they all address a screen by its
+ * path. `?tab=stocks` is a URL somebody can send, bookmark, and screenshot.
+ */
+function ScreenerTabs({ params, active }: { params: URLSearchParams; active: 'funds' | 'stocks' }) {
+  return (
+    <nav aria-label="Screener" className="flex flex-wrap items-center gap-1">
+      {TABS.map((tab) => {
+        const next = new URLSearchParams(params)
+        if (tab.key === 'stocks') next.set('tab', 'stocks')
+        else next.delete('tab')
+        const query = next.toString()
+        return (
+          <Link
+            key={tab.key}
+            to={query ? `/screener?${query}` : '/screener'}
+            aria-current={tab.key === active ? 'page' : undefined}
+            // min-h-9 spelled out: "Funds" is 20px of text in a 36px box only
+            // because of the padding, and padding is the first thing a redesign
+            // takes away.
+            className={cn(
+              'flex min-h-9 min-w-9 shrink-0 items-center rounded-md px-2.5 py-2 text-sm transition-colors',
+              tab.key === active
+                ? 'bg-secondary font-medium text-foreground'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {tab.label}
+          </Link>
+        )
+      })}
+    </nav>
+  )
+}
+
+export function Screener() {
+  const [params] = useSearchParams()
+  const active = params.get('tab') === 'stocks' ? 'stocks' : 'funds'
+  const tab = TABS.find((t) => t.key === active) ?? TABS[0]
+
+  return (
+    <div className="flex flex-col gap-8">
+      <ScreenerTabs params={params} active={active} />
+
+      {/* Outside every loading branch on purpose, and outside both tabs. Panel
+          emits an h2, so a page whose h1 only appears once the data lands
+          starts at h2 while it is fetching, and the heading order check fails
+          on the loading state. */}
+      <header className="flex flex-col gap-1.5">
+        <h1 className="text-2xl font-semibold tracking-tight">{tab.heading}</h1>
+        <p className="max-w-3xl text-sm text-muted-foreground">{tab.intro}</p>
+      </header>
+
+      {active === 'stocks' ? <StocksScreen /> : <FundsScreen />}
     </div>
   )
 }

@@ -95,6 +95,7 @@ const PAGES = [
   ['research', '/research'],
   ['screener', '/screener'],
   ['screener-all', '/screener?view=all'],
+  ['screener-stocks', '/screener?tab=stocks'],
   ['profile', '/profile'],
   ['goals', '/goals'],
   ['goal-new', '/goals/new'],

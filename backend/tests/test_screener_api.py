@@ -599,3 +599,154 @@ def test_the_stock_screen_is_on_the_heavy_rate_limit_tier():
     get the whole app throttled by upstream rather than by us."""
     assert rate_limit.tier_for("/api/v1/screener/stocks") is rate_limit.HEAVY
     assert rate_limit.tier_for("/api/v1/screener/stocks/TCS.NS") is rate_limit.HEAVY
+
+
+# ═══════════════════════════════════════════════════════════ baskets
+
+
+from app.services.screener import basket as basket_port  # noqa: E402
+from app.services.screener import basket_slots  # noqa: E402
+
+
+def seed_basket_universe(rows: int = 900) -> None:
+    codes: list[str] = []
+    for slot in basket_slots.SLOT_CATEGORIES:
+        codes.extend(basket_slots.codes_for_slot(slot)[:12])
+    codes = list(dict.fromkeys(codes))
+    with navstore.session() as s:
+        for i, code in enumerate(codes):
+            navstore.insert_navs(
+                s, code,
+                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.04 + i * 0.7)
+                 for d in range(rows)],
+            )
+            navstore.record_source(s, code, backfilled_at="x")
+    pipeline.run_nightly(as_of=date.today(), refresh_feed=False)
+
+
+def test_the_basket_endpoints_require_a_signed_in_user():
+    assert client.get("/api/v1/screener/baskets").status_code == 401
+    assert client.get("/api/v1/screener/baskets/MAXX").status_code == 401
+
+
+def test_an_unbuilt_store_says_it_is_rebuilding_rather_than_returning_no_baskets():
+    r = client.get("/api/v1/screener/baskets", headers=auth())
+    assert r.status_code == 503
+    assert "rebuilding" in r.json()["detail"]
+
+
+def test_every_basket_comes_back_with_its_sleeves_filled():
+    seed_basket_universe()
+    body = client.get("/api/v1/screener/baskets", headers=auth()).json()
+    assert len(body["baskets"]) == 2
+    for b in body["baskets"]:
+        assert b["filled"] == len(b["slots"]), [
+            (s["slot_key"], s["reason"]) for s in b["slots"] if not s["scheme_code"]
+        ]
+        assert b["success"]
+
+
+def test_the_weights_of_a_basket_sum_to_one():
+    seed_basket_universe()
+    for b in client.get("/api/v1/screener/baskets", headers=auth()).json()["baskets"]:
+        total = sum(s["weight"] for s in b["slots"] if s["weight"] is not None)
+        assert total == pytest.approx(1.0, abs=0.01)
+
+
+def test_both_the_shown_weight_and_the_agreed_one_reach_the_client():
+    """The optimiser respects every cap and then a momentum adjustment scales
+    and renormalises without re-checking. A reader who cares about the cap needs
+    the second number, and it does not otherwise exist."""
+    seed_basket_universe()
+    for b in client.get("/api/v1/screener/baskets", headers=auth()).json()["baskets"]:
+        for s in b["slots"]:
+            if s["weight"] is None:
+                continue
+            assert s["weight_within_bounds"] is not None
+            assert s["weight_within_bounds"] <= s["cap_applied"] + 1e-9
+
+
+def test_the_cap_asked_for_and_the_cap_enforced_are_both_reported():
+    """They differ when the per-slot maxima cannot sum to 1, at which point the
+    optimiser silently rescales them."""
+    seed_basket_universe()
+    for b in client.get("/api/v1/screener/baskets", headers=auth()).json()["baskets"]:
+        for s in b["slots"]:
+            assert s["cap_asked"] > 0 and s["cap_applied"] > 0
+
+
+def test_the_three_standing_disclosures_are_on_every_basket():
+    """All three were confirmed by running the ported optimiser, and none is
+    visible in its own output."""
+    seed_basket_universe()
+    for b in client.get("/api/v1/screener/baskets", headers=auth()).json()["baskets"]:
+        joined = " ".join(b["method_notes"])
+        assert "do not change the allocation" in joined
+        assert "above a sleeve's cap" in joined
+        assert "Minimum investment is not considered" in joined
+
+
+def test_the_two_mega_bucket_sleeves_carry_their_caveat():
+    """A basket filling its index sleeve from 364 funds tracking different
+    indices is making a sector bet whether or not anyone intended to."""
+    seed_basket_universe()
+    slots = {
+        s["slot_key"]: s
+        for b in client.get("/api/v1/screener/baskets", headers=auth()).json()["baskets"]
+        for s in b["slots"]
+    }
+    assert slots["Equity Index Fund"]["caveat"]
+    assert slots["Sectoral/ Thematic"]["caveat"]
+    assert slots["Debt Scheme::Liquid Fund"]["caveat"] is None
+
+
+def test_how_many_funds_competed_for_each_sleeve_is_reported():
+    seed_basket_universe()
+    for b in client.get("/api/v1/screener/baskets", headers=auth()).json()["baskets"]:
+        for s in b["slots"]:
+            if s["scheme_code"]:
+                assert s["pool_size"] > 0
+
+
+def test_one_basket_can_be_fetched_on_its_own():
+    seed_basket_universe()
+    listed = client.get("/api/v1/screener/baskets", headers=auth()).json()["baskets"][0]
+    body = client.get(
+        f"/api/v1/screener/baskets/{listed['basket_id']}", headers=auth()
+    ).json()
+    assert body["basket_id"] == listed["basket_id"]
+    assert [s["scheme_code"] for s in body["slots"]] == [
+        s["scheme_code"] for s in listed["slots"]
+    ]
+
+
+@pytest.mark.parametrize(
+    "query,what",
+    [("strategy=reckless", "strategy"), ("regime=sideways", "regime")],
+)
+def test_an_unknown_basket_setting_is_a_404_that_names_the_valid_values(query, what):
+    seed_basket_universe()
+    r = client.get(f"/api/v1/screener/baskets?{query}", headers=auth())
+    assert r.status_code == 404 and what in r.json()["detail"]
+
+
+def test_an_unknown_basket_is_a_404():
+    seed_basket_universe()
+    assert client.get(
+        "/api/v1/screener/baskets/INSTA_FD", headers=auth()
+    ).status_code == 404
+
+
+def test_the_strategy_setting_reaches_the_response_even_though_it_changes_nothing():
+    """It is offered because the reference offers it, and the disclosure says it
+    does nothing. Both halves have to be true: the setting is honoured in the
+    response, and the numbers do not move."""
+    seed_basket_universe()
+    weights = {}
+    for strategy in ("conservative", "aggressive"):
+        b = client.get(
+            f"/api/v1/screener/baskets/MAXX?strategy={strategy}", headers=auth()
+        ).json()
+        assert b["strategy"] == strategy
+        weights[strategy] = [s["weight"] for s in b["slots"]]
+    assert weights["conservative"] == pytest.approx(weights["aggressive"], abs=1e-4)

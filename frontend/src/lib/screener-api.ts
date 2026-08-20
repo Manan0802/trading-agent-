@@ -155,3 +155,95 @@ export async function fetchAllFunds(
 ): Promise<ScreenerAllFunds> {
   return (await api.get('/api/v1/screener/funds', { params: live(filters) })).data
 }
+
+/* --------------------------------------------------------------- stocks */
+
+/**
+ * The stock screener: a different model on a different scale.
+ *
+ * UNITS, and they are NOT the fund units above. `total`, `fundamental`,
+ * `technical`, and a factor's `max` and `score` are all POINTS OUT OF 100 —
+ * 55.92 means 55.92 points, not 5,592%. None of them may go near
+ * formatPercent. `pct` is already 0 to 100. `price` is rupees. There is no
+ * fraction anywhere on a stock row.
+ */
+export type StockFactor = {
+  key: string
+  label: string
+  category: 'fundamental' | 'technical'
+  /** This factor's weight, in points out of the 100. */
+  max: number
+  /** What it scored, out of `max`. */
+  score: number
+  /** score/max, already expressed 0 to 100. */
+  pct: number
+  /** A pre-written sentence, "PE 28.1 vs sector median 42". Render it as-is. */
+  detail: string
+}
+
+export type StockAdjustment = {
+  key: string
+  label: string
+  /** Can be 0: several of these are informational rows, not scoring events. */
+  points: number
+  detail: string
+  type: string
+}
+
+export type ScoredStock = {
+  ticker: string
+  symbol: string
+  name: string
+  sector: string | null
+  industry: string | null
+  /** Points out of 100. */
+  total: number
+  bucket: string
+  /** The two halves of the total, each out of the 50 points its factors carry. */
+  fundamental: number
+  technical: number
+  /** Rupees. */
+  price: number | null
+  factors: StockFactor[]
+  adjustments: StockAdjustment[]
+  /** No 200-day average, so its trend factor is measured against a shorter one. */
+  thin_history: boolean
+  /** Which peer group the valuation factors compared against — not always `sector`. */
+  benchmark_sector: string
+  benchmark_constituents: number
+}
+
+export type StockCoverage = {
+  index: string
+  /** Companies in the index. */
+  matched: number
+  /** Companies actually shown, after the limit and the bucket filter. */
+  scored: number
+  unscorable: { ticker: string; symbol: string; name: string; reason: string }[]
+  thin_history: number
+  benchmark_stocks: number
+  /** Factors every stock scores identically on, so they separate nobody. */
+  neutral_factors: string[]
+  /** How much of the 100 points is momentum, which our own scorer excludes. */
+  method_note: string
+}
+
+export type StockScreen = {
+  stocks: ScoredStock[]
+  buckets: string[]
+  industries: string[]
+  indices: string[]
+  coverage: StockCoverage
+}
+
+export type StockFilters = {
+  index?: string
+  industry?: string
+  bucket?: string
+  limit?: number
+}
+
+/** Same 404-on-blank rule as the funds endpoints, so the same `live` applies. */
+export async function fetchScreenedStocks(filters: StockFilters): Promise<StockScreen> {
+  return (await api.get('/api/v1/screener/stocks', { params: live(filters) })).data
+}
