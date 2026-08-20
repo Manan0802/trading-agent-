@@ -93,6 +93,8 @@ const { token, goalId } = await seed()
 const PAGES = [
   ['portfolio', '/portfolio'],
   ['research', '/research'],
+  ['screener', '/screener'],
+  ['screener-all', '/screener?view=all'],
   ['profile', '/profile'],
   ['goals', '/goals'],
   ['goal-new', '/goals/new'],

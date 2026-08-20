@@ -357,3 +357,71 @@ def test_new_funds_are_ordered_by_sortino():
 def test_a_new_fund_is_not_counted_twice():
     funds, new, cov = served()
     assert not ({f.scheme_code for f in funds} & {f.scheme_code for f in new})
+
+
+# ------------------------------------------- a window never lived is unknown
+
+
+def test_a_rolling_window_the_fund_never_lived_is_unknown_not_zero():
+    """Found by looking at the actual screen.
+
+    `_rolling` returns 0.0 when no complete window exists. That is upstream's
+    sentinel and harmless inside the scorer, where `safe_float` would have made
+    it 0.0 anyway. On a screen it is a lie: 364 funds in the real universe were
+    rendering "Roll 3Y +0.0%", and every one of them was under three years old.
+    A reader sees a fund that returned nothing over three years. The truth is
+    that it has not existed for three years.
+    """
+    codes = eligible_codes(30)
+    with navstore.session() as s:
+        for i, code in enumerate(codes[:25]):
+            navstore.insert_navs(
+                s, code,
+                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.05 + i * 3)
+                 for d in range(900)],
+            )
+            navstore.record_source(s, code, backfilled_at="x")
+    pipeline.run_nightly(as_of=AS_OF, refresh_feed=False)
+
+    with navstore.session() as s:
+        funds, _, _ = serve.build(s, CATALOGUE)
+
+    assert funds
+    for f in funds:
+        # 900 days is under three years, so no fund here has a 3Y window.
+        assert f.history_years < 3.0
+        assert f.rolling_3y is None, (
+            f"{f.scheme_code} shows Roll 3Y {f.rolling_3y} on "
+            f"{f.history_years:.1f} years of history"
+        )
+        # It HAS lived a year, so that one is a real number.
+        assert f.rolling_1y is not None
+
+
+def test_a_genuine_zero_rolling_return_is_still_shown():
+    """The suppression keys on the fund being too young, not on the value being
+    zero. A fund with four years of history that genuinely went nowhere must
+    still report 0.0% rather than disappearing behind a dash."""
+    assert serve._rolling(0.0, "roll3y", 4.0) == 0.0
+    assert serve._rolling(0.0, "roll3y", 1.0) is None
+    assert serve._rolling(12.6, "roll3y", 1.0) == pytest.approx(0.126), (
+        "a young fund with a real non-zero number is not the sentinel case"
+    )
+    assert serve._rolling(None, "roll3y", 9.0) is None
+
+
+def test_a_fund_of_unknown_age_reports_no_rolling_figure():
+    assert serve._rolling(0.0, "roll1y", None) is None
+
+
+def test_the_page_leads_with_equity():
+    """Sorting groups by asset-class name put "Debt - Banking and PSU Fund" at
+    the top of a fund screen. Alphabetical order is not an opinion about what
+    anyone came here to look at."""
+    funds, _, _ = served()
+    groups = serve.group_by_category(funds, per_category=5)
+    if not groups:
+        pytest.skip("the seed produced no rankable group")
+    order = [serve.ASSET_CLASS_ORDER.get(g.asset_class, 99) for g in groups]
+    assert order == sorted(order), "asset classes are out of the intended order"
+    assert serve.ASSET_CLASS_ORDER["Equity"] == 0

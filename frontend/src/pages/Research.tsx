@@ -1,9 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { MomentumScreen } from '@/components/MomentumScreen'
 import { FactorEvidence } from '@/components/FactorEvidence'
 import { Panel } from '@/components/ui/panel'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle } from 'lucide-react'
 import {
   CartesianGrid,
   Line,
@@ -19,6 +18,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Metric, MetricRow } from '@/components/ui/metric'
+import { Notice } from '@/components/ui/notice'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -31,12 +31,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   NO_VALUE,
+  categoryGroup,
   formatInr,
   formatInrCompact,
   formatPercent,
   formatRatio,
   gainClass,
   plainProse,
+  shortCategory,
 } from '@/lib/format'
 import {
   fetchFund,
@@ -48,19 +50,6 @@ import {
   fetchStockScore,
   type RankedFundV2,
 } from '@/lib/research-api'
-
-/**
- * Caveats and failures both sit at the same weight: a quiet line with a mark
- * beside it. Amber would be a second accent, and none of these are emergencies.
- */
-function Notice({ children }: { children: ReactNode }) {
-  return (
-    <p className="flex max-w-3xl items-start gap-2 text-sm text-muted-foreground">
-      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-      <span>{children}</span>
-    </p>
-  )
-}
 
 /**
  * The one place a card earns its elevation on this page: it is a detail view
@@ -305,15 +294,6 @@ function FundsLoading() {
   )
 }
 
-/** "Equity Scheme - Small Cap Fund" is how SEBI writes it, not how anyone says it. */
-function shortCategory(category: string): string {
-  return category.split(' - ').slice(1).join(' - ') || category
-}
-
-function categoryGroup(category: string): string {
-  return category.split(' Scheme')[0]
-}
-
 const DEFAULT_CATEGORY = 'Equity Scheme - Flexi Cap Fund'
 
 
@@ -494,7 +474,7 @@ function FundsTab() {
                     <TableHead className="w-8">#</TableHead>
                     <TableHead>Fund</TableHead>
                     <TableHead className="text-right">Cost / yr</TableHead>
-                    <TableHead className="text-right">Score</TableHead>
+                    <TableHead className="text-right">Cost score</TableHead>
                     <TableHead className="text-right">Worst 3y</TableHead>
                     <TableHead className="text-right">Windows won</TableHead>
                     <TableHead className="text-right">3y avg</TableHead>
@@ -533,6 +513,12 @@ function FundsTab() {
               and &ldquo;windows won&rdquo; is how often those three years made
               money. Those two describe what holding it felt like, which is what
               decides whether you stay invested through a bad year.
+            </p>
+            <p className="max-w-3xl text-sm text-muted-foreground">
+              The Screener ranks the same funds by track record, which is the
+              industry-standard method, so the two screens disagree on purpose:
+              cost is the thing we measured that predicts returns, and a fund
+              can be first here and twenty-second there.
             </p>
             {data.priced > 0 && (
               <p className="max-w-3xl text-sm text-muted-foreground">

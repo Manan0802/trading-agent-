@@ -31,7 +31,7 @@ let bad=0
 for (const theme of ['dark','light']) {
   const ctx=await b.newContext({viewport:{width:1440,height:1000},colorScheme:theme})
   await ctx.addInitScript(([t,j])=>{localStorage.setItem('nextrade-theme',t);localStorage.setItem('nextrade_token',j)},[theme,access_token])
-  for (const [name,path] of [['portfolio','/portfolio'],['research','/research'],['profile','/profile'],['goals','/goals'],['goal-new','/goals/new'],...(seed ? [['goal',`/goals/${seed.id}`]] : []),['login','/login']]) {
+  for (const [name,path] of [['portfolio','/portfolio'],['research','/research'],['screener','/screener'],['screener-all','/screener?view=all'],['profile','/profile'],['goals','/goals'],['goal-new','/goals/new'],...(seed ? [['goal',`/goals/${seed.id}`]] : []),['login','/login']]) {
     const p=await ctx.newPage(); const errs=[]
     p.on('pageerror',e=>errs.push('PAGEERROR '+String(e).slice(0,120)))
     p.on('console',m=>m.type()==='error'&&errs.push('CONSOLE '+m.text().slice(0,120)))

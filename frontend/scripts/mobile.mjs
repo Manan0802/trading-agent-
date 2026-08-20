@@ -34,6 +34,8 @@ for (let i = 0; i < 8; i++) {
 const PAGES = [
   ['portfolio', '/portfolio'],
   ['research', '/research'],
+  ['screener', '/screener'],
+  ['screener-all', '/screener?view=all'],
   ['goals', '/goals'],
   ['goal', `/goals/${goal.id}`],
   ['profile', '/profile'],

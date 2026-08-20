@@ -74,3 +74,13 @@ export function formatInrCompact(value: number | null | undefined): string {
   if (abs >= 1e3) return `${sign}₹${(abs / 1e3).toFixed(0)}k`
   return `${sign}₹${abs.toFixed(0)}`
 }
+
+/** "Equity Scheme - Small Cap Fund" is how SEBI writes it, not how anyone says it. */
+export function shortCategory(category: string): string {
+  return category.split(' - ').slice(1).join(' - ') || category
+}
+
+/** "Equity Scheme" -> "Equity", so a select can group ninety categories into five. */
+export function categoryGroup(category: string): string {
+  return category.split(' Scheme')[0]
+}

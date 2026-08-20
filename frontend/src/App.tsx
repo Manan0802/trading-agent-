@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 // thing an unauthenticated visitor needs and there is nothing to defer.
 const Portfolio = lazy(() => import('@/pages/Portfolio').then((m) => ({ default: m.Portfolio })))
 const Research = lazy(() => import('@/pages/Research').then((m) => ({ default: m.Research })))
+const Screener = lazy(() => import('@/pages/Screener').then((m) => ({ default: m.Screener })))
 const Goals = lazy(() => import('@/pages/Goals').then((m) => ({ default: m.Goals })))
 const GoalNew = lazy(() => import('@/pages/GoalNew').then((m) => ({ default: m.GoalNew })))
 const GoalDetail = lazy(() => import('@/pages/GoalDetail').then((m) => ({ default: m.GoalDetail })))
@@ -44,6 +45,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 const NAV = [
   { to: '/portfolio', label: 'Portfolio' },
   { to: '/research', label: 'Research' },
+  { to: '/screener', label: 'Screener' },
   { to: '/goals', label: 'Goals' },
   { to: '/profile', label: 'You' },
 ]
@@ -137,6 +139,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <Research />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/screener"
+              element={
+                <RequireAuth>
+                  <Screener />
                 </RequireAuth>
               }
             />

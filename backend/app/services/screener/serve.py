@@ -56,6 +56,11 @@ MISSING_COLUMNS = ("Fund size (AUM)", "Minimum investment")
 # nothing notices. Past this, the screen says how old the data is.
 STALE_AFTER_DAYS = 3
 
+# The order categories appear on the page.
+ASSET_CLASS_ORDER = {
+    "Equity": 0, "Hybrid": 1, "Debt": 2, "Solution Oriented": 3, "Other": 4,
+}
+
 ASSET_CLASS_OF = {
     "Equity Scheme": "Equity",
     "Hybrid Scheme": "Hybrid",
@@ -109,6 +114,37 @@ def _pct(value) -> float | None:
     if math.isnan(v) or math.isinf(v):
         return None
     return v / 100.0
+
+
+# `_rolling` returns 0.0 when no complete window exists, which is upstream's
+# sentinel and fine inside the scorer -- `safe_float` would have made it 0.0
+# anyway. It is not fine on a screen. Measured on the real universe: 364 funds
+# show "Roll 3Y +0.0%", and all 364 of them are under three years old. A reader
+# sees a fund that returned nothing over three years; the truth is that it has
+# not existed for three years.
+#
+# So a horizon the fund has not lived through comes back None and renders as a
+# dash. Same discipline as `reasons._MIN_YEARS_FOR`, and for the same reason.
+_ROLLING_NEEDS_YEARS = {
+    "roll3y": 3.0,
+    "roll1y": 1.0,
+    "roll6m": 0.5,
+    "roll3m": 0.25,
+    "roll1m": 1.0 / 12,
+}
+
+
+def _rolling(value, column: str, history_years) -> float | None:
+    """A rolling figure as a fraction, or None if the window never completed."""
+    if value is None:
+        return None
+    needed = _ROLLING_NEEDS_YEARS.get(column)
+    if needed is not None:
+        if history_years is None:
+            return None
+        if float(history_years) < needed and float(value) == 0.0:
+            return None
+    return _pct(value)
 
 
 def _plain(value) -> float | None:
@@ -409,11 +445,11 @@ def _to_fund(
         returns_6m=_pct(row["ret6m"]),
         returns_1y=_pct(row["ret1y"]),
         returns_3y=_pct(row["ret3y"]),
-        rolling_1m=_pct(row["roll1m"]),
-        rolling_3m=_pct(row["roll3m"]),
-        rolling_6m=_pct(row["roll6m"]),
-        rolling_1y=_pct(row["roll1y"]),
-        rolling_3y=_pct(row["roll3y"]),
+        rolling_1m=_rolling(row["roll1m"], "roll1m", row["history_years"]),
+        rolling_3m=_rolling(row["roll3m"], "roll3m", row["history_years"]),
+        rolling_6m=_rolling(row["roll6m"], "roll6m", row["history_years"]),
+        rolling_1y=_rolling(row["roll1y"], "roll1y", row["history_years"]),
+        rolling_3y=_rolling(row["roll3y"], "roll3y", row["history_years"]),
         sortino=_plain(row["sortino"]),
         volatility=_pct(row["vol"]),
         max_drawdown=_pct(row["max_dd"]),
@@ -454,7 +490,12 @@ def group_by_category(funds: list[ScreenedFund], per_category: int) -> list[Cate
                 funds=members[:per_category],
             )
         )
-    groups.sort(key=lambda g: (g.asset_class, g.sub_category or ""))
+    # Equity first, then Hybrid, then the rest. Sorting by asset class name put
+    # "Debt - Banking and PSU Fund" at the top of the page, which is a strange
+    # thing to lead a fund screen with; alphabetical order is not an opinion
+    # about what anyone came here to look at.
+    groups.sort(key=lambda g: (ASSET_CLASS_ORDER.get(g.asset_class, 99),
+                               g.sub_category or ""))
     return groups
 
 
