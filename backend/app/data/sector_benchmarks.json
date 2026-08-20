@@ -1,138 +1,86 @@
 {
- "built_on": "2026-08-21",
- "sectors": {
-  "Financial Services": {
-   "median_pe": 18.9696,
-   "median_pb": 2.1808,
-   "median_roe": 13.353,
-   "median_div_yield": 0.94,
-   "constituents": 9,
-   "constituents_usable": 9,
-   "roe_reported": 4,
-   "roe_derived": 5,
-   "index_for_yield": "NIFTY FINANCIAL SERVICES"
-  },
-  "Technology": {
-   "median_pe": 24.3268,
-   "median_pb": 4.991,
-   "median_roe": 24.067,
-   "median_div_yield": 2.62,
-   "constituents": 9,
-   "constituents_usable": 9,
-   "roe_reported": 6,
-   "roe_derived": 3,
-   "index_for_yield": "NIFTY IT"
-  },
-  "Consumer Defensive": {
-   "median_pe": 47.8377,
-   "median_pb": 17.9728,
-   "median_roe": 36.1029,
-   "median_div_yield": 0.98,
-   "constituents": 8,
-   "constituents_usable": 8,
-   "roe_reported": 0,
-   "roe_derived": 8,
-   "index_for_yield": "NIFTY FMCG"
-  },
-  "Consumer Cyclical": {
-   "median_pe": 34.2794,
-   "median_pb": 8.6385,
-   "median_roe": 25.5705,
-   "median_div_yield": 1.06,
-   "constituents": 8,
-   "constituents_usable": 8,
-   "roe_reported": 0,
-   "roe_derived": 8,
-   "index_for_yield": "NIFTY AUTO"
-  },
-  "Healthcare": {
-   "median_pe": 43.0865,
-   "median_pb": 5.7534,
-   "median_roe": 14.8881,
-   "median_div_yield": 0.53,
-   "constituents": 8,
-   "constituents_usable": 8,
-   "roe_reported": 1,
-   "roe_derived": 7,
-   "index_for_yield": "NIFTY PHARMA"
-  },
-  "Basic Materials": {
-   "median_pe": 21.9033,
-   "median_pb": 2.2026,
-   "median_roe": 14.8496,
-   "median_div_yield": 1.62,
-   "constituents": 8,
-   "constituents_usable": 8,
-   "roe_reported": 0,
-   "roe_derived": 8,
-   "index_for_yield": "NIFTY METAL"
-  },
-  "Energy": {
-   "median_pe": 7.7002,
-   "median_pb": 1.2726,
-   "median_roe": 11.7124,
-   "median_div_yield": 1.84,
-   "constituents": 5,
-   "constituents_usable": 5,
-   "roe_reported": 0,
-   "roe_derived": 5,
-   "index_for_yield": "NIFTY ENERGY"
-  },
-  "Industrials": {
-   "median_pe": 58.9872,
-   "median_pb": 8.478,
-   "median_roe": 15.1585,
-   "median_div_yield": 0.97,
-   "constituents": 7,
-   "constituents_usable": 7,
-   "roe_reported": 1,
-   "roe_derived": 6,
-   "index_for_yield": "NIFTY INFRASTRUCTURE"
-  },
-  "Communication Services": {
-   "median_pe": 40.5704,
-   "median_pb": 2.3502,
-   "median_roe": 18.912,
-   "median_div_yield": 0.99,
-   "constituents": 5,
-   "constituents_usable": 5,
-   "roe_reported": 2,
-   "roe_derived": 3,
-   "index_for_yield": "NIFTY MEDIA"
-  },
-  "Utilities": {
-   "median_pe": 27.5546,
-   "median_pb": 2.744,
-   "median_roe": 13.8053,
-   "median_div_yield": 2.62,
-   "constituents": 6,
-   "constituents_usable": 6,
-   "roe_reported": 0,
-   "roe_derived": 6,
-   "index_for_yield": "NIFTY PSE"
-  },
-  "Real Estate": {
-   "median_pe": 37.6685,
-   "median_pb": 4.1967,
-   "median_roe": 11.9262,
-   "median_div_yield": 0.53,
-   "constituents": 7,
-   "constituents_usable": 7,
-   "roe_reported": 2,
-   "roe_derived": 5,
-   "index_for_yield": "NIFTY REALTY"
-  },
-  "Unknown": {
-   "median_pe": 22.0,
-   "median_pb": 3.0,
-   "median_roe": 15.0,
-   "median_div_yield": 1.2,
-   "constituents": 0,
-   "constituents_usable": 0,
-   "roe_reported": 0,
-   "roe_derived": 0,
-   "index_for_yield": null,
-   "note": "no sector mapping; the scorer compares such a stock against neutral values"
-  }
+ "Basic Materials": {
+  "dividend_yield": 0.0053,
+  "n": 62,
+  "pb": 3.73258,
+  "pe": 31.84627,
+  "roe": 0.15087
+ },
+ "Communication Services": {
+  "dividend_yield": 0.0126,
+  "n": 14,
+  "pb": 4.40462,
+  "pe": 41.14477,
+  "roe": 0.13786
+ },
+ "Consumer Cyclical": {
+  "dividend_yield": 0.005,
+  "n": 67,
+  "pb": 6.17119,
+  "pe": 41.62396,
+  "roe": 0.14194
+ },
+ "Consumer Defensive": {
+  "dividend_yield": 0.0106,
+  "n": 27,
+  "pb": 8.0237,
+  "pe": 49.30998,
+  "roe": 0.1624
+ },
+ "Energy": {
+  "dividend_yield": 0.0422,
+  "n": 15,
+  "pb": 1.91604,
+  "pe": 10.85995,
+  "roe": 0.14189
+ },
+ "Financial Services": {
+  "dividend_yield": 0.0091,
+  "n": 97,
+  "pb": 2.6827,
+  "pe": 22.24035,
+  "roe": 0.1463
+ },
+ "Healthcare": {
+  "dividend_yield": 0.0032,
+  "n": 50,
+  "pb": 6.29452,
+  "pe": 48.18326,
+  "roe": 0.14876
+ },
+ "Industrials": {
+  "dividend_yield": 0.00525,
+  "n": 88,
+  "pb": 6.02436,
+  "pe": 44.0956,
+  "roe": 0.15592
+ },
+ "Real Estate": {
+  "dividend_yield": 0.00375,
+  "n": 11,
+  "pb": 4.185,
+  "pe": 35.1825,
+  "roe": 0.10408
+ },
+ "Technology": {
+  "dividend_yield": 0.01525,
+  "n": 41,
+  "pb": 5.4335,
+  "pe": 28.99138,
+  "roe": 0.1817
+ },
+ "Utilities": {
+  "dividend_yield": 0.0241,
+  "n": 21,
+  "pb": 2.67229,
+  "pe": 29.50764,
+  "roe": 0.11941
+ },
+ "_ALL": {
+  "dividend_yield": 0.00695,
+  "n": 468,
+  "pb": 4.73703,
+  "pe": 36.08115,
+  "roe": 0.14832
  }
 }
