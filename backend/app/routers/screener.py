@@ -1,0 +1,276 @@
+"""The fund screener: every category's leaders, on the whole direct-growth universe.
+
+Deliberately NOT under `/api/v1/research`. That prefix is rate-limited at 20/min
+because its endpoints price a whole category on demand; these read a table the
+nightly job already built. A user pressing "show all", changing a filter and
+expanding three rows inside a minute would 429 there, and every non-401 response
+of 400 or worse is a `sweep.mjs` failure.
+
+One exception, and it is deliberate: `/funds` returns the entire universe, about
+1.2 MB uncompressed, so its exact path is added to the rate limiter's HEAVY list.
+Prefix matching means `/top-funds` is untouched -- `"…/top-funds"` does not start
+with `"…/funds"` -- and `tests/test_rate_limit.py` pins both, so a future edit to
+`_HEAVY_PATHS` cannot silently strangle the screen.
+"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.auth.fastapi_users_app import current_active_user
+from app.models import User
+from app.schemas.screener import (
+    CategoryCoverageOut,
+    CategoryGroupOut,
+    CategoryOut,
+    DominanceOut,
+    FundReasonOut,
+    FundUniverseOut,
+    ScreenedFundOut,
+    ScreenerCoverageOut,
+    ThinCategoryOut,
+    TopFundsOut,
+    UnscorableFundOut,
+)
+from app.services.advisor import fund_catalogue
+from app.services.screener import navstore, scoring, serve
+
+router = APIRouter(prefix="/api/v1/screener", tags=["screener"])
+
+GRADES = ("Very Good", "Good", "Avg", "Bad")
+DEFAULT_PER_CATEGORY = 5
+MAX_PER_CATEGORY = 25
+
+# The full universe is large enough that echoing every unscorable fund's reason
+# alongside it doubles the payload for no benefit -- the reasons matter on the
+# category view, where the numbers are small enough to read.
+UNSCORABLE_SHOWN = 200
+
+
+def _catalogue() -> dict:
+    return {f.code: f for f in fund_catalogue.all_funds()}
+
+
+def _load_reasons():
+    """The claim bullets for the latest run.
+
+    Only fetched for the grouped view and for a single expanded row. The flat
+    full-universe response deliberately ships without them: bullets for 1,466
+    funds would roughly double a payload that is already the reason that
+    endpoint sits on the heavy rate-limit tier. Fetching them per row instead
+    would be 195 requests a minute against a 120/min budget, which `sweep.mjs`
+    counts as a failure the moment the first 429 lands.
+    """
+    with navstore.session() as session:
+        try:
+            return serve.reasons_for_run(session)
+        except serve.NoCompletedRun:
+            return {}
+
+
+def _load():
+    """The latest accepted run, or a 503 that says how far the rebuild has got.
+
+    Never an empty ranking behind a 200. A screen rendering zero rows with a
+    success status is indistinguishable from a market where nothing qualified,
+    and it is the silent failure this codebase keeps writing tests against.
+    """
+    with navstore.session() as session:
+        try:
+            return serve.build(session, _catalogue())
+        except serve.NoCompletedRun as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+def _coverage_out(coverage: serve.Coverage, shown: int, limit: int) -> ScreenerCoverageOut:
+    return ScreenerCoverageOut(
+        universe=coverage.universe,
+        scored=coverage.scored,
+        shown=shown,
+        new_funds=coverage.new_funds,
+        categories_total=coverage.categories_total,
+        categories_ranked=coverage.categories_ranked,
+        thin_categories=[ThinCategoryOut.model_validate(t) for t in coverage.thin_categories],
+        unscorable=[
+            UnscorableFundOut(scheme_code=code, reason=reason)
+            for code, reason in coverage.unscorable[:limit]
+        ],
+        missing_columns=coverage.missing_columns,
+        as_of=coverage.as_of,
+        stale_days=coverage.stale_days,
+    )
+
+
+def _with_reasons(fund: serve.ScreenedFund, reasons: dict) -> ScreenedFundOut:
+    """Attach the bullets after validation, never by passing them in.
+
+    `ScreenedFund` is a frozen dataclass that does not carry reasons, so adding
+    the field to the constructor call would fail validation. `model_copy` after
+    the fact is the house pattern for exactly this.
+    """
+    out = ScreenedFundOut.model_validate(fund)
+    found = reasons.get(fund.scheme_code) or []
+    if not found:
+        return out
+    return out.model_copy(
+        update={"reasons": [FundReasonOut.model_validate(r) for r in found]}
+    )
+
+
+def _filtered(
+    funds: list[serve.ScreenedFund],
+    category: str | None,
+    asset_class: str | None,
+    grade: str | None,
+    risk_tier: str | None,
+) -> list[serve.ScreenedFund]:
+    """Filters never renumber. `rank` is already on the row and stays put."""
+    out = funds
+    if category:
+        out = [f for f in out if f.sub_category == category or f.category == category]
+    if asset_class:
+        out = [f for f in out if f.asset_class == asset_class]
+    if grade:
+        out = [f for f in out if f.grade == grade]
+    if risk_tier:
+        out = [f for f in out if f.risk_tier == risk_tier]
+    return out
+
+
+def _check_choice(value: str | None, allowed, what: str) -> None:
+    """404 naming the valid values, rather than 422 or an empty list.
+
+    An unknown filter returning zero rows looks exactly like a real market in
+    which nothing qualified, which is the wrong thing to show someone who has
+    just mistyped a category.
+    """
+    if value is not None and value not in allowed:
+        raise HTTPException(
+            status_code=404,
+            detail=f"unknown {what} {value!r}. Valid values: {sorted(allowed)}",
+        )
+
+
+@router.get("/categories", response_model=CategoryCoverageOut)
+def categories(user: User = Depends(current_active_user)) -> CategoryCoverageOut:
+    """Every peer group, its size, and whether it is big enough to rank."""
+    funds, _new, coverage = _load()
+
+    sizes: dict[tuple, int] = {}
+    classes: dict[tuple, str] = {}
+    for f in funds:
+        key = (f.category, f.sub_category)
+        sizes[key] = sizes.get(key, 0) + 1
+        classes[key] = f.asset_class
+
+    out = [
+        CategoryOut(
+            category=category,
+            sub_category=sub_category,
+            asset_class=classes[(category, sub_category)],
+            peer_size=size,
+            rankable=size >= serve.MIN_PEERS_TO_RANK,
+            caveat=serve.CAVEATED_SUB_CATEGORIES.get(sub_category or ""),
+        )
+        for (category, sub_category), size in sorted(sizes.items())
+    ]
+    return CategoryCoverageOut(
+        categories=out,
+        asset_classes=sorted({c.asset_class for c in out}),
+        grades=list(GRADES),
+        risk_tiers=list(scoring.RISK_TIERS),
+        coverage=_coverage_out(coverage, shown=len(out), limit=UNSCORABLE_SHOWN),
+    )
+
+
+@router.get("/top-funds", response_model=TopFundsOut)
+def top_funds(
+    per_category: int = Query(DEFAULT_PER_CATEGORY, ge=1, le=MAX_PER_CATEGORY),
+    category: str | None = None,
+    asset_class: str | None = None,
+    grade: str | None = None,
+    risk_tier: str | None = None,
+    user: User = Depends(current_active_user),
+) -> TopFundsOut:
+    """Every category's leaders, grouped. The default view of the screen."""
+    funds, new_funds, coverage = _load()
+
+    _check_choice(asset_class, set(serve.ASSET_CLASS_OF.values()), "asset class")
+    _check_choice(grade, set(GRADES), "grade")
+    _check_choice(risk_tier, set(scoring.RISK_TIERS), "risk tier")
+    if category is not None:
+        known = {f.sub_category for f in funds} | {f.category for f in funds}
+        _check_choice(category, known - {None}, "category")
+
+    selected = _filtered(funds, category, asset_class, grade, risk_tier)
+    groups = serve.group_by_category(selected, per_category=per_category)
+    shown = sum(len(g.funds) for g in groups)
+    reasons = _load_reasons()
+
+    return TopFundsOut(
+        groups=[
+            CategoryGroupOut(
+                category=g.category,
+                sub_category=g.sub_category,
+                asset_class=g.asset_class,
+                peer_size=g.peer_size,
+                caveat=g.caveat,
+                funds=[_with_reasons(f, reasons) for f in g.funds],
+            )
+            for g in groups
+        ],
+        new_funds=[ScreenedFundOut.model_validate(f) for f in new_funds],
+        # Dominance is computed over the UNFILTERED universe on purpose: "9 of
+        # the top 10" is a statement about the market, not about whatever the
+        # user has currently narrowed the page down to.
+        dominance=[DominanceOut.model_validate(d) for d in serve.dominance(funds)],
+        coverage=_coverage_out(coverage, shown=shown, limit=UNSCORABLE_SHOWN),
+    )
+
+
+@router.get("/funds", response_model=FundUniverseOut)
+def all_funds(
+    category: str | None = None,
+    asset_class: str | None = None,
+    grade: str | None = None,
+    risk_tier: str | None = None,
+    include_new: bool = False,
+    user: User = Depends(current_active_user),
+) -> FundUniverseOut:
+    """The flat, fully sortable view. Every ranked fund in one response.
+
+    Sorting happens on the client over this whole array, which is the only way
+    "lowest volatility" can mean lowest in the universe rather than lowest among
+    the rows that happened to be shipped.
+    """
+    funds, new_funds, coverage = _load()
+
+    _check_choice(asset_class, set(serve.ASSET_CLASS_OF.values()), "asset class")
+    _check_choice(grade, set(GRADES), "grade")
+    _check_choice(risk_tier, set(scoring.RISK_TIERS), "risk tier")
+    if category is not None:
+        known = {f.sub_category for f in funds} | {f.category for f in funds}
+        _check_choice(category, known - {None}, "category")
+
+    selected = _filtered(funds, category, asset_class, grade, risk_tier)
+    return FundUniverseOut(
+        funds=[ScreenedFundOut.model_validate(f) for f in selected],
+        new_funds=[ScreenedFundOut.model_validate(f) for f in new_funds] if include_new else [],
+        coverage=_coverage_out(coverage, shown=len(selected), limit=UNSCORABLE_SHOWN),
+    )
+
+
+@router.get("/funds/{scheme_code}", response_model=ScreenedFundOut)
+def one_fund(
+    scheme_code: str,
+    user: User = Depends(current_active_user),
+) -> ScreenedFundOut:
+    """One fund's full record, for the expanded row."""
+    funds, new_funds, _coverage = _load()
+    for f in funds + new_funds:
+        if f.scheme_code == scheme_code:
+            return _with_reasons(f, _load_reasons())
+    raise HTTPException(
+        status_code=404,
+        detail=f"scheme {scheme_code} is not in the latest ranking",
+    )

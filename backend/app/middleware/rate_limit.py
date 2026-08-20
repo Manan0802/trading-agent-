@@ -79,6 +79,12 @@ _HEAVY_PATHS = (
     "/api/v1/portfolio/announcements",
     "/api/v1/research",
     "/api/v1/advisor",
+    # The full-universe screener response is ~1.2 MB and there is no
+    # GZipMiddleware installed, so 120/min of it is a self-DoS on one instance.
+    # Prefix matching leaves "/api/v1/screener/top-funds" on the default tier,
+    # which is what the screen actually uses -- "…/top-funds" does not start
+    # with "…/funds". test_rate_limit.py pins both so this cannot drift.
+    "/api/v1/screener/funds",
 )
 
 # Costs nothing and is what a load balancer polls. Limiting it would take the

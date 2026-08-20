@@ -190,17 +190,18 @@ def _write_run(session, report: RunReport, scored, unscorable, metrics) -> int:
         session.execute(
             navstore.text(
                 "INSERT INTO screener_input (run_id, code, roll1y, roll6m, roll3m, roll1m,"
-                " ret3y, ret1y, ret3m, vol, sortino, max_dd, worst_30d, history_years,"
-                " nav_rows, capped_days, last_nav_date, nav_fresh)"
-                " VALUES (:r,:c,:r1y,:r6m,:r3m,:r1m,:t3y,:t1y,:t3m,:v,:so,:dd,:w30,:hy,"
-                ":nr,:cd,:lnd,:nf)"
+                " roll3y, ret3y, ret1y, ret6m, ret3m, ret1m, vol, sortino, max_dd,"
+                " worst_30d, history_years, nav_rows, capped_days, last_nav_date, nav_fresh)"
+                " VALUES (:r,:c,:r1y,:r6m,:r3m,:r1m,:r3y,:t3y,:t1y,:t6m,:t3m,:t1m,:v,:so,"
+                ":dd,:w30,:hy,:nr,:cd,:lnd,:nf)"
             ),
             [
                 {
                     "r": run_id, "c": code,
                     "r1y": m.rolling_1y, "r6m": m.rolling_6m,
-                    "r3m": m.rolling_3m, "r1m": m.rolling_1m,
-                    "t3y": m.returns_3y, "t1y": m.returns_1y, "t3m": m.returns_3m,
+                    "r3m": m.rolling_3m, "r1m": m.rolling_1m, "r3y": m.rolling_3y,
+                    "t3y": m.returns_3y, "t1y": m.returns_1y, "t6m": m.returns_6m,
+                    "t3m": m.returns_3m, "t1m": m.returns_1m,
                     "v": m.volatility, "so": m.sortino,
                     "dd": m.max_drawdown, "w30": m.worst_30d,
                     "hy": m.history_years, "nr": m.nav_rows, "cd": m.capped_days,
@@ -284,10 +285,12 @@ def run_nightly(
             )
 
         report.note = "; ".join(report.warnings) or None
-        report.run_id = _write_run(
-            session, report, scored, unscorable,
-            {c: m for c, m in built.metrics.items() if c in {f.code for f in scored}},
-        )
+        # Every fund we could measure, not just every fund we could score. A
+        # recently launched fund is refused a rank -- it has no year of record --
+        # but it has real three-month numbers, and the screen shows them in a
+        # separate "new funds" list. Filtering to scored funds here left that
+        # list with names and no numbers.
+        report.run_id = _write_run(session, report, scored, unscorable, built.metrics)
         report.scored = len(scored)
         report.unscorable = len(unscorable)
         report.accepted = True

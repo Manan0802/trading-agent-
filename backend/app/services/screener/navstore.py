@@ -52,7 +52,7 @@ DEFAULT_DB_PATH = Path(__file__).resolve().parents[3] / ".navstore" / "nav.db"
 # nav_history in about fifteen seconds, so dropping and recreating them is
 # cheaper than writing a migration. nav_history itself is never touched by this;
 # a change to its shape is rare enough to deserve a deliberate one-off script.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # How many nightly runs to keep. Enough to answer "why did this fund drop forty
 # places last Tuesday" without the score tables growing without bound.
@@ -204,9 +204,15 @@ class ScreenerInput(StoreBase):
     roll6m: Mapped[float | None] = mapped_column(Float)
     roll3m: Mapped[float | None] = mapped_column(Float)
     roll1m: Mapped[float | None] = mapped_column(Float)
+    roll3y: Mapped[float | None] = mapped_column(Float)
     ret3y: Mapped[float | None] = mapped_column(Float)
     ret1y: Mapped[float | None] = mapped_column(Float)
+    ret6m: Mapped[float | None] = mapped_column(Float)
     ret3m: Mapped[float | None] = mapped_column(Float)
+    # Not scored -- the quality pillars use 3y/1y/3m only. Stored because the
+    # table shows five trailing and five rolling columns, and because the
+    # universe rank tie-breaks on the most recent month.
+    ret1m: Mapped[float | None] = mapped_column(Float)
     vol: Mapped[float | None] = mapped_column(Float)
     sortino: Mapped[float | None] = mapped_column(Float)
     max_dd: Mapped[float | None] = mapped_column(Float)

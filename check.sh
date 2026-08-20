@@ -54,6 +54,13 @@ fi
 step "unit tests"
 run "pytest" sh "cd backend && venv/bin/python -m pytest -q 2>&1 | tail -3"
 
+# The tests run against fixtures, so they cannot ask whether the NAVs already on
+# disk are the ones AMFI published. Inserts are ON CONFLICT DO NOTHING, which
+# means a stored date is never corrected -- sampling stored-against-mfapi is the
+# only thing in this repo that can notice a restatement. Green on an empty store.
+step "nav store integrity"
+run "the stored NAVs are still true" sh "cd backend && venv/bin/python scripts/validate_nav_integrity.py --api '$API' | tail -4"
+
 # The scoring engine is a transcription of another codebase's arithmetic, so the
 # question is not "does it run" but "does it still equal the thing it copied" --
 # under a different pandas major, which is where a silent drift would hide.
