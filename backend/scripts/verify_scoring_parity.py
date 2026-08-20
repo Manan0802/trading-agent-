@@ -29,12 +29,30 @@ import json
 import math
 import random
 import sys
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.services.screener import reference  # noqa: E402  (stdlib-only, safe under any venv)
 
 QUALITY_COLUMNS = ["roll1y", "roll6m", "roll3m", "roll1m", "ret3y", "ret1y", "ret3m", "vol"]
+
+# Our field name -> theirs. Where they differ it is because theirs is actively
+# misleading: `drawdown_score` (a 0-1 signal) and `max_drawdown` (a negative
+# percent) are different numbers, and upstream names the rolling windows
+# `rolling_ret_*`.
+METRIC_FIELD_MAP = {
+    "annualized_return": "annualized_return",
+    "returns_1m": "returns_1m", "returns_3m": "returns_3m", "returns_6m": "returns_6m",
+    "returns_1y": "returns_1y", "returns_3y": "returns_3y",
+    "rolling_1m": "rolling_ret_1m", "rolling_3m": "rolling_ret_3m",
+    "rolling_6m": "rolling_ret_6m", "rolling_1y": "rolling_ret_1y",
+    "rolling_3y": "rolling_ret_3y",
+    "volatility": "volatility", "sharpe": "sharpe_ratio", "sortino": "sortino_ratio",
+    "max_drawdown": "max_drawdown",
+    "best_30d": "best_30d_return", "worst_30d": "worst_30d_return",
+    "negative_days_pct": "negative_days_pct",
+}
 
 
 def build_fixture() -> dict:
@@ -63,7 +81,23 @@ def build_fixture() -> dict:
     risk["sortino"][0] = 208.0                      # overnight-fund outlier
 
     tight = [0.5 + i * 0.0009 / 39 for i in range(40)]   # tight cluster -> gap floor fires
-    return {"peers": peers, "navs": navs, "risk": risk, "tight_scores": tight}
+
+    # A separate, longer series for the metrics engine. It has to span more than
+    # a year or the annualisation branches never run, and it carries one >25%
+    # day so the outlier cap fires here too. `searchsorted`, `expanding().max()`
+    # and `std(ddof=1)` are all places a pandas major could differ and error
+    # nowhere -- this is the only thing that would catch that.
+    metric_navs, level = [], 100.0
+    for i in range(900):
+        level *= math.exp(rnd.gauss(0.0004, 0.010))
+        if i == 400:
+            level *= 1.38
+        metric_navs.append(round(level, 6))
+
+    return {
+        "peers": peers, "navs": navs, "risk": risk, "tight_scores": tight,
+        "metric_navs": metric_navs,
+    }
 
 
 class _StubLogger:
@@ -83,7 +117,8 @@ def _lift(rel_path: str, names: set[str], into: dict) -> dict:
     return into
 
 
-def _shape_results(quality, quality_oos, mom, dd, risk_scores, cuts, tiers, t, grades, pd, np):
+def _shape_results(quality, quality_oos, mom, dd, risk_scores, cuts, tiers, t, grades, pd, np,
+                   metrics=None):
     return {
         "quality": [float(v) for v in quality],
         "quality_oos": [float(v) for v in quality_oos],
@@ -91,6 +126,7 @@ def _shape_results(quality, quality_oos, mom, dd, risk_scores, cuts, tiers, t, g
         "risk_scores": [float(v) for v in risk_scores],
         "risk_cutoffs": [float(v) for v in cuts], "risk_tiers": list(tiers),
         "grade_cutoffs": [float(v) for v in t], "grades": list(grades),
+        "metrics": metrics or {},
         "versions": {"pandas": pd.__version__, "numpy": np.__version__},
     }
 
@@ -102,7 +138,9 @@ def run_oracle(fx: dict) -> dict:
     ns = {"np": np, "pd": pd, "logger": _StubLogger(), "__name__": "oracle"}
     _lift("utils/helpers.py", {"nav_to_log_returns"}, ns)
     _lift("services/performance.py",
-          {"_cap_log_returns_for_metrics", "_MAX_DAILY_SIMPLE_FOR_METRICS"}, ns)
+          {"calculate_performance_metrics", "_cap_log_returns_for_metrics",
+           "_MAX_DAILY_SIMPLE_FOR_METRICS", "DEFAULT_RISK_FREE_RATE"}, ns)
+    ns.setdefault("DEFAULT_RISK_FREE_RATE", 0.04)
     _lift("scripts/fill_metrics.py",
           {"_minmax", "_hybrid", "_make_oos_hybrid", "_compute_quality", "_grade_cutoffs",
            "_grade_from_cutoffs", "compute_momentum_drawdown", "LOOKBACK", "WARMUP",
@@ -137,7 +175,14 @@ def run_oracle(fx: dict) -> dict:
     tight = np.array(fx["tight_scores"])
     t = ns["_grade_cutoffs"](tight)
     grades = [ns["_grade_from_cutoffs"](float(s), *t) for s in tight]
-    return _shape_results(quality, quality_oos, mom, dd, risk_scores, cuts, tiers, t, grades, pd, np)
+
+    m_dates = pd.bdate_range("2022-01-03", periods=len(fx["metric_navs"]))
+    m_nav = pd.Series(fx["metric_navs"], index=m_dates)
+    m_log = ns["nav_to_log_returns"](m_nav)
+    metrics = {k: float(v) for k, v in ns["calculate_performance_metrics"](m_log).items()}
+
+    return _shape_results(quality, quality_oos, mom, dd, risk_scores, cuts, tiers, t, grades,
+                          pd, np, metrics=metrics)
 
 
 def run_port(fx: dict) -> dict:
@@ -165,7 +210,19 @@ def run_port(fx: dict) -> dict:
     tight = np.array(fx["tight_scores"])
     t = b.grade_cutoffs(tight)
     grades = [b.grade_from_cutoffs(float(s), *t) for s in tight]
-    return _shape_results(quality, quality_oos, mom, dd, risk_scores, cuts, tiers, t, grades, pd, np)
+
+    from app.services.screener import metrics as met
+
+    m_dates = pd.bdate_range("2022-01-03", periods=len(fx["metric_navs"]))
+    rows = [(d.date(), v) for d, v in zip(m_dates, fx["metric_navs"])]
+    # `as_of` is pinned rather than taken from the clock, so this comparison is
+    # reproducible on any day. The window is wide enough to hold the whole
+    # series, because the point here is the arithmetic, not the cutoff.
+    computed = met.compute(rows, date(2026, 1, 1))
+    metrics = {their: float(getattr(computed, ours)) for ours, their in METRIC_FIELD_MAP.items()}
+
+    return _shape_results(quality, quality_oos, mom, dd, risk_scores, cuts, tiers, t, grades,
+                          pd, np, metrics=metrics)
 
 
 def compare(a: dict, bb: dict, tol: float = 1e-12) -> int:
@@ -184,12 +241,23 @@ def compare(a: dict, bb: dict, tol: float = 1e-12) -> int:
         worst = max(worst, d)
         if d > tol:
             failures.append(f"{key}: {a[key]!r} vs {bb[key]!r}  (delta {d:.3e})")
+    for key in sorted(set(a["metrics"]) | set(bb["metrics"])):
+        if key not in a["metrics"] or key not in bb["metrics"]:
+            failures.append(f"metrics.{key}: present on only one side")
+            continue
+        d = abs(a["metrics"][key] - bb["metrics"][key])
+        worst = max(worst, d)
+        if d > tol:
+            failures.append(
+                f"metrics.{key}: {a['metrics'][key]!r} vs {bb['metrics'][key]!r} (delta {d:.3e})"
+            )
     for key in ("risk_tiers", "grades"):
         if a[key] != bb[key]:
             n = sum(1 for x, y in zip(a[key], bb[key]) if x != y)
             failures.append(f"{key}: {n} label(s) differ")
 
-    n_vals = len(a["quality"]) + len(a["quality_oos"]) + len(a["risk_scores"]) + 2
+    n_vals = (len(a["quality"]) + len(a["quality_oos"]) + len(a["risk_scores"]) + 2
+              + len(a["metrics"]))
     print(f"compared {n_vals} numeric values + "
           f"{len(a['risk_tiers']) + len(a['grades'])} labels")
     print(f"largest absolute difference: {worst:.3e}   (tolerance {tol:.0e})")
