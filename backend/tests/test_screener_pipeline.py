@@ -141,8 +141,11 @@ def test_a_collapsed_universe_refuses_to_write(monkeypatch):
     # before patching, so the stub cannot recurse into itself.
     real_build = inputs_mod.build_inputs
 
-    def only_two(session, as_of, codes=None):
-        built = real_build(session, as_of, codes=codes)
+    # **kwargs so this stub survives a signature change on the real function --
+    # it grew an `open_ended` argument and this test broke on the keyword rather
+    # than on anything it was written to check.
+    def only_two(session, as_of, codes=None, **kwargs):
+        built = real_build(session, as_of, codes=codes, **kwargs)
         return inputs_mod.BuildResult(built.inputs[:2], [], built.metrics)
 
     monkeypatch.setattr(inputs_mod, "build_inputs", only_two)
