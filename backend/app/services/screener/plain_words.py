@@ -248,17 +248,43 @@ def valuation_sentence(page) -> str | None:
     )
 
 
+# Two figures within a tenth of each other are the same figure for a reader's
+# purposes. Without this band, HDFC Bank earning ₹14.4 against a sector's ₹15.0
+# was written up as "less profitable than its peers" -- a real ranking claim
+# resting on six-tenths of a rupee, and on a ROE this page derived rather than
+# read. `valuation_sentence` has carried its own band (0.75-1.3) from the start.
+_LEVEL_BAND = 0.10
+
+
 def quality_sentence(page) -> str | None:
     """Profitability against peers, which is the other half of "is it cheap"."""
     roe = next((r for r in page.ratios if r.key == "roe"), None)
     if roe is None or roe.value is None or not roe.sector_median:
         return None
-    verdict = "more" if roe.value > roe.sector_median else "less"
+    gap = (roe.value - roe.sector_median) / abs(roe.sector_median)
+    if abs(gap) <= _LEVEL_BAND:
+        verdict = "so it earns about what its peers do"
+    else:
+        verdict = f"so it is {'more' if gap > 0 else 'less'} profitable than its peers"
     return (
         f"For every ₹100 of what shareholders own, it earns about "
         f"₹{roe.value:.0f} a year. The middle company in its sector earns "
-        f"₹{roe.sector_median:.0f}, so it is {verdict} profitable than its peers."
+        f"₹{roe.sector_median:.0f}, {verdict}."
     )
+
+
+def dividend_sentence(page) -> str | None:
+    """Said out loud, because a blank cell does not distinguish "pays nothing"
+    from "we could not find out"."""
+    div = next((r for r in page.ratios if r.key == "div_yield"), None)
+    if div is None:
+        return None
+    if div.value is None:
+        return "No dividend is reported for this company, so the return would have to come from the price."
+    line = f"It pays {div.value:.2f}% a year as dividend"
+    if div.sector_median:
+        line += f", against {div.sector_median:.2f}% for the middle company in its sector"
+    return line + "."
 
 
 def size_sentence(page) -> str | None:

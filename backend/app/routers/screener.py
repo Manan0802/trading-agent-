@@ -665,6 +665,7 @@ def stock_page(
                 "valuation": plain_words.valuation_sentence(page),
                 "quality": plain_words.quality_sentence(page),
                 "size": plain_words.size_sentence(page),
+                "dividend": plain_words.dividend_sentence(page),
                 "score": plain_words.stock_score_sentence(
                     score.total if score else None,
                     score.bucket if score else None,

@@ -307,3 +307,47 @@ def test_the_history_cache_key_includes_the_period(monkeypatch):
     assert len(real_stock.get_price_history("X.NS", period="1y")) == 99
     assert len(real_stock.get_price_history("X.NS", period="3mo")) == 10
     assert calls == ["3mo", "1y"], f"refetched or cross-served: {calls}"
+
+
+# ------------------------------------------------- near-ties and blanks
+
+
+def test_a_near_tie_on_profitability_is_not_written_up_as_a_difference():
+    """HDFC Bank earning ₹14.4 against a sector's ₹15.0 was written up as "less
+    profitable than its peers" -- a ranking claim resting on six-tenths of a
+    rupee, off a ROE this page derived rather than read."""
+    import app.services.screener.stock_analysis_page as mod
+
+    r = mod._ratios(fundamentals(roe=0.144), {"median_pe": 20.0, "median_pb": 3.0,
+                                              "median_roe": 15.0, "median_div_yield": 1.0})
+    page = sp.build("X.NS", AS_OF, "1y")
+    s = pw.quality_sentence(page.__class__(**{**page.__dict__, "ratios": r}))
+    assert "earns about what its peers do" in s
+    assert "less profitable" not in s
+
+
+def test_a_real_gap_on_profitability_still_gets_named():
+    """The band must not silence everything."""
+    import app.services.screener.stock_analysis_page as mod
+
+    page = sp.build("X.NS", AS_OF, "1y")
+    for roe, word in ((0.30, "more profitable"), (0.05, "less profitable")):
+        r = mod._ratios(fundamentals(roe=roe), {"median_pe": 20.0, "median_pb": 3.0,
+                                                "median_roe": 15.0, "median_div_yield": 1.0})
+        s = pw.quality_sentence(page.__class__(**{**page.__dict__, "ratios": r}))
+        assert word in s, f"ROE {roe} produced: {s}"
+
+
+def test_a_company_that_pays_no_dividend_says_so():
+    """Seven of thirty real stocks in a sweep had no dividend yield. A blank
+    cell does not distinguish "pays nothing" from "we could not find out"."""
+    import app.services.screener.stock_analysis_page as mod
+
+    mod.stock_data.get_stock_fundamentals = lambda t: fundamentals(dividend_yield_pct=None)
+    s = pw.dividend_sentence(sp.build("X.NS", AS_OF, "1y"))
+    assert "No dividend is reported" in s
+
+
+def test_a_company_that_does_pay_gets_the_figure_and_its_peer_median():
+    s = pw.dividend_sentence(sp.build("X.NS", AS_OF, "1y"))
+    assert "1.20%" in s and "middle company" in s
