@@ -369,6 +369,57 @@ class RollingReturnsOut(BaseModel):
     positive_share: float | None
 
 
+class HorizonOut(BaseModel):
+    key: str
+    words: str
+    """How many overlapping monthly-start windows this rests on. They are NOT
+    independent — that is what a base rate is, and the count is shown so a
+    reader can see whether it rests on 200 stretches or 4,000."""
+    windows: int
+    """0 to 1. The share of those stretches that ended below where they began."""
+    loss_share: float
+    worst: float
+    p05: float
+    median: float
+    p95: float
+
+
+class BaseRateOut(BaseModel):
+    """What this KIND of fund has done before — the reference class.
+
+    Shown before the fund's own record, not beside it. A base rate presented
+    alongside a vivid individual case gets ignored in favour of the case
+    (Kahneman & Lovallo 1993); reference-class forecasting, which the UK
+    Treasury mandates for infrastructure costing, puts the class first.
+
+    Every ratio here is a FRACTION. `loss_share` 0.203 is 20.3% of stretches;
+    `worst_fall` -0.574 is a 57.4% drop.
+    """
+
+    category: str
+    sub_category: str
+    funds: int
+    """Counted, not dropped. Most published fund studies quietly exclude
+    wound-up schemes, which flatters every number in them."""
+    funds_wound_up: int
+    horizons: list[HorizonOut]
+    """Worst peak-to-trough fall, as a negative fraction. The thing a person
+    watches happen and sells into — milder annual figures describe something
+    nobody experiences directly."""
+    worst_fall: float | None
+    median_recovery_days: int | None
+    worst_recovery_days: int | None
+    never_recovered: int
+    """The shortest horizon at which under 2% of stretches lost money, or null
+    if none did. This is the finding: holding period decides, fund choice
+    does not."""
+    first_safe_horizon: str | None
+    """The worst fall applied to the reader's own money, when we know it."""
+    rupees_at_risk: float | None
+    as_of: str
+    plain: dict[str, str]
+
+
 class FundAnalysisOut(BaseModel):
     """One fund's charts. Every series is rebased to 100 at the window's start,
     so the fund and its peer median share one axis."""
@@ -398,6 +449,11 @@ class FundAnalysisOut(BaseModel):
     latest_nav: float | None
     latest_nav_date: date | None
     nav_points_available: int
+
+    """What this category has done to people before. Null when the category is
+    too thin (under 8 funds) to have an honest one — the class is never widened
+    to a broader one to fill the gap."""
+    base_rate: BaseRateOut | None
 
     rolling_1y: RollingReturnsOut
     cost: FundCostOut

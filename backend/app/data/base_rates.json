@@ -1,0 +1,2185 @@
+{
+ "as_of": "2026-08-20",
+ "categories": [
+  {
+   "category": "1099 Days",
+   "sub_category": "",
+   "funds": 135,
+   "funds_wound_up": 135,
+   "horizons": {
+    "1y": {
+     "windows": 3836,
+     "loss_share": 0.0315,
+     "worst": -0.1654,
+     "p05": 0.0336,
+     "median": 0.0871,
+     "p95": 0.1142
+    },
+    "3y": {
+     "windows": 597,
+     "loss_share": 0.0,
+     "worst": 0.0345,
+     "p05": 0.0758,
+     "median": 0.0871,
+     "p95": 0.0984
+    }
+   },
+   "worst_fall": -0.1954,
+   "median_recovery_days": 11,
+   "worst_recovery_days": 461,
+   "never_recovered": 5
+  },
+  {
+   "category": "1194 DAYS",
+   "sub_category": "",
+   "funds": 8,
+   "funds_wound_up": 8,
+   "horizons": {
+    "1y": {
+     "windows": 232,
+     "loss_share": 0.1767,
+     "worst": -0.2932,
+     "p05": -0.1095,
+     "median": 0.1417,
+     "p95": 0.4011
+    }
+   },
+   "worst_fall": -0.3428,
+   "median_recovery_days": 165,
+   "worst_recovery_days": 381,
+   "never_recovered": 1
+  },
+  {
+   "category": "19 months Plan",
+   "sub_category": "",
+   "funds": 24,
+   "funds_wound_up": 24,
+   "horizons": {
+    "1y": {
+     "windows": 298,
+     "loss_share": 0.0,
+     "worst": 0.0501,
+     "p05": 0.0521,
+     "median": 0.0731,
+     "p95": 0.1
+    }
+   },
+   "worst_fall": -0.0111,
+   "median_recovery_days": 7,
+   "worst_recovery_days": 50,
+   "never_recovered": 1
+  },
+  {
+   "category": "5 Year Plan",
+   "sub_category": "",
+   "funds": 12,
+   "funds_wound_up": 12,
+   "horizons": {
+    "1y": {
+     "windows": 347,
+     "loss_share": 0.0,
+     "worst": 0.0167,
+     "p05": 0.0337,
+     "median": 0.0728,
+     "p95": 0.1278
+    }
+   },
+   "worst_fall": -0.0179,
+   "median_recovery_days": 28,
+   "worst_recovery_days": 49,
+   "never_recovered": 0
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Banking and PSU Fund",
+   "funds": 26,
+   "funds_wound_up": 5,
+   "horizons": {
+    "1y": {
+     "windows": 2666,
+     "loss_share": 0.0015,
+     "worst": -0.0146,
+     "p05": 0.0313,
+     "median": 0.0777,
+     "p95": 0.1148
+    },
+    "3y": {
+     "windows": 2068,
+     "loss_share": 0.0,
+     "worst": 0.0357,
+     "p05": 0.0484,
+     "median": 0.0771,
+     "p95": 0.0969
+    },
+    "5y": {
+     "windows": 1531,
+     "loss_share": 0.0,
+     "worst": 0.0455,
+     "p05": 0.0592,
+     "median": 0.074,
+     "p95": 0.0901
+    },
+    "7y": {
+     "windows": 1097,
+     "loss_share": 0.0,
+     "worst": 0.058,
+     "p05": 0.0635,
+     "median": 0.0744,
+     "p95": 0.0899
+    },
+    "10y": {
+     "windows": 517,
+     "loss_share": 0.0,
+     "worst": 0.0649,
+     "p05": 0.0681,
+     "median": 0.0757,
+     "p95": 0.0819
+    }
+   },
+   "worst_fall": -0.0674,
+   "median_recovery_days": 28,
+   "worst_recovery_days": 283,
+   "never_recovered": 1
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Corporate Bond Fund",
+   "funds": 26,
+   "funds_wound_up": 6,
+   "horizons": {
+    "1y": {
+     "windows": 2470,
+     "loss_share": 0.0101,
+     "worst": -0.405,
+     "p05": 0.0268,
+     "median": 0.078,
+     "p95": 0.1193
+    },
+    "3y": {
+     "windows": 1855,
+     "loss_share": 0.0032,
+     "worst": -0.1189,
+     "p05": 0.0491,
+     "median": 0.0764,
+     "p95": 0.1011
+    },
+    "5y": {
+     "windows": 1299,
+     "loss_share": 0.0046,
+     "worst": -0.04,
+     "p05": 0.0595,
+     "median": 0.0728,
+     "p95": 0.0911
+    },
+    "7y": {
+     "windows": 844,
+     "loss_share": 0.0,
+     "worst": 0.0558,
+     "p05": 0.0661,
+     "median": 0.0754,
+     "p95": 0.0939
+    },
+    "10y": {
+     "windows": 349,
+     "loss_share": 0.0,
+     "worst": 0.068,
+     "p05": 0.0715,
+     "median": 0.0783,
+     "p95": 0.0836
+    }
+   },
+   "worst_fall": -0.4195,
+   "median_recovery_days": 65,
+   "worst_recovery_days": 259,
+   "never_recovered": 2
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Credit Risk Fund",
+   "funds": 19,
+   "funds_wound_up": 6,
+   "horizons": {
+    "1y": {
+     "windows": 2226,
+     "loss_share": 0.053,
+     "worst": -0.328,
+     "p05": -0.0024,
+     "median": 0.0846,
+     "p95": 0.1346
+    },
+    "3y": {
+     "windows": 1770,
+     "loss_share": 0.0305,
+     "worst": -0.0978,
+     "p05": 0.0265,
+     "median": 0.0804,
+     "p95": 0.1133
+    },
+    "5y": {
+     "windows": 1328,
+     "loss_share": 0.0377,
+     "worst": -0.0278,
+     "p05": 0.0261,
+     "median": 0.0758,
+     "p95": 0.1014
+    },
+    "7y": {
+     "windows": 922,
+     "loss_share": 0.0,
+     "worst": 0.0104,
+     "p05": 0.0187,
+     "median": 0.0746,
+     "p95": 0.0947
+    },
+    "10y": {
+     "windows": 387,
+     "loss_share": 0.0,
+     "worst": 0.0357,
+     "p05": 0.0402,
+     "median": 0.0803,
+     "p95": 0.09
+    }
+   },
+   "worst_fall": -0.3438,
+   "median_recovery_days": 208,
+   "worst_recovery_days": 1519,
+   "never_recovered": 1
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Dynamic Bond",
+   "funds": 29,
+   "funds_wound_up": 9,
+   "horizons": {
+    "1y": {
+     "windows": 3605,
+     "loss_share": 0.0178,
+     "worst": -0.0485,
+     "p05": 0.0125,
+     "median": 0.078,
+     "p95": 0.1466
+    },
+    "3y": {
+     "windows": 2909,
+     "loss_share": 0.0,
+     "worst": 0.014,
+     "p05": 0.0437,
+     "median": 0.0774,
+     "p95": 0.1175
+    },
+    "5y": {
+     "windows": 2219,
+     "loss_share": 0.0,
+     "worst": 0.0402,
+     "p05": 0.055,
+     "median": 0.0742,
+     "p95": 0.0993
+    },
+    "7y": {
+     "windows": 1547,
+     "loss_share": 0.0,
+     "worst": 0.0476,
+     "p05": 0.0607,
+     "median": 0.0758,
+     "p95": 0.0987
+    },
+    "10y": {
+     "windows": 671,
+     "loss_share": 0.0,
+     "worst": 0.0558,
+     "p05": 0.0662,
+     "median": 0.0779,
+     "p95": 0.0888
+    }
+   },
+   "worst_fall": -0.0914,
+   "median_recovery_days": 154,
+   "worst_recovery_days": 394,
+   "never_recovered": 0
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Floater Fund",
+   "funds": 14,
+   "funds_wound_up": 2,
+   "horizons": {
+    "1y": {
+     "windows": 1216,
+     "loss_share": 0.0,
+     "worst": 0.0218,
+     "p05": 0.0383,
+     "median": 0.0784,
+     "p95": 0.1008
+    },
+    "3y": {
+     "windows": 898,
+     "loss_share": 0.0,
+     "worst": 0.0498,
+     "p05": 0.055,
+     "median": 0.0759,
+     "p95": 0.0935
+    },
+    "5y": {
+     "windows": 606,
+     "loss_share": 0.0,
+     "worst": 0.0603,
+     "p05": 0.0628,
+     "median": 0.0716,
+     "p95": 0.0874
+    },
+    "7y": {
+     "windows": 412,
+     "loss_share": 0.0,
+     "worst": 0.0632,
+     "p05": 0.065,
+     "median": 0.0736,
+     "p95": 0.089
+    },
+    "10y": {
+     "windows": 217,
+     "loss_share": 0.0,
+     "worst": 0.0672,
+     "p05": 0.0677,
+     "median": 0.0766,
+     "p95": 0.0816
+    }
+   },
+   "worst_fall": -0.4843,
+   "median_recovery_days": 8,
+   "worst_recovery_days": 57,
+   "never_recovered": 1
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Gilt Fund",
+   "funds": 28,
+   "funds_wound_up": 4,
+   "horizons": {
+    "1y": {
+     "windows": 3264,
+     "loss_share": 0.0463,
+     "worst": -0.0525,
+     "p05": 0.0014,
+     "median": 0.0777,
+     "p95": 0.1702
+    },
+    "3y": {
+     "windows": 2628,
+     "loss_share": 0.0,
+     "worst": 0.034,
+     "p05": 0.0468,
+     "median": 0.0779,
+     "p95": 0.1305
+    },
+    "5y": {
+     "windows": 2044,
+     "loss_share": 0.0,
+     "worst": 0.0433,
+     "p05": 0.0548,
+     "median": 0.0783,
+     "p95": 0.1052
+    },
+    "7y": {
+     "windows": 1507,
+     "loss_share": 0.0,
+     "worst": 0.0428,
+     "p05": 0.0615,
+     "median": 0.0798,
+     "p95": 0.1067
+    },
+    "10y": {
+     "windows": 754,
+     "loss_share": 0.0,
+     "worst": 0.0574,
+     "p05": 0.0682,
+     "median": 0.0808,
+     "p95": 0.0942
+    }
+   },
+   "worst_fall": -0.1335,
+   "median_recovery_days": 275,
+   "worst_recovery_days": 395,
+   "never_recovered": 1
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Liquid Fund",
+   "funds": 49,
+   "funds_wound_up": 9,
+   "horizons": {
+    "1y": {
+     "windows": 5395,
+     "loss_share": 0.0059,
+     "worst": -0.9895,
+     "p05": 0.031,
+     "median": 0.069,
+     "p95": 0.0936
+    },
+    "3y": {
+     "windows": 4303,
+     "loss_share": 0.0091,
+     "worst": -0.7761,
+     "p05": 0.0379,
+     "median": 0.0668,
+     "p95": 0.0889
+    },
+    "5y": {
+     "windows": 3272,
+     "loss_share": 0.0147,
+     "worst": -0.5819,
+     "p05": 0.0484,
+     "median": 0.0584,
+     "p95": 0.0821
+    },
+    "7y": {
+     "windows": 2329,
+     "loss_share": 0.0206,
+     "worst": -0.4541,
+     "p05": 0.0533,
+     "median": 0.0589,
+     "p95": 0.0794
+    },
+    "10y": {
+     "windows": 1181,
+     "loss_share": 0.0195,
+     "worst": -0.3315,
+     "p05": 0.0585,
+     "median": 0.0642,
+     "p95": 0.0777
+    }
+   },
+   "worst_fall": -0.99,
+   "median_recovery_days": 5,
+   "worst_recovery_days": 2951,
+   "never_recovered": 1
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Long Duration Fund",
+   "funds": 11,
+   "funds_wound_up": 0,
+   "horizons": {
+    "1y": {
+     "windows": 457,
+     "loss_share": 0.0897,
+     "worst": -0.0432,
+     "p05": -0.0156,
+     "median": 0.0723,
+     "p95": 0.1574
+    },
+    "3y": {
+     "windows": 235,
+     "loss_share": 0.0,
+     "worst": 0.0295,
+     "p05": 0.0399,
+     "median": 0.0751,
+     "p95": 0.124
+    }
+   },
+   "worst_fall": -0.1203,
+   "median_recovery_days": 89,
+   "worst_recovery_days": 296,
+   "never_recovered": 0
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Low Duration Fund",
+   "funds": 31,
+   "funds_wound_up": 9,
+   "horizons": {
+    "1y": {
+     "windows": 3377,
+     "loss_share": 0.0364,
+     "worst": -0.4723,
+     "p05": 0.0343,
+     "median": 0.0773,
+     "p95": 0.0994
+    },
+    "3y": {
+     "windows": 2670,
+     "loss_share": 0.0202,
+     "worst": -0.1567,
+     "p05": 0.0317,
+     "median": 0.0752,
+     "p95": 0.094
+    },
+    "5y": {
+     "windows": 2005,
+     "loss_share": 0.012,
+     "worst": -0.0643,
+     "p05": 0.042,
+     "median": 0.0674,
+     "p95": 0.0879
+    },
+    "7y": {
+     "windows": 1405,
+     "loss_share": 0.0028,
+     "worst": -0.021,
+     "p05": 0.0545,
+     "median": 0.069,
+     "p95": 0.085
+    },
+    "10y": {
+     "windows": 609,
+     "loss_share": 0.0,
+     "worst": 0.0609,
+     "p05": 0.0644,
+     "median": 0.0715,
+     "p95": 0.0774
+    }
+   },
+   "worst_fall": -0.4758,
+   "median_recovery_days": 14,
+   "worst_recovery_days": 1251,
+   "never_recovered": 3
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Medium Duration Fund",
+   "funds": 21,
+   "funds_wound_up": 8,
+   "horizons": {
+    "1y": {
+     "windows": 2238,
+     "loss_share": 0.0313,
+     "worst": -0.2806,
+     "p05": 0.0189,
+     "median": 0.0798,
+     "p95": 0.1318
+    },
+    "3y": {
+     "windows": 1739,
+     "loss_share": 0.0207,
+     "worst": -0.0816,
+     "p05": 0.0315,
+     "median": 0.0785,
+     "p95": 0.113
+    },
+    "5y": {
+     "windows": 1300,
+     "loss_share": 0.0315,
+     "worst": -0.0148,
+     "p05": 0.0376,
+     "median": 0.0757,
+     "p95": 0.1026
+    },
+    "7y": {
+     "windows": 914,
+     "loss_share": 0.0,
+     "worst": 0.0137,
+     "p05": 0.0242,
+     "median": 0.0762,
+     "p95": 0.0969
+    },
+    "10y": {
+     "windows": 426,
+     "loss_share": 0.0,
+     "worst": 0.0384,
+     "p05": 0.043,
+     "median": 0.0807,
+     "p95": 0.094
+    }
+   },
+   "worst_fall": -0.5464,
+   "median_recovery_days": 171,
+   "worst_recovery_days": 1589,
+   "never_recovered": 1
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Medium to Long Duration Fund",
+   "funds": 16,
+   "funds_wound_up": 2,
+   "horizons": {
+    "1y": {
+     "windows": 2154,
+     "loss_share": 0.0306,
+     "worst": -0.1363,
+     "p05": 0.0066,
+     "median": 0.0756,
+     "p95": 0.1512
+    },
+    "3y": {
+     "windows": 1782,
+     "loss_share": 0.009,
+     "worst": -0.0124,
+     "p05": 0.0316,
+     "median": 0.0756,
+     "p95": 0.1167
+    },
+    "5y": {
+     "windows": 1422,
+     "loss_share": 0.0,
+     "worst": 0.0232,
+     "p05": 0.0391,
+     "median": 0.0735,
+     "p95": 0.0957
+    },
+    "7y": {
+     "windows": 1073,
+     "loss_share": 0.0,
+     "worst": 0.034,
+     "p05": 0.0466,
+     "median": 0.0741,
+     "p95": 0.0956
+    },
+    "10y": {
+     "windows": 572,
+     "loss_share": 0.0,
+     "worst": 0.0464,
+     "p05": 0.0525,
+     "median": 0.0757,
+     "p95": 0.0855
+    }
+   },
+   "worst_fall": -0.1537,
+   "median_recovery_days": 268,
+   "worst_recovery_days": 548,
+   "never_recovered": 0
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Money Market Fund",
+   "funds": 27,
+   "funds_wound_up": 4,
+   "horizons": {
+    "1y": {
+     "windows": 2545,
+     "loss_share": 0.0039,
+     "worst": -0.2752,
+     "p05": 0.0374,
+     "median": 0.0743,
+     "p95": 0.0953
+    },
+    "3y": {
+     "windows": 1926,
+     "loss_share": 0.0042,
+     "worst": -0.0494,
+     "p05": 0.0479,
+     "median": 0.073,
+     "p95": 0.0921
+    },
+    "5y": {
+     "windows": 1407,
+     "loss_share": 0.0,
+     "worst": 0.0022,
+     "p05": 0.0566,
+     "median": 0.0639,
+     "p95": 0.0865
+    },
+    "7y": {
+     "windows": 980,
+     "loss_share": 0.0,
+     "worst": 0.0247,
+     "p05": 0.0577,
+     "median": 0.0663,
+     "p95": 0.0855
+    },
+    "10y": {
+     "windows": 485,
+     "loss_share": 0.0,
+     "worst": 0.0602,
+     "p05": 0.0626,
+     "median": 0.0695,
+     "p95": 0.6958
+    }
+   },
+   "worst_fall": -0.3857,
+   "median_recovery_days": 3,
+   "worst_recovery_days": 1759,
+   "never_recovered": 0
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Overnight Fund",
+   "funds": 42,
+   "funds_wound_up": 4,
+   "horizons": {
+    "1y": {
+     "windows": 2743,
+     "loss_share": 0.0051,
+     "worst": -0.3474,
+     "p05": 0.0307,
+     "median": 0.0572,
+     "p95": 0.0796
+    },
+    "3y": {
+     "windows": 1817,
+     "loss_share": 0.0083,
+     "worst": -0.0889,
+     "p05": 0.0367,
+     "median": 0.0582,
+     "p95": 1.2693
+    },
+    "5y": {
+     "windows": 1036,
+     "loss_share": 0.0125,
+     "worst": -0.0308,
+     "p05": 0.0469,
+     "median": 0.0525,
+     "p95": 1.6703
+    },
+    "7y": {
+     "windows": 376,
+     "loss_share": 0.0346,
+     "worst": -0.0104,
+     "p05": 0.0504,
+     "median": 0.0519,
+     "p95": 1.0578
+    }
+   },
+   "worst_fall": -0.3999,
+   "median_recovery_days": 3,
+   "worst_recovery_days": 41,
+   "never_recovered": 2
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Short Duration Fund",
+   "funds": 35,
+   "funds_wound_up": 12,
+   "horizons": {
+    "1y": {
+     "windows": 3743,
+     "loss_share": 0.0243,
+     "worst": -0.1936,
+     "p05": 0.0266,
+     "median": 0.0806,
+     "p95": 0.1129
+    },
+    "3y": {
+     "windows": 2920,
+     "loss_share": 0.0092,
+     "worst": -0.0368,
+     "p05": 0.0412,
+     "median": 0.0782,
+     "p95": 0.1021
+    },
+    "5y": {
+     "windows": 2148,
+     "loss_share": 0.0,
+     "worst": 0.0032,
+     "p05": 0.0487,
+     "median": 0.0733,
+     "p95": 0.0921
+    },
+    "7y": {
+     "windows": 1486,
+     "loss_share": 0.0,
+     "worst": 0.0305,
+     "p05": 0.0538,
+     "median": 0.0734,
+     "p95": 0.0914
+    },
+    "10y": {
+     "windows": 687,
+     "loss_share": 0.0,
+     "worst": 0.0583,
+     "p05": 0.0646,
+     "median": 0.0759,
+     "p95": 0.0843
+    }
+   },
+   "worst_fall": -0.3631,
+   "median_recovery_days": 46,
+   "worst_recovery_days": 706,
+   "never_recovered": 0
+  },
+  {
+   "category": "Debt Scheme",
+   "sub_category": "Ultra Short Duration Fund",
+   "funds": 31,
+   "funds_wound_up": 8,
+   "horizons": {
+    "1y": {
+     "windows": 3095,
+     "loss_share": 0.0074,
+     "worst": -0.0797,
+     "p05": 0.0357,
+     "median": 0.073,
+     "p95": 0.0993
+    },
+    "3y": {
+     "windows": 2367,
+     "loss_share": 0.0004,
+     "worst": -0.0002,
+     "p05": 0.0446,
+     "median": 0.0706,
+     "p95": 0.0954
+    },
+    "5y": {
+     "windows": 1675,
+     "loss_share": 0.0,
+     "worst": 0.0183,
+     "p05": 0.0521,
+     "median": 0.0644,
+     "p95": 0.0907
+    },
+    "7y": {
+     "windows": 1023,
+     "loss_share": 0.0,
+     "worst": 0.031,
+     "p05": 0.04,
+     "median": 0.0674,
+     "p95": 0.0885
+    },
+    "10y": {
+     "windows": 401,
+     "loss_share": 0.0,
+     "worst": 0.041,
+     "p05": 0.0425,
+     "median": 0.0696,
+     "p95": 0.0814
+    }
+   },
+   "worst_fall": -0.3029,
+   "median_recovery_days": 13,
+   "worst_recovery_days": 1001,
+   "never_recovered": 0
+  },
+  {
+   "category": "ELSS",
+   "sub_category": "",
+   "funds": 21,
+   "funds_wound_up": 9,
+   "horizons": {
+    "1y": {
+     "windows": 1650,
+     "loss_share": 0.2418,
+     "worst": -0.4517,
+     "p05": -0.2003,
+     "median": 0.1249,
+     "p95": 0.808
+    },
+    "3y": {
+     "windows": 1146,
+     "loss_share": 0.075,
+     "worst": -0.1871,
+     "p05": -0.041,
+     "median": 0.2082,
+     "p95": 0.4028
+    },
+    "5y": {
+     "windows": 665,
+     "loss_share": 0.003,
+     "worst": -0.0122,
+     "p05": 0.0841,
+     "median": 0.2213,
+     "p95": 0.3285
+    },
+    "7y": {
+     "windows": 265,
+     "loss_share": 0.0,
+     "worst": 0.0651,
+     "p05": 0.1182,
+     "median": 0.1713,
+     "p95": 0.217
+    }
+   },
+   "worst_fall": -0.6128,
+   "median_recovery_days": 250,
+   "worst_recovery_days": 448,
+   "never_recovered": 1
+  },
+  {
+   "category": "Equity Scheme",
+   "sub_category": "ELSS",
+   "funds": 47,
+   "funds_wound_up": 7,
+   "horizons": {
+    "1y": {
+     "windows": 5138,
+     "loss_share": 0.1853,
+     "worst": -0.3504,
+     "p05": -0.0923,
+     "median": 0.1246,
+     "p95": 0.5993
+    },
+    "3y": {
+     "windows": 4027,
+     "loss_share": 0.0261,
+     "worst": -0.1393,
+     "p05": 0.0323,
+     "median": 0.1598,
+     "p95": 0.2735
+    },
+    "5y": {
+     "windows": 3069,
+     "loss_share": 0.0039,
+     "worst": -0.0498,
+     "p05": 0.0591,
+     "median": 0.1544,
+     "p95": 0.2529
+    },
+    "7y": {
+     "windows": 2206,
+     "loss_share": 0.0,
+     "worst": 0.0586,
+     "p05": 0.1008,
+     "median": 0.1456,
+     "p95": 0.1988
+    },
+    "10y": {
+     "windows": 1080,
+     "loss_share": 0.0,
+     "worst": 0.0648,
+     "p05": 0.1189,
+     "median": 0.1529,
+     "p95": 0.202
+    }
+   },
+   "worst_fall": -0.5186,
+   "median_recovery_days": 233,
+   "worst_recovery_days": 475,
+   "never_recovered": 2
+  },
+  {
+   "category": "Equity Scheme",
+   "sub_category": "Flexi Cap Fund",
+   "funds": 38,
+   "funds_wound_up": 0,
+   "horizons": {
+    "1y": {
+     "windows": 3677,
+     "loss_share": 0.1811,
+     "worst": -0.327,
+     "p05": -0.0832,
+     "median": 0.12,
+     "p95": 0.5966
+    },
+    "3y": {
+     "windows": 2774,
+     "loss_share": 0.0209,
+     "worst": -0.0933,
+     "p05": 0.0355,
+     "median": 0.1619,
+     "p95": 0.2835
+    },
+    "5y": {
+     "windows": 2057,
+     "loss_share": 0.0039,
+     "worst": -0.0299,
+     "p05": 0.0581,
+     "median": 0.1565,
+     "p95": 0.2509
+    },
+    "7y": {
+     "windows": 1488,
+     "loss_share": 0.0,
+     "worst": 0.0493,
+     "p05": 0.0924,
+     "median": 0.1476,
+     "p95": 0.2046
+    },
+    "10y": {
+     "windows": 747,
+     "loss_share": 0.0,
+     "worst": 0.0735,
+     "p05": 0.103,
+     "median": 0.1538,
+     "p95": 0.2022
+    }
+   },
+   "worst_fall": -0.4184,
+   "median_recovery_days": 232,
+   "worst_recovery_days": 518,
+   "never_recovered": 3
+  },
+  {
+   "category": "Equity Scheme",
+   "sub_category": "Focused Fund",
+   "funds": 31,
+   "funds_wound_up": 4,
+   "horizons": {
+    "1y": {
+     "windows": 2932,
+     "loss_share": 0.1733,
+     "worst": -0.3251,
+     "p05": -0.0801,
+     "median": 0.1287,
+     "p95": 0.593
+    },
+    "3y": {
+     "windows": 2192,
+     "loss_share": 0.0192,
+     "worst": -0.098,
+     "p05": 0.0477,
+     "median": 0.1606,
+     "p95": 0.2757
+    },
+    "5y": {
+     "windows": 1552,
+     "loss_share": 0.0013,
+     "worst": -0.009,
+     "p05": 0.0651,
+     "median": 0.1553,
+     "p95": 0.25
+    },
+    "7y": {
+     "windows": 1070,
+     "loss_share": 0.0,
+     "worst": 0.0638,
+     "p05": 0.1062,
+     "median": 0.146,
+     "p95": 0.1921
+    },
+    "10y": {
+     "windows": 547,
+     "loss_share": 0.0,
+     "worst": 0.091,
+     "p05": 0.1227,
+     "median": 0.1537,
+     "p95": 0.1988
+    }
+   },
+   "worst_fall": -0.4563,
+   "median_recovery_days": 231,
+   "worst_recovery_days": 425,
+   "never_recovered": 3
+  },
+  {
+   "category": "Equity Scheme",
+   "sub_category": "Large & Mid Cap Fund",
+   "funds": 33,
+   "funds_wound_up": 2,
+   "horizons": {
+    "1y": {
+     "windows": 3629,
+     "loss_share": 0.1626,
+     "worst": -0.347,
+     "p05": -0.0815,
+     "median": 0.1328,
+     "p95": 0.6493
+    },
+    "3y": {
+     "windows": 2876,
+     "loss_share": 0.0285,
+     "worst": -0.1001,
+     "p05": 0.0305,
+     "median": 0.179,
+     "p95": 0.2968
+    },
+    "5y": {
+     "windows": 2204,
+     "loss_share": 0.0045,
+     "worst": -0.032,
+     "p05": 0.0654,
+     "median": 0.1653,
+     "p95": 0.2744
+    },
+    "7y": {
+     "windows": 1552,
+     "loss_share": 0.0,
+     "worst": 0.0534,
+     "p05": 0.1072,
+     "median": 0.1573,
+     "p95": 0.1995
+    },
+    "10y": {
+     "windows": 759,
+     "loss_share": 0.0,
+     "worst": 0.1066,
+     "p05": 0.1289,
+     "median": 0.1632,
+     "p95": 0.224
+    }
+   },
+   "worst_fall": -0.4568,
+   "median_recovery_days": 239,
+   "worst_recovery_days": 1723,
+   "never_recovered": 0
+  },
+  {
+   "category": "Equity Scheme",
+   "sub_category": "Large Cap Fund",
+   "funds": 37,
+   "funds_wound_up": 5,
+   "horizons": {
+    "1y": {
+     "windows": 4245,
+     "loss_share": 0.1696,
+     "worst": -0.3172,
+     "p05": -0.069,
+     "median": 0.1138,
+     "p95": 0.5229
+    },
+    "3y": {
+     "windows": 3391,
+     "loss_share": 0.0186,
+     "worst": -0.0722,
+     "p05": 0.0397,
+     "median": 0.1427,
+     "p95": 0.2258
+    },
+    "5y": {
+     "windows": 2607,
+     "loss_share": 0.0015,
+     "worst": -0.0164,
+     "p05": 0.0597,
+     "median": 0.1394,
+     "p95": 0.2094
+    },
+    "7y": {
+     "windows": 1913,
+     "loss_share": 0.0,
+     "worst": 0.0515,
+     "p05": 0.0958,
+     "median": 0.1342,
+     "p95": 0.1667
+    },
+    "10y": {
+     "windows": 937,
+     "loss_share": 0.0,
+     "worst": 0.0811,
+     "p05": 0.1117,
+     "median": 0.1403,
+     "p95": 0.1691
+    }
+   },
+   "worst_fall": -0.4081,
+   "median_recovery_days": 231,
+   "worst_recovery_days": 489,
+   "never_recovered": 4
+  },
+  {
+   "category": "Equity Scheme",
+   "sub_category": "Mid Cap Fund",
+   "funds": 35,
+   "funds_wound_up": 5,
+   "horizons": {
+    "1y": {
+     "windows": 3583,
+     "loss_share": 0.1677,
+     "worst": -0.3427,
+     "p05": -0.1055,
+     "median": 0.1549,
+     "p95": 0.791
+    },
+    "3y": {
+     "windows": 2772,
+     "loss_share": 0.0379,
+     "worst": -0.1155,
+     "p05": 0.0118,
+     "median": 0.2051,
+     "p95": 0.3604
+    },
+    "5y": {
+     "windows": 2074,
+     "loss_share": 0.0043,
+     "worst": -0.0271,
+     "p05": 0.0581,
+     "median": 0.1821,
+     "p95": 0.3153
+    },
+    "7y": {
+     "windows": 1480,
+     "loss_share": 0.0,
+     "worst": 0.0124,
+     "p05": 0.1237,
+     "median": 0.1749,
+     "p95": 0.229
+    },
+    "10y": {
+     "windows": 724,
+     "loss_share": 0.0,
+     "worst": 0.1276,
+     "p05": 0.148,
+     "median": 0.1865,
+     "p95": 0.2306
+    }
+   },
+   "worst_fall": -0.4508,
+   "median_recovery_days": 235,
+   "worst_recovery_days": 483,
+   "never_recovered": 0
+  },
+  {
+   "category": "Equity Scheme",
+   "sub_category": "Multi Cap Fund",
+   "funds": 36,
+   "funds_wound_up": 6,
+   "horizons": {
+    "1y": {
+     "windows": 1976,
+     "loss_share": 0.1721,
+     "worst": -0.35,
+     "p05": -0.081,
+     "median": 0.1151,
+     "p95": 0.6271
+    },
+    "3y": {
+     "windows": 1222,
+     "loss_share": 0.0327,
+     "worst": -0.1226,
+     "p05": 0.0113,
+     "median": 0.1699,
+     "p95": 0.299
+    },
+    "5y": {
+     "windows": 770,
+     "loss_share": 0.0117,
+     "worst": -0.041,
+     "p05": 0.0369,
+     "median": 0.1557,
+     "p95": 0.2777
+    },
+    "7y": {
+     "windows": 514,
+     "loss_share": 0.0,
+     "worst": 0.0434,
+     "p05": 0.0888,
+     "median": 0.1546,
+     "p95": 0.2121
+    },
+    "10y": {
+     "windows": 220,
+     "loss_share": 0.0,
+     "worst": 0.1256,
+     "p05": 0.1435,
+     "median": 0.1676,
+     "p95": 0.2262
+    }
+   },
+   "worst_fall": -0.4275,
+   "median_recovery_days": 233,
+   "worst_recovery_days": 518,
+   "never_recovered": 3
+  },
+  {
+   "category": "Equity Scheme",
+   "sub_category": "Sectoral/ Thematic",
+   "funds": 212,
+   "funds_wound_up": 4,
+   "horizons": {
+    "1y": {
+     "windows": 14171,
+     "loss_share": 0.2159,
+     "worst": -0.4739,
+     "p05": -0.1241,
+     "median": 0.1252,
+     "p95": 0.6553
+    },
+    "3y": {
+     "windows": 9923,
+     "loss_share": 0.0463,
+     "worst": -0.2183,
+     "p05": 0.0055,
+     "median": 0.1659,
+     "p95": 0.3368
+    },
+    "5y": {
+     "windows": 7271,
+     "loss_share": 0.0144,
+     "worst": -0.1164,
+     "p05": 0.0397,
+     "median": 0.1514,
+     "p95": 0.2985
+    },
+    "7y": {
+     "windows": 5176,
+     "loss_share": 0.0006,
+     "worst": -0.0031,
+     "p05": 0.0785,
+     "median": 0.148,
+     "p95": 0.2205
+    },
+    "10y": {
+     "windows": 2596,
+     "loss_share": 0.0,
+     "worst": 0.0526,
+     "p05": 0.1011,
+     "median": 0.1594,
+     "p95": 0.2048
+    }
+   },
+   "worst_fall": -0.7389,
+   "median_recovery_days": 255,
+   "worst_recovery_days": 1074,
+   "never_recovered": 46
+  },
+  {
+   "category": "Equity Scheme",
+   "sub_category": "Small Cap Fund",
+   "funds": 34,
+   "funds_wound_up": 4,
+   "horizons": {
+    "1y": {
+     "windows": 2882,
+     "loss_share": 0.2026,
+     "worst": -0.4328,
+     "p05": -0.1391,
+     "median": 0.152,
+     "p95": 0.9786
+    },
+    "3y": {
+     "windows": 2117,
+     "loss_share": 0.0609,
+     "worst": -0.1657,
+     "p05": -0.0159,
+     "median": 0.2235,
+     "p95": 0.4193
+    },
+    "5y": {
+     "windows": 1520,
+     "loss_share": 0.0178,
+     "worst": -0.0552,
+     "p05": 0.0453,
+     "median": 0.2041,
+     "p95": 0.3638
+    },
+    "7y": {
+     "windows": 1002,
+     "loss_share": 0.002,
+     "worst": -0.0166,
+     "p05": 0.1186,
+     "median": 0.1908,
+     "p95": 0.258
+    },
+    "10y": {
+     "windows": 473,
+     "loss_share": 0.0,
+     "worst": 0.1204,
+     "p05": 0.1452,
+     "median": 0.1929,
+     "p95": 0.2658
+    }
+   },
+   "worst_fall": -0.5741,
+   "median_recovery_days": 275,
+   "worst_recovery_days": 533,
+   "never_recovered": 0
+  },
+  {
+   "category": "Equity Scheme",
+   "sub_category": "Value Fund",
+   "funds": 24,
+   "funds_wound_up": 2,
+   "horizons": {
+    "1y": {
+     "windows": 2451,
+     "loss_share": 0.195,
+     "worst": -0.4807,
+     "p05": -0.1125,
+     "median": 0.1263,
+     "p95": 0.6616
+    },
+    "3y": {
+     "windows": 1893,
+     "loss_share": 0.0502,
+     "worst": -0.1438,
+     "p05": -0.0,
+     "median": 0.1772,
+     "p95": 0.3037
+    },
+    "5y": {
+     "windows": 1401,
+     "loss_share": 0.0064,
+     "worst": -0.0332,
+     "p05": 0.0476,
+     "median": 0.1536,
+     "p95": 0.2727
+    },
+    "7y": {
+     "windows": 1053,
+     "loss_share": 0.0,
+     "worst": 0.0494,
+     "p05": 0.1018,
+     "median": 0.1445,
+     "p95": 0.1924
+    },
+    "10y": {
+     "windows": 577,
+     "loss_share": 0.0,
+     "worst": 0.0651,
+     "p05": 0.1164,
+     "median": 0.1545,
+     "p95": 0.2044
+    }
+   },
+   "worst_fall": -0.5748,
+   "median_recovery_days": 246,
+   "worst_recovery_days": 477,
+   "never_recovered": 2
+  },
+  {
+   "category": "Formerly Known as IIFL Mutual Fund",
+   "sub_category": "",
+   "funds": 10,
+   "funds_wound_up": 10,
+   "horizons": {
+    "1y": {
+     "windows": 797,
+     "loss_share": 0.1895,
+     "worst": -0.3056,
+     "p05": -0.0983,
+     "median": 0.0756,
+     "p95": 0.5374
+    },
+    "3y": {
+     "windows": 557,
+     "loss_share": 0.0287,
+     "worst": -0.0652,
+     "p05": 0.0,
+     "median": 0.0964,
+     "p95": 0.2276
+    },
+    "5y": {
+     "windows": 326,
+     "loss_share": 0.0184,
+     "worst": -0.0238,
+     "p05": 0.0296,
+     "median": 0.0871,
+     "p95": 0.1571
+    }
+   },
+   "worst_fall": -0.6088,
+   "median_recovery_days": 246,
+   "worst_recovery_days": 332,
+   "never_recovered": 2
+  },
+  {
+   "category": "Growth",
+   "sub_category": "",
+   "funds": 104,
+   "funds_wound_up": 104,
+   "horizons": {
+    "1y": {
+     "windows": 4322,
+     "loss_share": 0.3154,
+     "worst": -0.4662,
+     "p05": -0.2121,
+     "median": 0.0834,
+     "p95": 0.6965
+    },
+    "3y": {
+     "windows": 1843,
+     "loss_share": 0.0944,
+     "worst": -0.1975,
+     "p05": -0.0546,
+     "median": 0.1302,
+     "p95": 0.3098
+    },
+    "5y": {
+     "windows": 357,
+     "loss_share": 0.0028,
+     "worst": -0.0032,
+     "p05": 0.0465,
+     "median": 0.1354,
+     "p95": 0.2521
+    }
+   },
+   "worst_fall": -0.6104,
+   "median_recovery_days": 235,
+   "worst_recovery_days": 497,
+   "never_recovered": 31
+  },
+  {
+   "category": "Half Yearly Dividend",
+   "sub_category": "",
+   "funds": 9,
+   "funds_wound_up": 9,
+   "horizons": {
+    "1y": {
+     "windows": 323,
+     "loss_share": 0.0,
+     "worst": 0.0088,
+     "p05": 0.0681,
+     "median": 0.0863,
+     "p95": 0.122
+    }
+   },
+   "worst_fall": -0.0788,
+   "median_recovery_days": 43,
+   "worst_recovery_days": 208,
+   "never_recovered": 0
+  },
+  {
+   "category": "Hybrid Scheme",
+   "sub_category": "Aggressive Hybrid Fund",
+   "funds": 35,
+   "funds_wound_up": 7,
+   "horizons": {
+    "1y": {
+     "windows": 3877,
+     "loss_share": 0.1416,
+     "worst": -0.3572,
+     "p05": -0.0581,
+     "median": 0.1124,
+     "p95": 0.4822
+    },
+    "3y": {
+     "windows": 3037,
+     "loss_share": 0.0211,
+     "worst": -0.0959,
+     "p05": 0.0331,
+     "median": 0.1401,
+     "p95": 0.2402
+    },
+    "5y": {
+     "windows": 2231,
+     "loss_share": 0.0022,
+     "worst": -0.0239,
+     "p05": 0.0583,
+     "median": 0.1337,
+     "p95": 0.218
+    },
+    "7y": {
+     "windows": 1547,
+     "loss_share": 0.0,
+     "worst": 0.0558,
+     "p05": 0.0923,
+     "median": 0.1288,
+     "p95": 0.1782
+    },
+    "10y": {
+     "windows": 693,
+     "loss_share": 0.0,
+     "worst": 0.0758,
+     "p05": 0.1025,
+     "median": 0.1373,
+     "p95": 0.1759
+    }
+   },
+   "worst_fall": -0.4235,
+   "median_recovery_days": 227,
+   "worst_recovery_days": 325,
+   "never_recovered": 0
+  },
+  {
+   "category": "Hybrid Scheme",
+   "sub_category": "Arbitrage Fund",
+   "funds": 38,
+   "funds_wound_up": 6,
+   "horizons": {
+    "1y": {
+     "windows": 3077,
+     "loss_share": 0.0032,
+     "worst": -0.0099,
+     "p05": 0.0364,
+     "median": 0.0676,
+     "p95": 0.0868
+    },
+    "3y": {
+     "windows": 2254,
+     "loss_share": 0.0,
+     "worst": 0.0169,
+     "p05": 0.0425,
+     "median": 0.0654,
+     "p95": 0.0796
+    },
+    "5y": {
+     "windows": 1593,
+     "loss_share": 0.0,
+     "worst": 0.0308,
+     "p05": 0.0494,
+     "median": 0.0606,
+     "p95": 0.0751
+    },
+    "7y": {
+     "windows": 1048,
+     "loss_share": 0.0,
+     "worst": 0.05,
+     "p05": 0.053,
+     "median": 0.0616,
+     "p95": 0.0728
+    },
+    "10y": {
+     "windows": 481,
+     "loss_share": 0.0,
+     "worst": 0.0565,
+     "p05": 0.0585,
+     "median": 0.065,
+     "p95": 0.0676
+    }
+   },
+   "worst_fall": -0.0528,
+   "median_recovery_days": 26,
+   "worst_recovery_days": 463,
+   "never_recovered": 13
+  },
+  {
+   "category": "Hybrid Scheme",
+   "sub_category": "Conservative Hybrid Fund",
+   "funds": 24,
+   "funds_wound_up": 7,
+   "horizons": {
+    "1y": {
+     "windows": 2961,
+     "loss_share": 0.0287,
+     "worst": -0.1596,
+     "p05": 0.013,
+     "median": 0.0903,
+     "p95": 0.2055
+    },
+    "3y": {
+     "windows": 2385,
+     "loss_share": 0.0038,
+     "worst": -0.0153,
+     "p05": 0.0477,
+     "median": 0.0917,
+     "p95": 0.1369
+    },
+    "5y": {
+     "windows": 1834,
+     "loss_share": 0.0,
+     "worst": 0.0262,
+     "p05": 0.059,
+     "median": 0.0877,
+     "p95": 0.1199
+    },
+    "7y": {
+     "windows": 1348,
+     "loss_share": 0.0,
+     "worst": 0.0483,
+     "p05": 0.0642,
+     "median": 0.0872,
+     "p95": 0.1095
+    },
+    "10y": {
+     "windows": 683,
+     "loss_share": 0.0,
+     "worst": 0.0587,
+     "p05": 0.0708,
+     "median": 0.0896,
+     "p95": 0.1104
+    }
+   },
+   "worst_fall": -0.1895,
+   "median_recovery_days": 105,
+   "worst_recovery_days": 568,
+   "never_recovered": 0
+  },
+  {
+   "category": "Hybrid Scheme",
+   "sub_category": "Dynamic Asset Allocation or Balanced Advantage",
+   "funds": 39,
+   "funds_wound_up": 6,
+   "horizons": {
+    "1y": {
+     "windows": 2857,
+     "loss_share": 0.0879,
+     "worst": -0.2508,
+     "p05": -0.0232,
+     "median": 0.0963,
+     "p95": 0.3292
+    },
+    "3y": {
+     "windows": 1976,
+     "loss_share": 0.004,
+     "worst": -0.0277,
+     "p05": 0.052,
+     "median": 0.1201,
+     "p95": 0.1823
+    },
+    "5y": {
+     "windows": 1311,
+     "loss_share": 0.0,
+     "worst": 0.0185,
+     "p05": 0.054,
+     "median": 0.1155,
+     "p95": 0.1734
+    },
+    "7y": {
+     "windows": 824,
+     "loss_share": 0.0,
+     "worst": 0.0443,
+     "p05": 0.0712,
+     "median": 0.1129,
+     "p95": 0.152
+    },
+    "10y": {
+     "windows": 327,
+     "loss_share": 0.0,
+     "worst": 0.0693,
+     "p05": 0.083,
+     "median": 0.1204,
+     "p95": 0.1583
+    }
+   },
+   "worst_fall": -0.342,
+   "median_recovery_days": 126,
+   "worst_recovery_days": 434,
+   "never_recovered": 6
+  },
+  {
+   "category": "Hybrid Scheme",
+   "sub_category": "Equity Savings",
+   "funds": 26,
+   "funds_wound_up": 4,
+   "horizons": {
+    "1y": {
+     "windows": 2443,
+     "loss_share": 0.0487,
+     "worst": -0.2805,
+     "p05": 0.0008,
+     "median": 0.0838,
+     "p95": 0.2275
+    },
+    "3y": {
+     "windows": 1838,
+     "loss_share": 0.0125,
+     "worst": -0.0705,
+     "p05": 0.04,
+     "median": 0.0956,
+     "p95": 0.1351
+    },
+    "5y": {
+     "windows": 1300,
+     "loss_share": 0.0,
+     "worst": 0.0027,
+     "p05": 0.0469,
+     "median": 0.0918,
+     "p95": 0.1299
+    },
+    "7y": {
+     "windows": 796,
+     "loss_share": 0.0,
+     "worst": 0.0345,
+     "p05": 0.0477,
+     "median": 0.0904,
+     "p95": 0.1105
+    },
+    "10y": {
+     "windows": 220,
+     "loss_share": 0.0,
+     "worst": 0.0541,
+     "p05": 0.0579,
+     "median": 0.0894,
+     "p95": 0.1097
+    }
+   },
+   "worst_fall": -0.3172,
+   "median_recovery_days": 144,
+   "worst_recovery_days": 904,
+   "never_recovered": 0
+  },
+  {
+   "category": "Hybrid Scheme",
+   "sub_category": "Multi Asset Allocation",
+   "funds": 30,
+   "funds_wound_up": 3,
+   "horizons": {
+    "1y": {
+     "windows": 1623,
+     "loss_share": 0.0616,
+     "worst": -0.2113,
+     "p05": -0.0088,
+     "median": 0.1142,
+     "p95": 0.3619
+    },
+    "3y": {
+     "windows": 1010,
+     "loss_share": 0.0059,
+     "worst": -0.0298,
+     "p05": 0.0493,
+     "median": 0.1213,
+     "p95": 0.2571
+    },
+    "5y": {
+     "windows": 723,
+     "loss_share": 0.0,
+     "worst": 0.0129,
+     "p05": 0.0636,
+     "median": 0.1154,
+     "p95": 0.2412
+    },
+    "7y": {
+     "windows": 509,
+     "loss_share": 0.0,
+     "worst": 0.0328,
+     "p05": 0.073,
+     "median": 0.1225,
+     "p95": 0.2192
+    },
+    "10y": {
+     "windows": 262,
+     "loss_share": 0.0,
+     "worst": 0.077,
+     "p05": 0.1004,
+     "median": 0.1226,
+     "p95": 0.1822
+    }
+   },
+   "worst_fall": -0.448,
+   "median_recovery_days": 127,
+   "worst_recovery_days": 2262,
+   "never_recovered": 10
+  },
+  {
+   "category": "IDF",
+   "sub_category": "",
+   "funds": 770,
+   "funds_wound_up": 719,
+   "horizons": {
+    "1y": {
+     "windows": 23166,
+     "loss_share": 0.017,
+     "worst": -0.9143,
+     "p05": 0.0285,
+     "median": 0.081,
+     "p95": 0.1147
+    },
+    "3y": {
+     "windows": 5246,
+     "loss_share": 0.0011,
+     "worst": -0.5304,
+     "p05": 0.0415,
+     "median": 0.0756,
+     "p95": 0.0936
+    },
+    "5y": {
+     "windows": 1098,
+     "loss_share": 0.0009,
+     "worst": -0.04,
+     "p05": 0.0471,
+     "median": 0.0663,
+     "p95": 0.0872
+    },
+    "7y": {
+     "windows": 550,
+     "loss_share": 0.0,
+     "worst": 0.0484,
+     "p05": 0.0524,
+     "median": 0.061,
+     "p95": 0.0755
+    }
+   },
+   "worst_fall": -0.9211,
+   "median_recovery_days": 22,
+   "worst_recovery_days": 539,
+   "never_recovered": 47
+  },
+  {
+   "category": "Income",
+   "sub_category": "",
+   "funds": 1141,
+   "funds_wound_up": 1116,
+   "horizons": {
+    "1y": {
+     "windows": 31113,
+     "loss_share": 0.0332,
+     "worst": -0.6669,
+     "p05": 0.0249,
+     "median": 0.0863,
+     "p95": 0.1687
+    },
+    "3y": {
+     "windows": 5854,
+     "loss_share": 0.005,
+     "worst": -0.1303,
+     "p05": 0.0441,
+     "median": 0.0838,
+     "p95": 0.1374
+    },
+    "5y": {
+     "windows": 1107,
+     "loss_share": 0.0036,
+     "worst": -0.0215,
+     "p05": 0.0474,
+     "median": 0.0703,
+     "p95": 0.1023
+    },
+    "7y": {
+     "windows": 547,
+     "loss_share": 0.0,
+     "worst": 0.0017,
+     "p05": 0.0545,
+     "median": 0.0612,
+     "p95": 0.0835
+    },
+    "10y": {
+     "windows": 202,
+     "loss_share": 0.0,
+     "worst": 0.0144,
+     "p05": 0.0594,
+     "median": 0.0637,
+     "p95": 0.0685
+    }
+   },
+   "worst_fall": -0.6864,
+   "median_recovery_days": 14,
+   "worst_recovery_days": 2324,
+   "never_recovered": 83
+  },
+  {
+   "category": "Other Scheme",
+   "sub_category": "FoF Domestic",
+   "funds": 105,
+   "funds_wound_up": 8,
+   "horizons": {
+    "1y": {
+     "windows": 7572,
+     "loss_share": 0.1228,
+     "worst": -0.3608,
+     "p05": -0.0662,
+     "median": 0.0922,
+     "p95": 0.5171
+    },
+    "3y": {
+     "windows": 5406,
+     "loss_share": 0.0446,
+     "worst": -0.1092,
+     "p05": 0.0063,
+     "median": 0.1079,
+     "p95": 0.2584
+    },
+    "5y": {
+     "windows": 3717,
+     "loss_share": 0.0291,
+     "worst": -0.0295,
+     "p05": 0.0179,
+     "median": 0.1019,
+     "p95": 0.205
+    },
+    "7y": {
+     "windows": 2600,
+     "loss_share": 0.0012,
+     "worst": -0.0051,
+     "p05": 0.0599,
+     "median": 0.0995,
+     "p95": 0.182
+    },
+    "10y": {
+     "windows": 1253,
+     "loss_share": 0.0,
+     "worst": 0.0361,
+     "p05": 0.06,
+     "median": 0.1045,
+     "p95": 0.166
+    }
+   },
+   "worst_fall": -0.4779,
+   "median_recovery_days": 148,
+   "worst_recovery_days": 1474,
+   "never_recovered": 36
+  },
+  {
+   "category": "Other Scheme",
+   "sub_category": "FoF Overseas",
+   "funds": 56,
+   "funds_wound_up": 6,
+   "horizons": {
+    "1y": {
+     "windows": 4554,
+     "loss_share": 0.2479,
+     "worst": -0.5341,
+     "p05": -0.176,
+     "median": 0.1157,
+     "p95": 0.4784
+    },
+    "3y": {
+     "windows": 3223,
+     "loss_share": 0.1319,
+     "worst": -0.2558,
+     "p05": -0.056,
+     "median": 0.0962,
+     "p95": 0.2762
+    },
+    "5y": {
+     "windows": 2092,
+     "loss_share": 0.075,
+     "worst": -0.0994,
+     "p05": -0.0139,
+     "median": 0.0871,
+     "p95": 0.1868
+    },
+    "7y": {
+     "windows": 1427,
+     "loss_share": 0.0399,
+     "worst": -0.0859,
+     "p05": 0.0056,
+     "median": 0.0864,
+     "p95": 0.1761
+    },
+    "10y": {
+     "windows": 585,
+     "loss_share": 0.0427,
+     "worst": -0.0432,
+     "p05": 0.0107,
+     "median": 0.0845,
+     "p95": 0.1689
+    }
+   },
+   "worst_fall": -0.6508,
+   "median_recovery_days": 343,
+   "worst_recovery_days": 1735,
+   "never_recovered": 2
+  },
+  {
+   "category": "Other Scheme",
+   "sub_category": "Index Funds",
+   "funds": 295,
+   "funds_wound_up": 10,
+   "horizons": {
+    "1y": {
+     "windows": 9527,
+     "loss_share": 0.1608,
+     "worst": -0.3339,
+     "p05": -0.0738,
+     "median": 0.0795,
+     "p95": 0.5006
+    },
+    "3y": {
+     "windows": 3982,
+     "loss_share": 0.0116,
+     "worst": -0.0861,
+     "p05": 0.0576,
+     "median": 0.1292,
+     "p95": 0.237
+    },
+    "5y": {
+     "windows": 1627,
+     "loss_share": 0.0012,
+     "worst": -0.0253,
+     "p05": 0.0563,
+     "median": 0.1348,
+     "p95": 0.2129
+    },
+    "7y": {
+     "windows": 1042,
+     "loss_share": 0.0,
+     "worst": 0.0388,
+     "p05": 0.0933,
+     "median": 0.1285,
+     "p95": 0.152
+    },
+    "10y": {
+     "windows": 498,
+     "loss_share": 0.0,
+     "worst": 0.1007,
+     "p05": 0.1133,
+     "median": 0.1287,
+     "p95": 0.145
+    }
+   },
+   "worst_fall": -0.4355,
+   "median_recovery_days": 87,
+   "worst_recovery_days": 521,
+   "never_recovered": 93
+  },
+  {
+   "category": "Payout",
+   "sub_category": "",
+   "funds": 18,
+   "funds_wound_up": 18,
+   "horizons": {
+    "1y": {
+     "windows": 223,
+     "loss_share": 0.0,
+     "worst": 0.0126,
+     "p05": 0.0636,
+     "median": 0.1162,
+     "p95": 0.2756
+    }
+   },
+   "worst_fall": -0.1878,
+   "median_recovery_days": 57,
+   "worst_recovery_days": 98,
+   "never_recovered": 4
+  },
+  {
+   "category": "Solution Oriented Scheme",
+   "sub_category": "Children\u2019s Fund",
+   "funds": 10,
+   "funds_wound_up": 0,
+   "horizons": {
+    "1y": {
+     "windows": 1010,
+     "loss_share": 0.1545,
+     "worst": -0.2417,
+     "p05": -0.0601,
+     "median": 0.1123,
+     "p95": 0.423
+    },
+    "3y": {
+     "windows": 788,
+     "loss_share": 0.0102,
+     "worst": -0.0651,
+     "p05": 0.0457,
+     "median": 0.1267,
+     "p95": 0.2279
+    },
+    "5y": {
+     "windows": 596,
+     "loss_share": 0.0017,
+     "worst": -0.0027,
+     "p05": 0.065,
+     "median": 0.1226,
+     "p95": 0.1959
+    },
+    "7y": {
+     "windows": 417,
+     "loss_share": 0.0,
+     "worst": 0.052,
+     "p05": 0.0833,
+     "median": 0.1182,
+     "p95": 0.1471
+    }
+   },
+   "worst_fall": -0.3522,
+   "median_recovery_days": 213,
+   "worst_recovery_days": 232,
+   "never_recovered": 0
+  },
+  {
+   "category": "Solution Oriented Scheme",
+   "sub_category": "Retirement Fund",
+   "funds": 31,
+   "funds_wound_up": 3,
+   "horizons": {
+    "1y": {
+     "windows": 2501,
+     "loss_share": 0.1008,
+     "worst": -0.3618,
+     "p05": -0.0288,
+     "median": 0.0884,
+     "p95": 0.405
+    },
+    "3y": {
+     "windows": 1773,
+     "loss_share": 0.0113,
+     "worst": -0.0963,
+     "p05": 0.0451,
+     "median": 0.1103,
+     "p95": 0.2383
+    },
+    "5y": {
+     "windows": 1113,
+     "loss_share": 0.0018,
+     "worst": -0.0178,
+     "p05": 0.0618,
+     "median": 0.1102,
+     "p95": 0.2325
+    },
+    "7y": {
+     "windows": 611,
+     "loss_share": 0.0,
+     "worst": 0.0539,
+     "p05": 0.075,
+     "median": 0.1137,
+     "p95": 0.1875
+    },
+    "10y": {
+     "windows": 235,
+     "loss_share": 0.0,
+     "worst": 0.0757,
+     "p05": 0.0831,
+     "median": 0.1173,
+     "p95": 0.1763
+    }
+   },
+   "worst_fall": -0.4492,
+   "median_recovery_days": 176,
+   "worst_recovery_days": 384,
+   "never_recovered": 2
+  }
+ ],
+ "coverage": {
+  "funds_read": 3992,
+  "categories_rated": 47,
+  "skipped_segregated": 48,
+  "bad_nav_rows_dropped": 1,
+  "min_funds": 8,
+  "min_windows": 200
+ }
+}

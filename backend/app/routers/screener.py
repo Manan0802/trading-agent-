@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.auth.fastapi_users_app import current_active_user
 from app.models import User
 from app.schemas.screener import (
+    BaseRateOut,
     CategoryCoverageOut,
     CategoryGroupOut,
     CategoryOut,
@@ -39,6 +40,7 @@ from app.schemas.screener import (
     BasketOut,
     BasketSlotOut,
     FundUniverseOut,
+    HorizonOut,
     RatioVsSectorOut,
     ScoredStockOut,
     SimilarStockOut,
@@ -55,6 +57,7 @@ from app.schemas.screener import (
 from app.services.advisor import fund_catalogue
 from app.services.marketdata import stock_universe
 from app.services.screener import (
+    base_rates,
     analysis,
     fund_facts,
     plain_words,
@@ -513,10 +516,58 @@ def one_basket(
             raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+def _base_rate_out(joined_category: str, amount: float | None) -> BaseRateOut | None:
+    """One reference class, assembled in one place.
+
+    Both the fund page and the decision screen show this. Assembling it twice
+    is how two screens start quoting different loss rates for the same
+    category — the failure `scripts/consistency.py` exists to catch.
+    """
+    rate = base_rates.for_joined(joined_category)
+    if rate is None:
+        return None
+    safe = rate.first_safe_horizon
+    at_risk = base_rates.rupees_at_risk(rate, amount) if amount else None
+    return BaseRateOut(
+        category=rate.category,
+        sub_category=rate.sub_category,
+        funds=rate.funds,
+        funds_wound_up=rate.funds_wound_up,
+        horizons=[
+            HorizonOut(
+                key=h.key, words=h.words, windows=h.windows,
+                loss_share=h.loss_share, worst=h.worst,
+                p05=h.p05, median=h.median, p95=h.p95,
+            )
+            for h in rate.horizons
+        ],
+        worst_fall=rate.worst_fall,
+        median_recovery_days=rate.median_recovery_days,
+        worst_recovery_days=rate.worst_recovery_days,
+        never_recovered=rate.never_recovered,
+        first_safe_horizon=safe.key if safe else None,
+        rupees_at_risk=at_risk,
+        as_of=rate.as_of,
+        plain={
+            k: v for k, v in {
+                "base_rate": plain_words.base_rate_sentence(rate),
+                "worst_fall": plain_words.worst_fall_sentence(rate, amount),
+                "coverage": plain_words.base_rate_coverage_sentence(rate),
+            }.items() if v
+        },
+    )
+
+
 @router.get("/funds/{scheme_code}/analysis", response_model=FundAnalysisOut)
 def fund_analysis(
     scheme_code: str,
     range: str = Query(analysis.DEFAULT_RANGE),
+    amount: float | None = Query(
+        None, ge=0,
+        description="What the reader has in this fund, so the worst historical "
+                    "fall can be shown in rupees rather than as a percentage. "
+                    "Omitted rather than guessed when unknown.",
+    ),
     user: User = Depends(current_active_user),
 ) -> FundAnalysisOut:
     """One fund's charts, drawn from the local NAV store.
@@ -577,6 +628,11 @@ def fund_analysis(
         peer_total_return=result.peer_total_return,
         peers_compared=result.peers_compared,
         clipped_to_fund_history=result.clipped_to_fund_history,
+        base_rate=_base_rate_out(
+            f"{target.category} - {target.sub_category}"
+            if target.sub_category else target.category,
+            amount,
+        ),
         first_nav_date=result.first_nav_date,
         latest_nav=result.latest_nav,
         latest_nav_date=result.latest_nav_date,

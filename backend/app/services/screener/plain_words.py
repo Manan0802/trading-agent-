@@ -360,3 +360,101 @@ _FACTOR_GLOSS = {
 def factor_gloss(key: str) -> str | None:
     """What a factor measures, for a reader who does not know the initials."""
     return _FACTOR_GLOSS.get(key)
+
+
+def _months(days: int | None) -> str | None:
+    if not days or days <= 0:
+        return None
+    if days < 60:
+        return f"{days} days"
+    months = round(days / 30.44)
+    return f"{months} months" if months < 24 else f"{months / 12:.1f} years"
+
+
+def _out_of_hundred(share: float) -> str:
+    """A loss rate as a count, without rounding a real risk down to "never".
+
+    0.4% rounds to 0, and "0 of every 100" reads as *it cannot happen* — but
+    0.4% is about one stretch in 250, and somebody is in it. Anything above
+    zero that rounds to zero is reported as "fewer than 1".
+    """
+    if share <= 0:
+        return "none"
+    count = round(share * 100)
+    return "fewer than 1" if count == 0 else str(count)
+
+
+def base_rate_sentence(rate) -> str | None:
+    """How often this kind of fund has lost money, before any talk of this one.
+
+    The outside view, and it is placed first on purpose. Kahneman and Lovallo
+    found that a base rate shown *beside* a vivid individual case gets ignored
+    in favour of the case; Flyvbjerg's reference-class forecasting, which the UK
+    Treasury mandates for infrastructure costing, puts the class first and
+    adjusts afterwards. Same order here.
+
+    Counts out of a hundred rather than percentages: "20 of every 100" is read
+    correctly by more people than "20.3%", and the extra decimal is spurious
+    precision on overlapping windows anyway.
+    """
+    short = rate.horizon("1y")
+    if short is None:
+        return None
+    name = rate.sub_category or rate.category
+    line = (
+        f"Money put into a {name} has lost value over one year in "
+        f"{_out_of_hundred(short.loss_share)} of every 100 stretches since 2006."
+    )
+    safe = rate.first_safe_horizon
+    if safe is not None and safe.key != "1y":
+        line += (
+            f" Held for {safe.words}, {_out_of_hundred(safe.loss_share)} of every 100 — "
+            f"how long you hold has mattered far more than which fund you picked."
+        )
+    return line
+
+
+def worst_fall_sentence(rate, amount: float | None = None) -> str | None:
+    """The worst drop this category has had, in rupees where we know the amount.
+
+    The worst *fall*, not the worst annual return, because a fall is the thing a
+    person actually watches happen to a number on a screen and then sells into.
+    The annual figure is milder and describes something nobody experiences.
+    """
+    if rate.worst_fall is None:
+        return None
+    fall = f"Its worst drop was {abs(rate.worst_fall) * 100:.0f}% from a high"
+    line = (
+        f"{fall} — on {rupees(amount)} that is "
+        f"{rupees(amount * abs(rate.worst_fall))} gone"
+        if amount and amount > 0
+        else fall
+    )
+    back = _months(rate.median_recovery_days)
+    if back:
+        line += f". Typically it took about {back} to get back"
+    line += "."
+    if rate.never_recovered:
+        line += (
+            f" {rate.never_recovered} of the {rate.funds} funds here never did get "
+            f"back to their old high."
+        )
+    return line
+
+
+def base_rate_coverage_sentence(rate) -> str | None:
+    """Who is counted, said out loud — including the funds that died.
+
+    Most published fund studies quietly drop wound-up schemes, which flatters
+    every number in them. Ours are in, because the backfill pulled dead scheme
+    codes too, and saying so is the difference between a base rate and a
+    brochure.
+    """
+    if rate.funds_wound_up:
+        return (
+            f"Measured across {rate.funds} funds in this category, "
+            f"{rate.funds_wound_up} of which no longer exist — they are counted "
+            f"rather than quietly dropped, which is what makes this a floor and "
+            f"not a brochure."
+        )
+    return f"Measured across all {rate.funds} funds in this category."
