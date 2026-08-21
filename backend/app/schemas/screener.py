@@ -524,6 +524,12 @@ class StockPageOut(BaseModel):
 
     ratios: list[RatioVsSectorOut]
     similar: list[SimilarStockOut]
+    # The group `similar` was drawn from. Not `industry`: that comes from the
+    # fundamentals feed and is granular ("Banks - Regional"), while the peer
+    # list is built from the universe's broader grouping ("Financial
+    # Services"). Labelling the list with the wrong one of the two claims six
+    # regional banks when two are insurers.
+    similar_group: str | None
     benchmark_sector: str
     benchmark_constituents: int
 

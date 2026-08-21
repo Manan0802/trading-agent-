@@ -399,6 +399,63 @@ def main() -> int:
                         f"screener does not, e.g. {sorted(missing)[:3]}",
                     )
 
+    # ── a company's own page against the table it was clicked from ───────
+    #
+    # The page and the table read the same scorer, and the score is the number
+    # a reader carries from one to the other. A company shown at 54 on the
+    # table and 57 on its own page is not a rounding difference to anyone
+    # reading it; it is one of the two screens being wrong.
+    stocks = client.get("/api/v1/screener/stocks?limit=6", headers=auth)
+    if stocks.status_code == 200 and stocks.json().get("stocks"):
+        table = {s["ticker"]: s for s in stocks.json()["stocks"]}
+        for ticker, row in list(table.items())[:3]:
+            page = client.get(
+                f"/api/v1/screener/stocks/{ticker}/analysis?range=1y", headers=auth
+            )
+            if page.status_code != 200:
+                check(
+                    "a company on the table has a page",
+                    False,
+                    f"{ticker}: /analysis returned {page.status_code}",
+                )
+                continue
+            body = page.json()
+            score = body.get("score") or {}
+            check(
+                "a company's score is the same on its page as on the table",
+                score.get("total") == row["total"] and score.get("bucket") == row["bucket"],
+                f"{ticker}: table {row['total']}/{row['bucket']}, "
+                f"page {score.get('total')}/{score.get('bucket')}",
+            )
+            check(
+                "a company's page compares it against the same peer set the table did",
+                score.get("benchmark_sector") == row["benchmark_sector"]
+                and body.get("benchmark_sector") == row["benchmark_sector"],
+                f"{ticker}: table {row['benchmark_sector']}, page "
+                f"{body.get('benchmark_sector')}",
+            )
+            # Both chart lines are rebased to 100 at the window start. If the
+            # sector line starts anywhere else the page has to withhold it,
+            # because the gap it would draw is an artefact of when the peers
+            # listed rather than of how either performed.
+            sector = body.get("sector_series") or []
+            check(
+                "the sector line, when drawn, starts at 100 like the price line",
+                not sector or abs(sector[0]["value"] - 100) <= 0.5,
+                f"{ticker}: sector line starts at {sector[0]['value'] if sector else None}",
+            )
+            # Every ratio must carry the median it is being judged against;
+            # a bare P/B cannot be read as cheap or dear.
+            unpaired = [
+                r["key"] for r in body.get("ratios", [])
+                if r["value"] is not None and r["sector_median"] is None
+            ]
+            check(
+                "every ratio on a company's page carries its sector median",
+                not unpaired,
+                f"{ticker}: {unpaired} have a value and no median",
+            )
+
     print(f"\n{CHECKS} consistency checks run")
     if FAILURES:
         print(f"\n{len(FAILURES)} DISAGREE:\n")

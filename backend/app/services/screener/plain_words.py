@@ -19,6 +19,8 @@ sentence is generated from data the fund does not have.
 
 from __future__ import annotations
 
+import math
+
 
 def _inr(amount: float) -> str:
     """Indian digit grouping: 2,21,766 rather than 221,766.
@@ -27,7 +29,11 @@ def _inr(amount: float) -> str:
     this is for -- 12,50,000 and 1,250,000 are the same number and only one of
     them parses at a glance here.
     """
-    whole = int(round(amount))
+    # Half away from zero, not Python's default half-to-even. The same figure
+    # is printed by the browser too -- `formatInr` there rounds 1020.5 up -- and
+    # a 52-week high labelled ₹1,021 on a bar above a sentence saying ₹1,020
+    # reads as two different numbers for the same thing.
+    whole = int(math.floor(abs(amount) + 0.5)) * (-1 if amount < 0 else 1)
     sign = "-" if whole < 0 else ""
     digits = str(abs(whole))
     if len(digits) <= 3:

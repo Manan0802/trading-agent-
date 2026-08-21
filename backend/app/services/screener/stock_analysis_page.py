@@ -114,6 +114,12 @@ class StockPage:
     peers_compared: int
     ratios: list[RatioVsSector]
     similar: list[SimilarStock]
+    # Which group `similar` was actually drawn from. The universe's `industry`
+    # field holds a broad sector ("Financial Services"), while the fundamentals
+    # feed's `industry` is granular ("Banks - Regional"). Showing the second
+    # over a list built from the first tells the reader these six are regional
+    # banks when two of them are insurers.
+    similar_group: str | None
     benchmark_sector: str
     benchmark_constituents: int
 
@@ -308,6 +314,7 @@ def build(ticker: str, as_of: date, range_key: str = DEFAULT_RANGE) -> StockPage
         peers_compared=min(len(peers), PEER_SAMPLE) if sector_line else 0,
         ratios=_ratios(fundamentals, benchmark),
         similar=similar,
+        similar_group=getattr(entry, "industry", None),
         benchmark_sector=sector if sector in sector_benchmarks.sectors()
         else sector_benchmarks.ALL_STOCKS,
         benchmark_constituents=int(benchmark.get("constituents", 0)),

@@ -351,3 +351,28 @@ def test_a_company_that_pays_no_dividend_says_so():
 def test_a_company_that_does_pay_gets_the_figure_and_its_peer_median():
     s = pw.dividend_sentence(sp.build("X.NS", AS_OF, "1y"))
     assert "1.20%" in s and "middle company" in s
+
+
+def test_rupees_round_the_way_the_browser_does():
+    """A 52-week high of ₹1020.5 was labelled ₹1,021 on the bar (the browser's
+    rounding) and ₹1,020 in the sentence right beneath it (Python's default
+    half-to-even). Two numbers, one figure."""
+    assert pw._inr(1020.5) == "1,021"
+    assert pw._inr(2.5) == "3"
+    assert pw._inr(-1020.5) == "-1,021"
+    # And the ordinary cases still group the Indian way.
+    assert pw._inr(1126467) == "11,26,467"
+    assert pw._inr(999) == "999"
+
+
+def test_the_similar_list_is_labelled_with_the_group_it_came_from():
+    """The universe's `industry` field holds a broad sector ("Financial
+    Services"); the fundamentals feed's holds a granular one ("Banks -
+    Regional"). Labelling six peers drawn from the first with the second says
+    they are regional banks when two are insurers."""
+    page = sp.build("X.NS", AS_OF, "1y")
+    assert page.similar_group == "Software"
+    assert all(
+        next(s for s in universe() if s.ticker == p.ticker).industry == page.similar_group
+        for p in page.similar
+    )

@@ -656,6 +656,7 @@ def stock_page(
         peers_compared=page.peers_compared,
         ratios=[RatioVsSectorOut(**r.__dict__) for r in page.ratios],
         similar=[SimilarStockOut(**s.__dict__) for s in page.similar],
+        similar_group=page.similar_group,
         benchmark_sector=page.benchmark_sector,
         benchmark_constituents=page.benchmark_constituents,
         score=score,
