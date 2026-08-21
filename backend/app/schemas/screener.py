@@ -394,5 +394,72 @@ class FundAnalysisOut(BaseModel):
     nav_points_available: int
 
     rolling_1y: RollingReturnsOut
+    cost: FundCostOut
+    holdings: FundHoldingsOut
+    calculator: list[CalculatorRowOut]
+    # Where the fund sits among its peers on each horizon. "Rank 22 of 47 over
+    # three years" answers a question a percentage cannot.
+    ranks: dict[str, HorizonRankOut]
+    # The page in sentences, written server-side so two screens cannot word the
+    # same fact differently and so pytest can hold them to fixtures. Keys are
+    # omitted entirely when the fund has no data for them -- a hedged sentence
+    # is worse than silence.
+    plain: dict[str, str]
     # The row from the ranking, so the page does not need a second request.
     fund: ScreenedFundOut
+
+
+# ── Fund facts: cost, holdings, "what if" ────────────────────────────────────
+
+
+class FundCostOut(BaseModel):
+    """Both plans, and what the gap between them is worth.
+
+    Every fund page in the country shows one expense ratio. The gap is the one
+    number this project measured as predictive -- cost separated future winners
+    from losers 87% of the time, against 68% for picking on past record.
+    """
+
+    direct_ter: float | None
+    regular_ter: float | None
+    saving_pct_per_year: float | None
+    saving_on_a_lakh_over_10y: float | None
+    as_of: str | None
+
+
+class HoldingOut(BaseModel):
+    isin: str | None
+    name: str
+    industry: str | None
+    weight: float
+
+
+class FundHoldingsOut(BaseModel):
+    # False for AMCs whose monthly portfolio format is not parsed yet. Said
+    # rather than shown as an empty table.
+    covered: bool
+    as_of: str | None
+    total_positions: int
+    top: list[HoldingOut]
+    other_weight: float
+    by_industry: list[tuple[str, float]]
+
+
+class CalculatorRowOut(BaseModel):
+    years: int
+    invested: float
+    value: float | None
+    # Shorter than `years` when the fund is younger than the period. Shown, so a
+    # short record is visible rather than the row silently disappearing.
+    actual_years: float | None
+    annualised: float | None
+    # False when the fund is younger than the period, so this row and a longer
+    # one hold the same number. The screen has to mark it, or a 2.9-year-old
+    # fund shows the same rupee figure for 3, 5 and 10 years.
+    full_period: bool
+
+
+class HorizonRankOut(BaseModel):
+    rank: int
+    of: int
+    value: float

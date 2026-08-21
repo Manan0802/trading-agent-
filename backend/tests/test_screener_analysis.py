@@ -265,3 +265,28 @@ def test_every_offered_range_works(range_key):
     result = analyse("F", peers(12), range_key)
     assert result.nav
     assert result.nav[0].value == pytest.approx(100.0, abs=1e-6)
+
+
+def test_a_weekend_at_the_window_start_is_not_a_short_record():
+    """The flag fired on almost every fund, and the caption was a lie.
+
+    A window starting on a Saturday has its first NAV on the Monday, so a strict
+    `first_nav > window_start` is true nearly always. PPFAS has thirteen years of
+    history and its five-year chart was captioned "shorter than the range you
+    picked" -- false, and exactly the sentence that stops a reader trusting the
+    rest of the page.
+    """
+    seed("LONG", 3000)                     # eight years, plenty for a 1y window
+    result = analyse("LONG", peers(12), "1y")
+    assert result.clipped_to_fund_history is False
+
+
+def test_a_genuinely_young_fund_is_still_flagged():
+    seed("YOUNG", 200)
+    assert analyse("YOUNG", peers(12), "3y").clipped_to_fund_history is True
+
+
+def test_the_tolerance_is_about_a_month_not_a_year():
+    """Loose enough for a holiday cluster, tight enough that a fund missing half
+    the window still says so."""
+    assert 7 <= analysis.CLIP_TOLERANCE_DAYS <= 45

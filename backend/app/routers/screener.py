@@ -28,7 +28,12 @@ from app.schemas.screener import (
     DominanceOut,
     FundReasonOut,
     BasketListOut,
+    CalculatorRowOut,
     ChartPointOut,
+    FundCostOut,
+    FundHoldingsOut,
+    HoldingOut,
+    HorizonRankOut,
     FundAnalysisOut,
     RollingReturnsOut,
     BasketOut,
@@ -48,6 +53,8 @@ from app.services.advisor import fund_catalogue
 from app.services.marketdata import stock_universe
 from app.services.screener import (
     analysis,
+    fund_facts,
+    plain_words,
     basket_build,
     navstore,
     scoring,
@@ -520,11 +527,21 @@ def fund_analysis(
         if f.category == target.category and f.sub_category == target.sub_category
     ]
 
+    peer_rows = [
+        f for f in funds
+        if f.category == target.category and f.sub_category == target.sub_category
+    ]
+
     with navstore.session() as session:
         result = analysis.analyse(
             session, scheme_code, peers, date.today(), range_key=range
         )
         rolling = analysis.rolling_returns(session, scheme_code, date.today())
+        calculator = fund_facts.calculator(session, scheme_code, date.today())
+
+    cost = fund_facts.cost_for(scheme_code)
+    holdings = fund_facts.holdings_for(target.name)
+    ranks = fund_facts.rank_at_horizons(target, peer_rows)
 
     return FundAnalysisOut(
         scheme_code=scheme_code,
@@ -547,5 +564,42 @@ def fund_analysis(
         latest_nav_date=result.latest_nav_date,
         nav_points_available=result.nav_points_available,
         rolling_1y=RollingReturnsOut(**rolling),
+        cost=FundCostOut(
+            direct_ter=cost.direct_ter, regular_ter=cost.regular_ter,
+            saving_pct_per_year=cost.saving_pct_per_year,
+            saving_on_a_lakh_over_10y=cost.saving_on_a_lakh_over_10y,
+            as_of=cost.as_of,
+        ),
+        holdings=FundHoldingsOut(
+            covered=holdings.covered, as_of=holdings.as_of,
+            total_positions=holdings.total_positions,
+            top=[HoldingOut(isin=h.isin, name=h.name, industry=h.industry, weight=h.weight)
+                 for h in holdings.top],
+            other_weight=holdings.other_weight,
+            by_industry=holdings.by_industry,
+        ),
+        calculator=[
+            CalculatorRowOut(years=r.years, invested=r.invested, value=r.value,
+                             actual_years=r.actual_years, annualised=r.annualised,
+                             full_period=r.full_period)
+            for r in calculator
+        ],
+        ranks={k: HorizonRankOut(**v) for k, v in ranks.items()},
+        plain={
+            k: v
+            for k, v in {
+                "cost": plain_words.cost_sentence(cost),
+                "calculator": plain_words.calculator_sentence(calculator),
+                "peers": plain_words.peer_sentence(
+                    result.total_return, result.peer_total_return,
+                    result.peers_compared, result.clipped_to_fund_history,
+                ),
+                "rolling": plain_words.rolling_sentence(rolling),
+                "drawdown": plain_words.drawdown_sentence(target),
+                "risk": plain_words.risk_sentence(target),
+                "holdings": plain_words.holdings_sentence(holdings),
+            }.items()
+            if v
+        },
         fund=_with_reasons(target, _load_reasons()),
     )

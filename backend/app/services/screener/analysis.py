@@ -55,6 +55,10 @@ CHART_POINTS = 240
 # before it will publish a category's leaders.
 MIN_PEERS_FOR_COMPARISON = 8
 
+# How far past a window's start the first NAV may sit before the fund counts as
+# younger than the range. A weekend or a holiday cluster is not a short record.
+CLIP_TOLERANCE_DAYS = 31
+
 # Peers are sampled rather than fully loaded: the median of 40 funds and the
 # median of 364 are the same line to two decimal places, and the second costs a
 # third of a second of disk reads on every page view.
@@ -216,8 +220,17 @@ def analyse(
         total_return=total(rebased),
         peer_total_return=total(peer),
         peers_compared=min(len(peers), PEER_SAMPLE) if peer else 0,
+        # A month of tolerance, not a strict comparison.
+        #
+        # `navs[0][0] > start` is true almost always: a window starting on a
+        # Saturday has its first NAV on the Monday. PPFAS has thirteen years of
+        # history and its five-year chart was captioned "shorter than the range
+        # you picked", which is both false and the exact sentence that stops a
+        # reader trusting the rest of the page.
         clipped_to_fund_history=bool(
-            start is not None and navs and navs[0][0] > start
+            start is not None
+            and navs
+            and (navs[0][0] - start).days > CLIP_TOLERANCE_DAYS
         ),
         nav_points_available=len(navs),
         first_nav_date=everything[0][0] if everything else None,
