@@ -97,6 +97,8 @@ const PAGES = [
   ['screener-all', '/screener?view=all'],
   ['screener-stocks', '/screener?tab=stocks'],
   ['screener-basket', '/screener?tab=basket'],
+  ['fund', '/screener/fund/122639'],
+  ['stock', '/screener/stock/HDFCBANK.NS'],
   ['profile', '/profile'],
   ['goals', '/goals'],
   ['goal-new', '/goals/new'],
@@ -127,7 +129,13 @@ for (const theme of ['light', 'dark']) {
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
     page.on('pageerror', (e) => errors.push(String(e)))
     await page.goto(`${APP}${path}`, { waitUntil: 'networkidle' })
-    await page.waitForTimeout(1200)
+    // Three seconds, not one: most of these pages read a rate-limited "heavy"
+    // endpoint, the limit is 20 a minute per user, and one account shoots every
+    // page in both themes. At 1.2s the run fitted two dozen heavy calls into
+    // half a minute and whichever page came last got a 429 -- so the harness
+    // wrote a screenshot of an error panel and reported success, which is the
+    // exact failure this file exists to prevent.
+    await page.waitForTimeout(3000)
     await page.screenshot({ path: `${OUT}/${name}-${theme}.png`, fullPage: true })
     if (errors.length) console.log(`! ${name}-${theme}:`, errors.slice(0, 3).join(' | '))
     await page.close()

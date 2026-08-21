@@ -38,6 +38,8 @@ const PAGES = [
   ['screener-all', '/screener?view=all'],
   ['screener-stocks', '/screener?tab=stocks'],
   ['screener-basket', '/screener?tab=basket'],
+  ['fund', '/screener/fund/122639'],
+  ['stock', '/screener/stock/HDFCBANK.NS'],
   ['goals', '/goals'],
   ['goal', `/goals/${goal.id}`],
   ['profile', '/profile'],

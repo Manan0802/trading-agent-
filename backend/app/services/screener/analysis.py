@@ -25,6 +25,8 @@ what a person actually lives through.
 
 from __future__ import annotations
 
+import logging
+
 import statistics
 from dataclasses import dataclass
 from datetime import date
@@ -35,6 +37,8 @@ from app.services.screener import navstore
 # What the range buttons offer, in calendar days. `max` is the fund's whole
 # history. Matching the ranges every Indian fund page uses, so the control is
 # familiar rather than clever.
+_log = logging.getLogger(__name__)
+
 RANGES: dict[str, int | None] = {
     "1m": 30,
     "6m": 182,
@@ -63,6 +67,21 @@ CLIP_TOLERANCE_DAYS = 31
 # median of 364 are the same line to two decimal places, and the second costs a
 # third of a second of disk reads on every page view.
 PEER_SAMPLE = 40
+PEER_START_TOLERANCE_DAYS = 7
+
+# A peer must already exist when the window opens, or its rebase point is a
+# different day from everyone else's.
+#
+# Without this the median is taken over a CHANGING SET: at the window's start
+# only the oldest peers exist, and by the time 60% of the category has launched
+# those old ones are already at 331. The line then starts at 331, and
+# `total()` -- which assumes every rebased line starts at 100 -- reported
+# **+133.5% for a median peer that had actually lost 29.5%** on PPFAS at `max`.
+# Measured, not hypothesised.
+#
+# Seven days, because a peer whose first NAV in the window lands after a weekend
+# or a festival cluster is the same peer. A peer that launched three years into
+# the window is not.
 
 
 @dataclass(frozen=True)
@@ -137,8 +156,14 @@ def _drawdown(navs: list[tuple[date, float]]) -> list[Point]:
     return out
 
 
-def _peer_median(session, codes: list[str], start: date | None, end: date) -> list[Point]:
-    """The median peer's rebased path, over the dates the peers actually share.
+def _peer_median(
+    session, codes: list[str], start: date | None, end: date
+) -> tuple[list[Point], int]:
+    """The median peer's rebased path, and how many peers formed it.
+
+    The count is returned rather than inferred by the caller, because the
+    number offered and the number used differ once the launch-date filter
+    below has run — and the screen captions the chart with it.
 
     Each peer is rebased on its own first day in the window before the median is
     taken. Taking the median of raw NAVs instead would produce a line dominated
@@ -149,10 +174,15 @@ def _peer_median(session, codes: list[str], start: date | None, end: date) -> li
     for code in codes[:PEER_SAMPLE]:
         navs = navstore.nav_window(session, code, start=start, end=end)
         rebased = _rebase(navs)
-        if len(rebased) >= 2:
-            series.append({p.date: p.value for p in rebased})
+        if len(rebased) < 2:
+            continue
+        if start is not None and (rebased[0].date - start).days > PEER_START_TOLERANCE_DAYS:
+            # Launched after the window opened. Including it means averaging a
+            # line that begins at 100 with lines that are already at 300.
+            continue
+        series.append({p.date: p.value for p in rebased})
     if len(series) < MIN_PEERS_FOR_COMPARISON:
-        return []
+        return [], 0
 
     # Only dates most peers actually have. A date one fund published on is not a
     # median of anything, and including it makes the line jump.
@@ -167,10 +197,23 @@ def _peer_median(session, codes: list[str], start: date | None, end: date) -> li
     needed = max(2, int(len(series) * 0.6))
     shared = sorted(d for d, n in counts.items() if n >= needed)
 
-    return [
+    line = [
         Point(d, round(statistics.median([s[d] for s in series if d in s]), 4))
         for d in shared
     ]
+
+    # Belt to the filter's braces. Every surviving peer is rebased to 100 within
+    # a week of the window's start, so the median of them must open at 100 too.
+    # If it does not, some assumption above has broken and the honest output is
+    # no comparison rather than a wrong one -- the caller divides by 100 to get
+    # a return, and a line opening at 331 turns a 29.5% loss into a 133.5% gain.
+    if line and abs(line[0].value - 100.0) > 0.5:
+        _log.warning(
+            "peer median opened at %.1f rather than 100; withholding the comparison",
+            line[0].value,
+        )
+        return [], 0
+    return line, len(series)
 
 
 def analyse(
@@ -200,11 +243,10 @@ def analyse(
     # share it is +100.3% against +56.3%. Same axis, same rebase point, or no
     # comparison at all.
     comparison_start = navs[0][0] if navs else start
-    peer = downsample(
-        _peer_median(
-            session, [c for c in peers if c != scheme_code], comparison_start, as_of
-        )
+    peer_line, peers_used = _peer_median(
+        session, [c for c in peers if c != scheme_code], comparison_start, as_of
     )
+    peer = downsample(peer_line)
 
     def total(points: list[Point]) -> float | None:
         return None if len(points) < 2 else round(points[-1].value / 100.0 - 1.0, 6)
@@ -219,7 +261,11 @@ def analyse(
         drawdown=drawdown,
         total_return=total(rebased),
         peer_total_return=total(peer),
-        peers_compared=min(len(peers), PEER_SAMPLE) if peer else 0,
+        # How many peers actually formed the median, not how many were offered.
+        # Reporting the offered count said "against 22 priced peers" when the
+        # launch-date filter had used 12 -- a caption describing a comparison
+        # that was not the one drawn.
+        peers_compared=peers_used,
         # A month of tolerance, not a strict comparison.
         #
         # `navs[0][0] > start` is true almost always: a window starting on a

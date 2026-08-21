@@ -42,3 +42,10 @@ frontend/shots//
 .mcp.json
 .claude
 backend/.parity-venv/
+
+# Scratch dir created by browser automation tooling.
+.playwright-mcp/
+
+# Harness screenshot output and MCP tool logs — generated, not source.
+frontend/shots/
+logs/

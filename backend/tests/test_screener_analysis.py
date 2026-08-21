@@ -290,3 +290,101 @@ def test_the_tolerance_is_about_a_month_not_a_year():
     """Loose enough for a holiday cluster, tight enough that a fund missing half
     the window still says so."""
     assert 7 <= analysis.CLIP_TOLERANCE_DAYS <= 45
+
+
+# ------------------------------------------- the peer line's rebase point
+
+
+def test_a_peer_that_launched_mid_window_is_left_out_of_the_median():
+    """Each peer is rebased to its own first day. When a category grew over the
+    window, the earliest dates have too few peers to clear the coverage rule, so
+    the line starts later — by which time the survivors have already tripled.
+    The median then opens at 261 instead of 100, and `total()`, which divides by
+    100, reports a gain for a peer group that lost money.
+
+    Measured on PPFAS at `max` before this fix: **+133.5% reported for a median
+    peer that had actually lost 29.5%.** The line opened at 331 and closed at
+    233 — it fell, and the number said it more than doubled.
+
+    The contrast this pins, on the same data: with the filter the line opens at
+    100 and spans the whole window; without it there is no usable line at all."""
+    seed("OLD", days=3000, daily=0.0005)
+    codes = []
+    for i in range(12):                       # as old as the fund
+        c = f"O{i:02d}"
+        seed(c, days=3000, start_level=40 + i * 9, daily=0.0006)
+        codes.append(c)
+    for i in range(10):                       # a category that kept growing
+        c = f"Y{i:02d}"
+        seed(c, days=1400 - i * 90, start_level=30 + i * 5, daily=0.0007)
+        codes.append(c)
+
+    got = analyse("OLD", codes, "max")
+    assert got.peer_median, "the filter should have salvaged a usable comparison"
+    assert got.peer_median[0].value == pytest.approx(100.0, abs=0.5)
+    # The whole window, not just the tail where enough peers had launched.
+    spanned = (got.peer_median[-1].date - got.peer_median[0].date).days
+    assert spanned > 2900, f"only spanned {spanned} days of a 3000-day window"
+    # And only the peers that could actually be compared are counted.
+    assert got.peers_compared == 12, got.peers_compared
+
+
+def test_the_count_beside_the_chart_is_the_peers_actually_used():
+    """It reported the number OFFERED. A chart drawn from 12 peers was captioned
+    "against 22 priced peers" — describing a comparison that was not the one on
+    screen."""
+    seed("F", days=3000, daily=0.0005)
+    codes = []
+    for i in range(12):
+        c = f"O{i:02d}"
+        seed(c, days=3000, start_level=40 + i * 9)
+        codes.append(c)
+    for i in range(10):
+        c = f"Y{i:02d}"
+        seed(c, days=1400 - i * 90, start_level=30 + i * 5)
+        codes.append(c)
+    got = analyse("F", codes, "max")
+    assert got.peers_compared == 12, f"offered 22, used 12, reported {got.peers_compared}"
+
+
+def test_the_peer_line_always_opens_at_a_hundred():
+    """The invariant the return calculation rests on, asserted directly rather
+    than inferred from the returns being plausible."""
+    seed("F", days=1500)
+    for rng in ("1m", "6m", "1y", "3y", "5y", "max"):
+        got = analyse("F", peers(12, days=1500), rng)
+        if got.peer_median:
+            assert got.peer_median[0].value == pytest.approx(100.0, abs=0.5), rng
+
+
+@pytest.mark.parametrize("range_key", ["1m", "1y", "3y", "5y", "max"])
+def test_the_reported_peer_return_matches_the_line_that_is_drawn(range_key):
+    """The headline figure and the shape beside it come from one series, so a
+    reader cannot be told +72% over a line that visibly fell."""
+    seed("F", days=1800)
+    got = analyse("F", peers(12, days=1800), range_key)
+    if not got.peer_median or got.peer_total_return is None:
+        pytest.skip("no comparison for this range")
+    drawn = got.peer_median[-1].value / got.peer_median[0].value - 1
+    assert got.peer_total_return == pytest.approx(drawn, abs=1e-3)
+
+
+def test_a_median_that_opens_anywhere_else_is_withheld_not_shipped(monkeypatch):
+    """Belt to the filter's braces. If some future change breaks the rebase
+    point again, the honest output is no comparison rather than a wrong one —
+    the caller divides by 100 to get a return."""
+    seed("F", days=1500)
+    codes = peers(12, days=1500)
+
+    real = analysis._rebase
+
+    def shifted(navs):
+        # Every peer rebased to 250 instead of 100, which is what a changing
+        # peer set produced before the filter existed.
+        return [analysis.Point(p.date, p.value * 2.5) for p in real(navs)]
+
+    monkeypatch.setattr(analysis, "_rebase", shifted)
+    got = analyse("F", codes, "1y")
+    assert got.peer_median == [], "a line opening at 250 was shipped"
+    assert got.peer_total_return is None
+    assert got.peers_compared == 0

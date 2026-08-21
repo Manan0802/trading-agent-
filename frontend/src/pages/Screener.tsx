@@ -21,11 +21,13 @@ import {
 import {
   NO_VALUE,
   categoryGroup,
+  count,
   formatInr,
   formatPercent,
   formatRatio,
   gainClass,
   plainProse,
+  score100,
 } from '@/lib/format'
 import {
   fetchAllFunds,
@@ -43,21 +45,6 @@ import {
   type StockFilters,
 } from '@/lib/screener-api'
 import { cn } from '@/lib/utils'
-
-/**
- * fund_score, peer_median and the two signals all arrive between 0 and 1. This
- * is the only place in the app that multiplies one by a hundred, so there is
- * exactly one thing to correct if the API ever changes its mind.
- */
-function score100(value: number | null): string {
-  if (value === null || value === undefined) return NO_VALUE
-  return (value * 100).toFixed(0)
-}
-
-function count(value: number | null): string {
-  if (value === null || value === undefined) return NO_VALUE
-  return value.toLocaleString('en-IN')
-}
 
 /** "a, b and c", because a list rendered with commas alone reads as a fragment. */
 function joinWords(items: string[]): string {
@@ -365,6 +352,7 @@ function Field({
 function NameCell({
   title,
   subtitle,
+  href,
   position,
   isOpen,
   onToggle,
@@ -372,10 +360,21 @@ function NameCell({
   title: string
   /** One quiet line under the name: the fund house, or the ticker and industry. */
   subtitle: string
+  /**
+   * Where the name goes when there is a page for this row. Both funds and
+   * companies have one; a row without an href keeps the name as the control
+   * that opens the detail underneath rather than becoming a link to nowhere.
+   */
+  href?: string
   position: number
   isOpen: boolean
   onToggle: () => void
 }) {
+  // A one-line 14px name is an 18px-tall target. min-h-9 gives it the full 36px
+  // and the negative margin hands the extra height back to the row.
+  const nameClass =
+    '-my-2 flex min-h-9 w-fit items-center text-left text-sm font-medium leading-tight underline-offset-4 hover:underline'
+
   return (
     <TableCell className="sticky left-0 z-10 bg-inherit align-top whitespace-normal shadow-[inset_-1px_0_0_0_var(--border)]">
       {/* A fixed inner width, because max-width does not apply to a table cell
@@ -385,16 +384,34 @@ function NameCell({
           {position > 0 ? position : NO_VALUE}
         </span>
         <span className="min-w-0">
-          <button
-            type="button"
-            aria-expanded={isOpen}
-            onClick={onToggle}
-            // A one-line 14px name is an 18px-tall target. min-h-9 gives it the
-            // full 36px and the negative margin hands the extra back to the row.
-            className="-my-2 flex min-h-9 w-fit items-center text-left text-sm font-medium leading-tight underline-offset-4 hover:underline"
-          >
-            {title}
-          </button>
+          <span className="flex items-start gap-1">
+            {href ? (
+              <Link to={href} className={nameClass}>
+                {title}
+              </Link>
+            ) : (
+              <button type="button" aria-expanded={isOpen} onClick={onToggle} className={nameClass}>
+                {title}
+              </button>
+            )}
+            {href && (
+              // The name now leaves the page, so the reasoning underneath needs
+              // its own control. 36px square, and labelled: a lone chevron
+              // announces itself as "button" and nothing else.
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-label={`Why ${title} is ranked here`}
+                onClick={onToggle}
+                className="-my-1 flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <ChevronDown
+                  aria-hidden
+                  className={cn('size-4 transition-transform', isOpen && 'rotate-180')}
+                />
+              </button>
+            )}
+          </span>
           <span className="mt-1 block text-xs text-muted-foreground">{subtitle}</span>
         </span>
       </div>
@@ -956,6 +973,7 @@ function FundRows({
         <NameCell
           title={fund.name}
           subtitle={`${fund.fund_house}${fund.is_new ? ' · too new to rank' : ''}`}
+          href={`/screener/fund/${fund.scheme_code}`}
           position={position}
           isOpen={isOpen}
           onToggle={onToggle}
@@ -1233,6 +1251,7 @@ function StockRows({
         <NameCell
           title={stock.name}
           subtitle={`${stock.symbol}${stock.industry ? ` · ${stock.industry}` : ''}`}
+          href={`/screener/stock/${encodeURIComponent(stock.ticker)}`}
           position={position}
           isOpen={isOpen}
           onToggle={onToggle}
@@ -1555,7 +1574,14 @@ function SleeveRow({ slot }: { slot: BasketSlot }) {
       </TableCell>
       <TableCell className="align-top whitespace-normal">
         <span className="block w-40 sm:w-72">
-          {slot.name ?? (
+          {slot.name && slot.scheme_code ? (
+            <Link
+              to={`/screener/fund/${slot.scheme_code}`}
+              className="-my-2 flex min-h-9 items-center underline-offset-4 hover:underline"
+            >
+              {slot.name}
+            </Link>
+          ) : (
             <span className="text-muted-foreground">
               {slot.reason ?? 'No fund in this sleeve.'}
             </span>

@@ -17,6 +17,12 @@ import { cn } from '@/lib/utils'
 const Portfolio = lazy(() => import('@/pages/Portfolio').then((m) => ({ default: m.Portfolio })))
 const Research = lazy(() => import('@/pages/Research').then((m) => ({ default: m.Research })))
 const Screener = lazy(() => import('@/pages/Screener').then((m) => ({ default: m.Screener })))
+const FundAnalysis = lazy(() =>
+  import('@/pages/FundAnalysis').then((m) => ({ default: m.FundAnalysis })),
+)
+const StockAnalysis = lazy(() =>
+  import('@/pages/StockAnalysis').then((m) => ({ default: m.StockAnalysis })),
+)
 const Goals = lazy(() => import('@/pages/Goals').then((m) => ({ default: m.Goals })))
 const GoalNew = lazy(() => import('@/pages/GoalNew').then((m) => ({ default: m.GoalNew })))
 const GoalDetail = lazy(() => import('@/pages/GoalDetail').then((m) => ({ default: m.GoalDetail })))
@@ -147,6 +153,22 @@ export default function App() {
               element={
                 <RequireAuth>
                   <Screener />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/screener/fund/:schemeCode"
+              element={
+                <RequireAuth>
+                  <FundAnalysis />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/screener/stock/:ticker"
+              element={
+                <RequireAuth>
+                  <StockAnalysis />
                 </RequireAuth>
               }
             />

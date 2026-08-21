@@ -84,3 +84,21 @@ export function shortCategory(category: string): string {
 export function categoryGroup(category: string): string {
   return category.split(' Scheme')[0]
 }
+
+/**
+ * fund_score, peer_median and the two signals all arrive between 0 and 1. This
+ * is the only place in the app that multiplies one by a hundred, so there is
+ * exactly one thing to correct if the API ever changes its mind. It lives here
+ * rather than in Screener because the fund page shows the same figures, and a
+ * second copy is how two screens start scoring the same fund differently.
+ */
+export function score100(value: number | null | undefined): string {
+  if (value === null || value === undefined) return NO_VALUE
+  return (value * 100).toFixed(0)
+}
+
+/** A plain count, grouped the way an Indian reader expects: 1,20,455. */
+export function count(value: number | null | undefined): string {
+  if (value === null || value === undefined) return NO_VALUE
+  return value.toLocaleString('en-IN')
+}

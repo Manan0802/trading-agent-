@@ -179,6 +179,13 @@ export type StockFactor = {
   pct: number
   /** A pre-written sentence, "PE 28.1 vs sector median 42". Render it as-is. */
   detail: string
+  /**
+   * What the factor measures, in words. `detail` is compared character for
+   * character against the source method by the backend's parity tests and so
+   * cannot be reworded — "Death Cross" is theirs. This explains the term
+   * rather than the number, which is why it is the same for every company.
+   */
+  plain: string | null
 }
 
 export type StockAdjustment = {
@@ -319,4 +326,196 @@ export type BasketFilters = {
 /** Same 404-on-blank rule as every other screener endpoint, so the same `live`. */
 export async function fetchBaskets(filters: BasketFilters): Promise<{ baskets: Basket[] }> {
   return (await api.get('/api/v1/screener/baskets', { params: live(filters) })).data
+}
+
+/* --------------------------------------------------- one fund's own page */
+
+/**
+ * Everything the fund page draws, in one request.
+ *
+ * UNITS, and this one response mixes three of them, which is the whole reason
+ * this comment exists:
+ *
+ *   `nav` and `peer_median` are INDEX POINTS, rebased to 100 at the window's
+ *   start. 183.2 means ₹100 became ₹183.20. They are not fractions and not
+ *   percentages, so formatPercent would render "+18320%".
+ *
+ *   `drawdown` is ALREADY PERCENT. -24.3 means 24.3% below the running peak.
+ *   Also not a fraction, so also never formatPercent.
+ *
+ *   `total_return`, `peer_total_return`, every field on `rolling_1y`, and
+ *   every `returns_*` / `rolling_*` / `volatility` / `max_drawdown` on `fund`
+ *   ARE fractions, and those are the ones formatPercent is for.
+ *
+ * The path sits under `/api/v1/screener/funds`, which is on the rate limiter's
+ * HEAVY tier at 20 requests a minute per user. Six range buttons is six
+ * requests, so nothing here may prefetch or poll.
+ */
+export type ChartPoint = {
+  date: string
+  value: number
+}
+
+export type RollingReturns = {
+  /** How many entry dates were available. 0 for a fund younger than the window. */
+  windows: number
+  window_days: number
+  best: number | null
+  worst: number | null
+  median: number | null
+  positive_share: number | null
+}
+
+export type FundAnalysisData = {
+  scheme_code: string
+  name: string
+  category: string
+  sub_category: string | null
+  range: string
+  ranges: string[]
+  /** The first and last day actually plotted, not the window that was asked for. */
+  start: string | null
+  end: string | null
+
+  nav: ChartPoint[]
+  /** The fund's own category median. Empty when the category is too thin to have one. */
+  peer_median: ChartPoint[]
+  drawdown: ChartPoint[]
+
+  total_return: number | null
+  peer_total_return: number | null
+  peers_compared: number
+  /**
+   * True when the fund's first NAV in the window is later than the window's
+   * start. That includes the harmless case where the window began on a Sunday,
+   * so the page checks `first_nav_date` before it says anything alarming.
+   */
+  clipped_to_fund_history: boolean
+
+  /** The fund's first published NAV ever, not the first one in this window. */
+  first_nav_date: string | null
+  latest_nav: number | null
+  latest_nav_date: string | null
+  nav_points_available: number
+
+  rolling_1y: RollingReturns
+  /** The whole ranked row, so the page needs no second request. */
+  fund: ScreenedFund
+}
+
+export async function fetchFundAnalysis(
+  schemeCode: string,
+  range: string,
+): Promise<FundAnalysisData> {
+  return (
+    await api.get(
+      `/api/v1/screener/funds/${encodeURIComponent(schemeCode)}/analysis`,
+      { params: { range } },
+    )
+  ).data
+}
+
+/* -------------------------------------------------- one company's own page */
+
+/**
+ * Everything the stock page draws, in one request.
+ *
+ * UNITS, which differ from the fund page's:
+ *
+ *   `price_series` and `sector_series` are INDEX POINTS rebased to 100 at the
+ *   window's start, same as the fund page's `nav`. Never formatPercent.
+ *
+ *   Every `ratios[].value` and `ratios[].sector_median` is in the unit the
+ *   ratio is normally quoted in — P/E and P/B are multiples, ROE and dividend
+ *   yield are ALREADY PERCENT (14.4 means 14.4%). None of them is a fraction.
+ *
+ *   `position_in_52w` IS a fraction, 0 at the year's low and 1 at its high.
+ *
+ *   `day_change_pct` is already percent. `market_cap` is rupees.
+ *
+ * The path sits under `/api/v1/screener/stocks`, so it shares the fund page's
+ * heavy-tier budget of 20 requests a minute. Six range buttons is six
+ * requests: nothing here may prefetch or poll.
+ */
+export type RatioVsSector = {
+  /** One of `pe`, `pb`, `roe`, `div_yield`. */
+  key: string
+  label: string
+  value: number | null
+  /** The true median across this sector in traa's own universe, not an index. */
+  sector_median: number | null
+  /** Reads naturally after the company's name: "cheaper than its sector". */
+  verdict: string | null
+  /**
+   * Whether the comparison favours this company. Direction is per-ratio: a low
+   * P/E is good news and a low ROE is not, so this cannot be derived from the
+   * two numbers alone.
+   */
+  better: boolean | null
+}
+
+export type SimilarStock = {
+  ticker: string
+  symbol: string
+  name: string
+  price: number | null
+  pe: number | null
+  market_cap: number | null
+}
+
+export type StockAnalysisData = {
+  ticker: string
+  symbol: string
+  name: string
+  sector: string | null
+  industry: string | null
+
+  price: number | null
+  previous_close: number | null
+  day_change_pct: number | null
+  day_low: number | null
+  day_high: number | null
+  week52_low: number | null
+  week52_high: number | null
+  /** 0 at the year's low, 1 at its high. Null when the year has no range. */
+  position_in_52w: number | null
+  volume: number | null
+  market_cap: number | null
+
+  range: string
+  ranges: string[]
+  price_series: ChartPoint[]
+  /** The sector's median company. Empty when too few peers priced to take one. */
+  sector_series: ChartPoint[]
+  peers_compared: number
+
+  ratios: RatioVsSector[]
+  similar: SimilarStock[]
+  /**
+   * The group `similar` was drawn from. Not `industry`: that comes from the
+   * fundamentals feed and is granular ("Banks - Regional"), while the peer
+   * list is built from the universe's broader grouping ("Financial
+   * Services"). Labelling the list with the wrong one claims six regional
+   * banks when two of them are insurers.
+   */
+  similar_group: string | null
+  benchmark_sector: string
+  benchmark_constituents: number
+
+  /** Null when the company is too new to score. */
+  score: ScoredStock | null
+  /** Keyed sentences: position, valuation, quality, dividend, size, score. */
+  plain: Record<string, string>
+}
+
+export async function fetchStockAnalysis(
+  ticker: string,
+  range: string,
+): Promise<StockAnalysisData> {
+  return (
+    await api.get(
+      `/api/v1/screener/stocks/${encodeURIComponent(ticker)}/analysis`,
+      { params: { range } },
+    )
+  ).data
 }
