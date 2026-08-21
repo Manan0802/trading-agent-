@@ -1,7 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+from types import SimpleNamespace
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.auth.fastapi_users_app import current_active_user
@@ -23,6 +24,7 @@ from app.schemas.portfolio import (
     OverlapOut,
     OverlapPairOut,
     LeverOut,
+    UnpricedLeverOut,
 )
 from app.services.advisor.fund_universe import BENCHMARK_SCHEME_CODE
 from app.services.marketdata import fund_holdings, mutual_fund
@@ -33,6 +35,7 @@ from app.services.advisor.fund_evidence import expense_ratios
 from app.services.portfolio.history import HoldingSeries, build_history
 from app.services.advisor.fund_overlap import analyse_overlap
 from app.services.marketdata import announcements as filings
+from app.services.advisor import asset_mix
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
 from app.services.portfolio.holding_cost import cost_review
@@ -350,13 +353,29 @@ def get_cost_review(
 def get_levers(
     years_remaining: float | None = None,
     monthly_sip: float = 0,
+    liquid_savings: float | None = Query(
+        None, ge=0,
+        description="Cash, sweep account or liquid funds you can reach this "
+                    "week. Without it we cannot say whether the emergency fund "
+                    "is a gate, so we ask rather than assume it is fine.",
+    ),
+    high_interest_debt: float | None = Query(
+        None, ge=0,
+        description="What you owe on cards or personal loans. A card at 42% "
+                    "beats every investment here, guaranteed.",
+    ),
+    high_interest_rate: float = Query(0.42, gt=0, le=1),
     db: Session = Depends(get_db),
     user: User = Depends(current_active_user),
 ):
     """Which decisions are actually worth money to this user, ranked.
 
+    Four lists, not one. Gates first (they earn nothing and stop a forced sale),
+    then levers biggest first, then trades kept separate because they buy return
+    with risk, then what we could not price and what we would need.
+
     Fund selection appears at zero rather than being left off: we measured it
-    and it does not work, and the zero is the point.
+    three times and it failed three times, and the zero is the point.
     """
     # The horizon and the income come from the stored profile unless the caller
     # overrides the horizon, so the biggest lever we can price is not silently
@@ -405,20 +424,49 @@ def get_levers(
             deductions=deductions,
         )
 
+    # Derived rather than asked for: we already hold the categories. Built from
+    # `holdings` and not from `priced`, because `_priced_holdings` drops every
+    # stock — classifying only the mutual funds would report a portfolio of
+    # equities and one gilt fund as 0% equity. Returns None when too much of
+    # the money cannot be classified, which leaves the equity trade unpriced
+    # rather than built on a guess.
+    mix = asset_mix.classify(
+        SimpleNamespace(
+            name=h.name,
+            asset_type=h.asset_type,
+            identifier=h.identifier,
+            category=h.category,
+            current_value=values.get(h.id, 0.0),
+        )
+        for h in holdings
+    )
+
+    ranked = rank_levers(
+        # The whole portfolio, for the levers that apply to all of it — the
+        # yearly LTCG exemption, and the equity trade.
+        portfolio_value=summary.total_current_value or 0.0,
+        # Only the money in regular plans, which is the only money a switch to
+        # direct is worth anything on.
+        regular_plan_value=flagged_value,
+        annual_income=user.annual_income or 0,
+        monthly_sip=monthly_sip,
+        years_remaining=horizon,
+        regular_plan_cost_gap=weighted_gap,
+        tax_saving=tax_saving,
+        tax_regime_gap=regime_gap,
+        current_regime=user.current_tax_regime,
+        monthly_expenses=user.monthly_expenses,
+        liquid_savings=liquid_savings,
+        high_interest_debt=high_interest_debt,
+        high_interest_rate=high_interest_rate,
+        equity_share=mix.equity_share,
+    )
+
     return LeversOut(
-        levers=[
-            LeverOut.model_validate(lever)
-            for lever in rank_levers(
-                portfolio_value=flagged_value,
-                annual_income=user.annual_income or 0,
-                monthly_sip=monthly_sip,
-                years_remaining=horizon,
-                regular_plan_cost_gap=weighted_gap,
-                tax_saving=tax_saving,
-                tax_regime_gap=regime_gap,
-                current_regime=user.current_tax_regime,
-            )
-        ],
+        gates=[LeverOut.model_validate(g) for g in ranked.gates],
+        levers=[LeverOut.model_validate(l) for l in ranked.levers],
+        trades=[LeverOut.model_validate(t) for t in ranked.trades],
+        unpriced=[UnpricedLeverOut.model_validate(u) for u in ranked.unpriced],
         years_remaining=horizon,
         portfolio_value=summary.total_current_value,
         stale=_stale(holdings),

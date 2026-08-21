@@ -143,14 +143,60 @@ class LeverOut(BaseModel):
     lifetime_value: float
     detail: str
     action: str
+    """What kind of claim this is, because they must not be read as one list.
+
+    `certain` is arithmetic — a fee difference, a slab calculation, an
+    exemption. `behaviour` is sound arithmetic whose value depends on the person
+    actually doing it. `trade` buys return by taking risk and is never sorted in
+    among the others. `gate` earns nothing and prevents a forced sale.
+    """
+    kind: str = "certain"
+    """Bottom and top of the value where it turns on an assumption we cannot
+    pin. Null when the figure does not move with one. `save_more` has a band
+    because it scales WITH the return assumption; a cost gap does not."""
+    low: float | None = None
+    high: float | None = None
+    """How we know, and how well. A number with no provenance is
+    indistinguishable from one we made up."""
+    evidence: str = ""
+    """What would change this answer."""
+    revisit: str = ""
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UnpricedLeverOut(BaseModel):
+    """A decision we know matters and cannot value for this person yet.
+
+    Returned rather than omitted: a list containing only what we could compute
+    reads as a complete list of what matters.
+    """
+
+    key: str
+    title: str
+    why: str
+    what_we_need: str
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class LeversOut(BaseModel):
-    """Which decisions are worth money to this user, biggest first."""
+    """Which decisions are worth money to this user, biggest first.
 
+    Four lists rather than one, and the separation is the point. Sorting a
+    guaranteed fee saving, a bet on holding through a 40% fall, and a credit
+    card at 42% into a single ranked list would present three different kinds
+    of claim as though they were the same kind.
+    """
+
+    """Do these first. They earn nothing and they stop a forced sale."""
+    gates: list[LeverOut] = []
+    """Then these, biggest first."""
     levers: list[LeverOut]
+    """Bought with risk, not free. Shown apart from the levers on purpose."""
+    trades: list[LeverOut] = []
+    """What we know matters and could not value, with what we would need."""
+    unpriced: list[UnpricedLeverOut] = []
     years_remaining: float
     portfolio_value: float
     # Holdings priced from a frozen NAV, by name, with the reason. Present on
