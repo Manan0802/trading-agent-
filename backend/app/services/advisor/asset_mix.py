@@ -17,6 +17,7 @@ built on it tells someone to move real money.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 from app.services.advisor import fund_catalogue
 
@@ -128,3 +129,34 @@ def classify(holdings) -> Mix:
             unknown += value
             unknown_names.append(getattr(holding, "name", "unnamed holding"))
     return Mix(equity, other, unknown, tuple(unknown_names))
+
+
+# ---------------------------------------------------------------------------
+
+
+def monthly_contribution(transactions, as_of, months: int = 12) -> float:
+    """What this person has actually been putting in each month.
+
+    Derived rather than asked for. Every caller of the levers engine had to
+    supply `monthly_sip` and the decision screen passed a hardcoded zero, which
+    silently removed the single largest lever on it — the one worth ₹25 lakh to
+    the reference user.
+
+    Buys only, over the last `months` months, divided by that many months. Sells
+    are not netted off: the question is "what are you adding", and someone who
+    bought ₹20,000 and sold ₹20,000 of something else is still adding ₹20,000 a
+    month. Averaging over the window rather than taking the last month means a
+    missed instalment or a lump sum does not swing it.
+    """
+    cutoff = date(as_of.year - (months // 12), as_of.month, 1) if months >= 12 else as_of
+    total = 0.0
+    for txn in transactions:
+        if getattr(txn, "txn_type", "") != "BUY":
+            continue
+        when = getattr(txn, "txn_date", None)
+        if when is None or when < cutoff or when > as_of:
+            continue
+        units = float(getattr(txn, "units", 0) or 0)
+        price = float(getattr(txn, "price", 0) or 0)
+        total += units * price
+    return round(total / months, 2) if total > 0 else 0.0

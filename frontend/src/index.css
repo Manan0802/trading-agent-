@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/inter-tight";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -11,7 +12,14 @@
    one tight radius everywhere, and monospaced tabular figures so columns of
    rupees line up on the decimal. */
 @theme inline {
-    --font-heading: var(--font-sans);
+    /* A display face distinct from the body face.
+       
+       `--font-heading` existed from the start and pointed at the body font, so
+       every heading was body text at a larger size — which is what made the
+       pages read as timid next to apps that do this properly. Inter Tight is
+       narrower and closes its counters at display sizes, so a headline holds
+       together instead of sprawling. Self-hosted via fontsource; no CDN. */
+    --font-heading: 'Inter Tight Variable', 'Geist Variable', ui-sans-serif, sans-serif;
     --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 

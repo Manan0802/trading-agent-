@@ -153,14 +153,50 @@ export async function fetchCostReview(yearsRemaining = 15): Promise<CostReview> 
 export type Lever = {
   key: string
   title: string
+  /** Rupees. Not a fraction, so never formatPercent. */
   annual_value: number
   lifetime_value: number
   detail: string
   action: string
+  /**
+   * What kind of claim this is. They must not be rendered as one list.
+   *
+   *   certain   — arithmetic. A fee difference, a slab calculation, an
+   *               exemption. The number is the number.
+   *   behaviour — sound arithmetic, worth this much only if the person does it.
+   *   trade     — buys return by taking risk. Never sorted among the levers.
+   *   gate      — earns nothing; prevents a forced sale.
+   */
+  kind: 'certain' | 'behaviour' | 'trade' | 'gate'
+  /**
+   * Bottom and top, in rupees, where the value turns on an assumption we cannot
+   * pin. `save_more` has a band because it scales WITH the assumed return
+   * (₹14.6L at 6%, ₹30.6L at 14%); a cost gap does not, so its band is null.
+   */
+  low: number | null
+  high: number | null
+  /** How we know, and how well. */
+  evidence: string
+  /** What would change this answer. */
+  revisit: string
+}
+
+export type UnpricedLever = {
+  key: string
+  title: string
+  why: string
+  what_we_need: string
 }
 
 export type Levers = {
+  /** Do these first. They earn nothing and stop a forced sale. */
+  gates: Lever[]
+  /** Then these, biggest first. */
   levers: Lever[]
+  /** Bought with risk. Rendered apart from the levers, always. */
+  trades: Lever[]
+  /** What we know matters and could not value, with what we would need. */
+  unpriced: UnpricedLever[]
   years_remaining: number
   portfolio_value: number
 }
@@ -223,6 +259,8 @@ export async function fetchOverlap(): Promise<Overlap> {
  * silently overwrite it.
  */
 export async function fetchLevers(params: {
+  liquid_savings?: number
+  high_interest_debt?: number
   years_remaining?: number
   monthly_sip?: number
 }): Promise<Levers> {

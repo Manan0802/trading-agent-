@@ -1996,7 +1996,7 @@ export function Screener() {
           starts at h2 while it is fetching, and the heading order check fails
           on the loading state. */}
       <header className="flex flex-col gap-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight">{tab.heading}</h1>
+        <h1 className="font-heading text-3xl font-semibold leading-[1.1] tracking-[-0.02em] sm:text-4xl">{tab.heading}</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">{tab.intro}</p>
       </header>
 

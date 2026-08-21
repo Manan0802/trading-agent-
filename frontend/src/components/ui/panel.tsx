@@ -32,7 +32,7 @@ export function Panel({
       {(title || aside) && (
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           {title && (
-            <h2 className="text-sm font-medium tracking-tight">{title}</h2>
+            <h2 className="font-heading text-base font-semibold tracking-[-0.01em]">{title}</h2>
           )}
           {aside && (
             <div className="text-xs text-muted-foreground">{aside}</div>

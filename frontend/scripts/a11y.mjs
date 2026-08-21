@@ -31,6 +31,7 @@ for (let i = 0; i < 6; i++) {
 const PAGES = [
   ['portfolio', '/portfolio'],
   ['research', '/research'],
+  ['decide', '/decide'],
   ['screener', '/screener'],
   ['screener-all', '/screener?view=all'],
   ['screener-stocks', '/screener?tab=stocks'],

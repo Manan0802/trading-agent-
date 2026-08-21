@@ -665,7 +665,7 @@ export function FundAnalysis() {
           so a page whose h1 waits for data starts at h2 while it is fetching,
           and the heading-order check fails on the state nobody screenshots. */}
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold leading-tight tracking-tight">
+        <h1 className="font-heading text-3xl font-semibold leading-[1.1] tracking-[-0.02em] sm:text-4xl">
           {data?.name ?? `Scheme ${schemeCode}`}
         </h1>
         {data ? (

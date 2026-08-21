@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 const Portfolio = lazy(() => import('@/pages/Portfolio').then((m) => ({ default: m.Portfolio })))
 const Research = lazy(() => import('@/pages/Research').then((m) => ({ default: m.Research })))
 const Screener = lazy(() => import('@/pages/Screener').then((m) => ({ default: m.Screener })))
+const Decide = lazy(() => import('@/pages/Decide').then((m) => ({ default: m.Decide })))
 const FundAnalysis = lazy(() =>
   import('@/pages/FundAnalysis').then((m) => ({ default: m.FundAnalysis })),
 )
@@ -51,6 +52,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 const NAV = [
   { to: '/portfolio', label: 'Portfolio' },
   { to: '/research', label: 'Research' },
+  { to: '/decide', label: 'Decide' },
   { to: '/screener', label: 'Screener' },
   { to: '/goals', label: 'Goals' },
   { to: '/profile', label: 'You' },
@@ -145,6 +147,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <Research />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/decide"
+              element={
+                <RequireAuth>
+                  <Decide />
                 </RequireAuth>
               }
             />

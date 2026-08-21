@@ -235,7 +235,7 @@ export function Portfolio() {
   if (data.holdings.length === 0) {
     return (
       <div className="flex flex-col gap-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Portfolio</h1>
+        <h1 className="font-heading text-3xl font-semibold leading-[1.1] tracking-[-0.02em] sm:text-4xl">Portfolio</h1>
         <EmptyState />
       </div>
     )

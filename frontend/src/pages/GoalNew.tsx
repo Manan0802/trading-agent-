@@ -60,7 +60,7 @@ export function GoalNew() {
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight">New goal</h1>
+        <h1 className="font-heading text-3xl font-semibold leading-[1.1] tracking-[-0.02em] sm:text-4xl">New goal</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           Tell us what you are saving for and when you need it. We work out the monthly
           SIP that gets you there, the split between equity, debt and gold, and which

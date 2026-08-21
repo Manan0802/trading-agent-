@@ -87,3 +87,56 @@ def test_unpriced_holdings_do_not_drag_the_share():
         H("Unpriced", "MF", "y", "Debt Scheme - Gilt Fund", 0),
     ])
     assert mix.equity_share == 1.0
+
+
+# --------------------------------------------------- what they actually put in
+
+from datetime import date as _date  # noqa: E402
+
+
+@dataclass
+class T:
+    txn_type: str
+    txn_date: _date
+    units: float
+    price: float
+
+
+def test_the_monthly_contribution_is_derived_rather_than_asked_for():
+    """Every caller had to supply `monthly_sip`, and the decision screen passed
+    a hardcoded zero — which silently removed the single largest lever on it."""
+    txns = [T("BUY", _date(2026, m, 5), 100, 100) for m in range(1, 13)]
+    assert asset_mix.monthly_contribution(txns, _date(2026, 12, 31)) == 10_000.0
+
+
+def test_sells_are_not_netted_off_the_contribution():
+    """Someone who bought ₹20,000 and sold ₹20,000 of something else is still
+    adding ₹20,000 a month. The question is what they are putting in."""
+    txns = [
+        T("BUY", _date(2026, 6, 5), 100, 100),
+        T("SELL", _date(2026, 6, 6), 100, 100),
+    ]
+    assert asset_mix.monthly_contribution(txns, _date(2026, 12, 31)) > 0
+
+
+def test_a_lump_sum_does_not_become_a_monthly_habit():
+    """Averaged over the window, so one big purchase is not read as a standing
+    instruction twelve times its size."""
+    lump = [T("BUY", _date(2026, 6, 5), 1000, 100)]
+    assert asset_mix.monthly_contribution(lump, _date(2026, 12, 31)) == pytest_approx(
+        100_000 / 12
+    )
+
+
+def test_old_transactions_do_not_count():
+    stale = [T("BUY", _date(2020, 6, 5), 1000, 100)]
+    assert asset_mix.monthly_contribution(stale, _date(2026, 12, 31)) == 0.0
+
+
+def test_no_transactions_means_zero_not_a_crash():
+    assert asset_mix.monthly_contribution([], _date(2026, 12, 31)) == 0.0
+
+
+def pytest_approx(value):
+    import pytest
+    return pytest.approx(value, abs=1)

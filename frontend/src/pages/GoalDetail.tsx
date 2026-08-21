@@ -70,7 +70,7 @@ export function GoalDetail() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight">{data.goal_name}</h1>
+          <h1 className="font-heading text-3xl font-semibold leading-[1.1] tracking-[-0.02em] sm:text-4xl">{data.goal_name}</h1>
           <div className="flex items-center gap-3">
             <Badge variant={data.status === 'active' ? 'default' : 'secondary'}>
               {data.status}

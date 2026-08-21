@@ -165,7 +165,7 @@ export function Goals() {
               </p>
             </>
           ) : (
-            <h1 className="text-2xl font-semibold tracking-tight">Goals</h1>
+            <h1 className="font-heading text-3xl font-semibold leading-[1.1] tracking-[-0.02em] sm:text-4xl">Goals</h1>
           )}
         </div>
         {active.length > 0 && (

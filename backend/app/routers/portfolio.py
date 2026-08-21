@@ -352,7 +352,12 @@ def get_cost_review(
 @router.get("/levers", response_model=LeversOut)
 def get_levers(
     years_remaining: float | None = None,
-    monthly_sip: float = 0,
+    monthly_sip: float | None = Query(
+        None, ge=0,
+        description="What you add each month. Derived from your own buys over "
+                    "the last year when not given — it used to default to zero, "
+                    "which silently removed the largest lever on the page.",
+    ),
     liquid_savings: float | None = Query(
         None, ge=0,
         description="Cash, sweep account or liquid funds you can reach this "
@@ -430,6 +435,10 @@ def get_levers(
     # equities and one gilt fund as 0% equity. Returns None when too much of
     # the money cannot be classified, which leaves the equity trade unpriced
     # rather than built on a guess.
+    if monthly_sip is None:
+        transactions = [t for h in holdings for t in h.transactions]
+        monthly_sip = asset_mix.monthly_contribution(transactions, date.today())
+
     mix = asset_mix.classify(
         SimpleNamespace(
             name=h.name,

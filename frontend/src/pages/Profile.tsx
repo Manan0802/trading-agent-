@@ -93,7 +93,7 @@ export function Profile() {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight">Your situation</h1>
+        <h1 className="font-heading text-3xl font-semibold leading-[1.1] tracking-[-0.02em] sm:text-4xl">Your situation</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           The tax regime you are in is the single largest thing we can measure for
           you, and it needs an income to work out. Nothing here is guessed: leave a
