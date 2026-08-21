@@ -15,6 +15,8 @@ with `"…/funds"` -- and `tests/test_rate_limit.py` pins both, so a future edit
 
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.auth.fastapi_users_app import current_active_user
@@ -26,6 +28,9 @@ from app.schemas.screener import (
     DominanceOut,
     FundReasonOut,
     BasketListOut,
+    ChartPointOut,
+    FundAnalysisOut,
+    RollingReturnsOut,
     BasketOut,
     BasketSlotOut,
     FundUniverseOut,
@@ -42,6 +47,7 @@ from app.schemas.screener import (
 from app.services.advisor import fund_catalogue
 from app.services.marketdata import stock_universe
 from app.services.screener import (
+    analysis,
     basket_build,
     navstore,
     scoring,
@@ -480,3 +486,66 @@ def one_basket(
             )
         except serve.NoCompletedRun as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get("/funds/{scheme_code}/analysis", response_model=FundAnalysisOut)
+def fund_analysis(
+    scheme_code: str,
+    range: str = Query(analysis.DEFAULT_RANGE),
+    user: User = Depends(current_active_user),
+) -> FundAnalysisOut:
+    """One fund's charts, drawn from the local NAV store.
+
+    No network call: five million NAV rows are on disk, so this is a read.
+    Measured at 22-93ms depending on range.
+
+    The comparison line is the fund's own category median, not an index. Judging
+    a liquid fund or a gold fund against the Nifty says only that equity and
+    gold are different things.
+    """
+    _check_choice(range, set(analysis.RANGES), "range")
+    funds, new_funds, _coverage = _load()
+
+    target = next(
+        (f for f in funds + new_funds if f.scheme_code == scheme_code), None
+    )
+    if target is None:
+        raise HTTPException(
+            status_code=404, detail=f"scheme {scheme_code} is not in the latest ranking"
+        )
+
+    peers = [
+        f.scheme_code
+        for f in funds
+        if f.category == target.category and f.sub_category == target.sub_category
+    ]
+
+    with navstore.session() as session:
+        result = analysis.analyse(
+            session, scheme_code, peers, date.today(), range_key=range
+        )
+        rolling = analysis.rolling_returns(session, scheme_code, date.today())
+
+    return FundAnalysisOut(
+        scheme_code=scheme_code,
+        name=target.name,
+        category=target.category,
+        sub_category=target.sub_category,
+        range=result.range_key,
+        ranges=list(analysis.RANGES),
+        start=result.start,
+        end=result.end,
+        nav=[ChartPointOut(date=p.date, value=p.value) for p in result.nav],
+        peer_median=[ChartPointOut(date=p.date, value=p.value) for p in result.peer_median],
+        drawdown=[ChartPointOut(date=p.date, value=p.value) for p in result.drawdown],
+        total_return=result.total_return,
+        peer_total_return=result.peer_total_return,
+        peers_compared=result.peers_compared,
+        clipped_to_fund_history=result.clipped_to_fund_history,
+        first_nav_date=result.first_nav_date,
+        latest_nav=result.latest_nav,
+        latest_nav_date=result.latest_nav_date,
+        nav_points_available=result.nav_points_available,
+        rolling_1y=RollingReturnsOut(**rolling),
+        fund=_with_reasons(target, _load_reasons()),
+    )

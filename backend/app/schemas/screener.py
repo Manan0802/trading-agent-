@@ -338,3 +338,61 @@ class BasketOut(BaseModel):
 
 class BasketListOut(BaseModel):
     baskets: list[BasketOut]
+
+
+# ── Fund analysis (charts) ───────────────────────────────────────────────────
+
+
+class ChartPointOut(BaseModel):
+    date: date
+    value: float
+
+
+class RollingReturnsOut(BaseModel):
+    """The same question a headline return answers, asked on every entry date.
+
+    A "1-year return" is one entry date's luck. This is all of them, which shows
+    whether a good number was typical or a lucky window.
+    """
+
+    windows: int
+    window_days: int
+    best: float | None
+    worst: float | None
+    median: float | None
+    positive_share: float | None
+
+
+class FundAnalysisOut(BaseModel):
+    """One fund's charts. Every series is rebased to 100 at the window's start,
+    so the fund and its peer median share one axis."""
+
+    scheme_code: str
+    name: str
+    category: str
+    sub_category: str | None
+    range: str
+    ranges: list[str]
+    start: date | None
+    end: date | None
+
+    nav: list[ChartPointOut]
+    peer_median: list[ChartPointOut]
+    drawdown: list[ChartPointOut]
+
+    total_return: float | None
+    peer_total_return: float | None
+    peers_compared: int
+    # True when the fund is younger than the range asked for, so both lines were
+    # clipped to its own history. Without saying so, a reader compares a
+    # fifteen-month record against a three-year one and reads the gap backwards.
+    clipped_to_fund_history: bool
+
+    first_nav_date: date | None
+    latest_nav: float | None
+    latest_nav_date: date | None
+    nav_points_available: int
+
+    rolling_1y: RollingReturnsOut
+    # The row from the ranking, so the page does not need a second request.
+    fund: ScreenedFundOut
