@@ -326,10 +326,24 @@ MAX_STOCK_LIMIT = 200
 # indicators -- RSI, MACD, EMA trend and support -- and traa's own stock scorer
 # excludes exactly those on measured grounds. The method is being reproduced
 # because it is the one this screen is a port of, not because it is endorsed.
-NEUTRAL_FACTORS = [
-    "Delivery volume (9 points) — the exchange refuses the request, so every "
-    "stock scores the same neutral half on it.",
-]
+def neutral_factors() -> list[str]:
+    """Which factors are not really being scored today, said out loud.
+
+    Delivery was on this list permanently until 2026-08-21. The scorer's
+    documented source returns 403, so 9 of every 100 points was the same
+    constant for every company -- in the vendor's numbers too. The exchange's
+    end-of-day archive was never gated, and now feeds it. The list is computed
+    per request rather than hardcoded, because a factor that is live today can
+    be dead tomorrow and a hardcoded sentence would keep claiming whichever
+    was true when it was written.
+    """
+    as_of = stocks.delivery_as_of()
+    if as_of is None:
+        return [
+            "Delivery volume (9 points) — the exchange archive could not be read, "
+            "so every stock scores the same neutral half on it today.",
+        ]
+    return []
 METHOD_NOTE = (
     "41 of these 100 points are momentum indicators. This is the industry-"
     "standard method reproduced as it is written; our own measurements do not "
@@ -378,7 +392,7 @@ def screen_stocks(
             unscorable=[UnscorableStockOut.model_validate(u) for u in unscorable],
             thin_history=sum(1 for s in scored if s.thin_history),
             benchmark_stocks=sector_benchmarks.built_from(),
-            neutral_factors=NEUTRAL_FACTORS,
+            neutral_factors=neutral_factors(),
             method_note=METHOD_NOTE,
         ),
     )

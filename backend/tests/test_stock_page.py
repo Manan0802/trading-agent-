@@ -412,10 +412,15 @@ def test_a_gloss_explains_the_term_and_never_restates_the_number():
         assert not re.search(r"\d+\.\d", text), f"{key} quotes a decimal"
 
 
-def test_the_delivery_gloss_says_the_component_is_dead():
-    """Nine points of every score is the same constant, because the exchange
-    endpoint returns 403. Upstream never says so anywhere."""
-    assert "every company scores the same" in pw.factor_gloss("delivery")
+def test_the_delivery_gloss_says_it_is_one_day_and_therefore_jumpy():
+    """This factor spent its whole life as a constant 4.5 for every company,
+    because the scorer's documented source returns 403. The exchange's
+    end-of-day archive was never gated, so it is real now — but it is ONE day,
+    and a single block deal moves a mid-cap's figure by twenty points. The
+    gloss has to carry that, or a live number reads as a considered one."""
+    text = pw.factor_gloss("delivery")
+    assert "one day" in text
+    assert "end-of-day" in text
 
 
 def test_an_unknown_factor_gets_no_gloss_rather_than_a_wrong_one():

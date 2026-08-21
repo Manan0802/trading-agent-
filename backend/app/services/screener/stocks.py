@@ -32,12 +32,17 @@ hundred.
 
 from __future__ import annotations
 
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from datetime import date
 
+from app.services.marketdata import nse_delivery
 from app.services.marketdata import stock as stock_data
 from app.services.marketdata import stock_universe
 from app.services.screener import plain_words, sector_benchmarks, stock_scoring
+
+_log = logging.getLogger(__name__)
 
 # Matches `advisor/stock_ranking.py`, which crawls the same universe from the
 # same source at the same settings.
@@ -52,10 +57,21 @@ _HISTORY_PERIOD = "2y"
 # awards its neutral half, so 4.5 of every 100 points is a constant for every
 # stock, forever. Passed explicitly rather than left to default, so the screen's
 # disclosure and this line move together.
+# Kept as the fallback, not as the answer. Until 2026-08-21 this was the answer
+# for every stock on every run: the scorer's documented source
+# (`quote-equity?section=trade_info`) returns 403, so 4.5 of every 100 points
+# was the same constant for everything. The bhavcopy archive was never gated —
+# see `marketdata/nse_delivery.py`. This constant now applies only when that
+# archive itself cannot be read.
 DELIVERY_UNAVAILABLE = None
 DELIVERY_NOTE = (
-    "Delivery volume is 9 of the 100 points and the exchange will not serve it, "
-    "so every stock scores the same neutral half on it."
+    "Delivery volume is 9 of the 100 points and the exchange archive could not "
+    "be read today, so every stock scores the same neutral half on it."
+)
+DELIVERY_LIVE_NOTE = (
+    "Delivery volume is 9 of the 100 points and is measured from the exchange's "
+    "own end-of-day file for {trade_date}. It is a single day, so a block deal "
+    "can move one company's figure sharply."
 )
 
 
@@ -109,8 +125,13 @@ def _to_port_fundamentals(f, sector: str | None, industry: str | None) -> dict:
     }
 
 
-def _score_one(entry) -> ScoredStock | UnscorableStock:
-    """One stock, end to end. Never raises -- one bad ticker must not fail a screen."""
+def _score_one(entry, delivery: dict[str, float] | None = None) -> ScoredStock | UnscorableStock:
+    """One stock, end to end. Never raises -- one bad ticker must not fail a screen.
+
+    `delivery` is the whole day's map, fetched once by the caller. A stock
+    absent from it (newly listed, suspended, or not EQ series) scores the
+    neutral half, which is the same thing that used to happen to every stock.
+    """
     unscorable = lambda why: UnscorableStock(  # noqa: E731
         ticker=entry.ticker, symbol=entry.symbol, name=entry.name, reason=why
     )
@@ -145,7 +166,8 @@ def _score_one(entry) -> ScoredStock | UnscorableStock:
     benchmark = sector_benchmarks.resolve(sector)
     try:
         result = stock_scoring.score_stock(
-            port_record, closes, benchmark, delivery_pct=DELIVERY_UNAVAILABLE
+            port_record, closes, benchmark,
+            delivery_pct=(delivery or {}).get(entry.symbol, DELIVERY_UNAVAILABLE),
         )
     except Exception as exc:  # noqa: BLE001
         return unscorable(f"could not be scored: {type(exc).__name__}")
@@ -184,6 +206,30 @@ def _score_one(entry) -> ScoredStock | UnscorableStock:
     )
 
 
+_delivery_today: dict[str, float] | None = None
+_delivery_date: date | None = None
+
+
+def delivery_for_today() -> dict[str, float]:
+    """The day's delivery map, or an empty one if the archive would not answer.
+
+    Never raises. A screen that fails because a supplementary factor is missing
+    is worse than a screen that scores that factor neutral and says so.
+    """
+    global _delivery_today, _delivery_date
+    try:
+        _delivery_today, _delivery_date = nse_delivery.latest()
+    except Exception as exc:  # noqa: BLE001 -- an unavailable archive is not a failure
+        _log.warning("delivery unavailable, scoring it neutral for every stock: %s", exc)
+        _delivery_today, _delivery_date = {}, None
+    return _delivery_today
+
+
+def delivery_as_of() -> date | None:
+    """Which trading day the delivery figures belong to, or None if unread."""
+    return _delivery_date
+
+
 def rank_entries(entries) -> tuple[list, list]:
     """Score the stocks given and return them ranked, plus what could not be.
 
@@ -198,8 +244,13 @@ def rank_entries(entries) -> tuple[list, list]:
     if not entries:
         return [], []
 
+    # One 390 KB file for the whole run, not one request per stock. Its absence
+    # is not a failure -- every stock simply scores the neutral half on this
+    # factor, which is what happened on every run before the file was found.
+    delivery = delivery_for_today()
+
     with ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
-        results = list(pool.map(_score_one, entries))
+        results = list(pool.map(lambda e: _score_one(e, delivery), entries))
 
     scored = [r for r in results if isinstance(r, ScoredStock)]
     unscorable = [r for r in results if isinstance(r, UnscorableStock)]

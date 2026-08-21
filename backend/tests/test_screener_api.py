@@ -502,13 +502,26 @@ def test_the_two_halves_of_the_score_are_shown_separately(offline_stocks):
     assert stock["fundamental"] + stock["technical"] == pytest.approx(stock["total"], abs=0.05)
 
 
-def test_the_dead_delivery_factor_is_disclosed_on_every_response(offline_stocks):
-    """NSE's quote-equity returns 403, so 9 of the 100 points are the same
-    neutral half for every stock, forever. Upstream never says so."""
+def test_a_dead_factor_is_disclosed_and_a_live_one_is_not(offline_stocks, monkeypatch):
+    """Delivery was disclosed as permanently dead until 2026-08-21: the scorer's
+    documented source returns 403, so 9 of the 100 points were the same neutral
+    half for every stock. The exchange's end-of-day archive was never gated and
+    now feeds it.
+
+    The disclosure has to follow the data in both directions. A sentence that
+    keeps saying "dead" once the data is live is as wrong as one that stays
+    silent when it goes dark again."""
+    from app.services.screener import stocks as stocks_service
+
+    monkeypatch.setattr(stocks_service, "delivery_as_of", lambda: None)
     cov = client.get("/api/v1/screener/stocks?limit=2", headers=auth()).json()["coverage"]
-    assert cov["neutral_factors"]
+    assert cov["neutral_factors"], "a dead factor must be named"
     assert "9 points" in cov["neutral_factors"][0]
-    assert "403" in cov["neutral_factors"][0] or "refuses" in cov["neutral_factors"][0]
+    assert "neutral half" in cov["neutral_factors"][0]
+
+    monkeypatch.setattr(stocks_service, "delivery_as_of", lambda: date(2026, 8, 20))
+    cov = client.get("/api/v1/screener/stocks?limit=2", headers=auth()).json()["coverage"]
+    assert cov["neutral_factors"] == [], "a live factor must not be called dead"
 
 
 def test_the_momentum_share_is_disclosed_on_every_response(offline_stocks):

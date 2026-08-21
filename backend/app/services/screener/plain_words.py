@@ -350,8 +350,8 @@ _FACTOR_GLOSS = {
     ),
     "delivery": (
         "What share of the day's trading was people actually taking ownership "
-        "rather than trading in and out. The exchange stopped serving this, so "
-        "every company scores the same half marks here."
+        "rather than trading in and out, from the exchange's own end-of-day "
+        "file. It is one day, so a single large deal can move it sharply."
     ),
     "support": "How far the price is above the level it has recently bounced off.",
 }
