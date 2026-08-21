@@ -319,3 +319,44 @@ def stock_score_sentence(score: float | None, bucket: str | None,
             f"which our own measurements do not support"
         )
     return base + "."
+
+
+# What the ten factors mean, in words rather than initials.
+#
+# The `detail` line on each factor is compared **character for character**
+# against the reference implementation by `test_stock_scoring_parity.py`, so it
+# cannot be reworded -- "Death Cross" and "MACD -12.36, Signal -13.34" are
+# theirs and stay theirs. These sit beside those lines instead. They explain
+# the term, never the number, so one gloss is right for every company and no
+# arithmetic is duplicated anywhere it could drift.
+_FACTOR_GLOSS = {
+    "pe": "How many years of current profit the price is worth. Lower is cheaper.",
+    "eps_growth": "Whether profit per share grew against the same period a year ago.",
+    "roe": "Profit earned on the money shareholders have in the business.",
+    "pb": "The price against what the company's assets are worth on paper.",
+    "div_yield": "The cash paid out each year, as a share of the price.",
+    "rsi": (
+        "Whether the price has risen or fallen faster than usual over the last "
+        "two weeks. Above 70 is called overbought, below 30 oversold."
+    ),
+    "macd": (
+        "Whether the recent average price is pulling away from the longer one. "
+        "A \u201ccross\u201d is the moment the two swap places."
+    ),
+    "ema_trend": (
+        "Where the price sits against its own 50-day and 200-day averages. "
+        "\u201cDeath cross\u201d means the 50-day has fallen below the 200-day; "
+        "\u201cgolden cross\u201d is the reverse."
+    ),
+    "delivery": (
+        "What share of the day's trading was people actually taking ownership "
+        "rather than trading in and out. The exchange stopped serving this, so "
+        "every company scores the same half marks here."
+    ),
+    "support": "How far the price is above the level it has recently bounced off.",
+}
+
+
+def factor_gloss(key: str) -> str | None:
+    """What a factor measures, for a reader who does not know the initials."""
+    return _FACTOR_GLOSS.get(key)

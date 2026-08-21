@@ -37,7 +37,7 @@ from dataclasses import dataclass
 
 from app.services.marketdata import stock as stock_data
 from app.services.marketdata import stock_universe
-from app.services.screener import sector_benchmarks, stock_scoring
+from app.services.screener import plain_words, sector_benchmarks, stock_scoring
 
 # Matches `advisor/stock_ranking.py`, which crawls the same universe from the
 # same source at the same settings.
@@ -168,7 +168,13 @@ def _score_one(entry) -> ScoredStock | UnscorableStock:
         bucket=str(result.get("bucket", "")),
         fundamental=round(float(result.get("fundamental") or 0.0), 2),
         technical=round(float(result.get("technical") or 0.0), 2),
-        factors=list(result.get("factors", [])),
+        # The gloss is attached here rather than in either router, so the
+        # expanded row on the table and the company's own page cannot end up
+        # explaining the same factor differently.
+        factors=[
+            {**f, "plain": plain_words.factor_gloss(f.get("key", ""))}
+            for f in result.get("factors", [])
+        ],
         adjustments=list(result.get("adjustments", [])),
         price=fundamentals.price,
         thin_history=stock_scoring.thin_history(closes),

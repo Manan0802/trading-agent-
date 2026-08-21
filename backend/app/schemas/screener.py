@@ -196,6 +196,12 @@ class StockFactorOut(BaseModel):
     score: float
     pct: float
     detail: str
+    # What the factor measures, in words. `detail` is compared character for
+    # character against the reference implementation by the parity tests, so it
+    # cannot be reworded -- "Death Cross" is theirs. This sits beside it and
+    # explains the term rather than the number, so it is right for every
+    # company and duplicates no arithmetic.
+    plain: str | None = None
 
 
 class StockAdjustmentOut(BaseModel):

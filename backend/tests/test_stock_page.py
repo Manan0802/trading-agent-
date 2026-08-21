@@ -376,3 +376,47 @@ def test_the_similar_list_is_labelled_with_the_group_it_came_from():
         next(s for s in universe() if s.ticker == p.ticker).industry == page.similar_group
         for p in page.similar
     )
+
+
+# ------------------------------------------------- the factor glosses
+
+
+def test_every_scored_factor_carries_a_plain_explanation():
+    """The factor `detail` lines are compared character for character against
+    the reference by test_stock_scoring_parity, so they cannot be reworded --
+    "Death Cross" and "MACD -12.36, Signal -13.34" are theirs. A reader still
+    has to be told what those mean, so the gloss sits beside them."""
+    from app.services.screener import stock_scoring
+
+    keys = {f["key"] for f in stock_scoring.FACTOR_WEIGHTS} if hasattr(
+        stock_scoring, "FACTOR_WEIGHTS"
+    ) else {"pe", "eps_growth", "roe", "pb", "div_yield",
+            "rsi", "macd", "ema_trend", "delivery", "support"}
+    missing = [k for k in keys if not pw.factor_gloss(k)]
+    assert not missing, f"no plain words for {missing}"
+
+
+def test_a_gloss_explains_the_term_and_never_restates_the_number():
+    """One gloss has to be right for every company. A gloss carrying a figure
+    would be wrong for all but one of them, and would duplicate arithmetic that
+    already lives upstream."""
+    import re
+
+    for key in ("pe", "rsi", "macd", "ema_trend", "delivery", "support",
+                "roe", "pb", "div_yield", "eps_growth"):
+        text = pw.factor_gloss(key)
+        assert "₹" not in text, f"{key} quotes rupees"
+        # "50-day", "200-day", "70", "30" are part of what the term means; a
+        # decimal or a percent sign is a measurement of one company.
+        assert "%" not in text, f"{key} quotes a percentage"
+        assert not re.search(r"\d+\.\d", text), f"{key} quotes a decimal"
+
+
+def test_the_delivery_gloss_says_the_component_is_dead():
+    """Nine points of every score is the same constant, because the exchange
+    endpoint returns 403. Upstream never says so anywhere."""
+    assert "every company scores the same" in pw.factor_gloss("delivery")
+
+
+def test_an_unknown_factor_gets_no_gloss_rather_than_a_wrong_one():
+    assert pw.factor_gloss("something_new") is None
