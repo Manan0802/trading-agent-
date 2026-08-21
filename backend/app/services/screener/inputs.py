@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from functools import lru_cache
 
 from app.services.advisor import fund_catalogue
 from app.services.screener import metrics as metrics_mod
@@ -111,10 +112,46 @@ def is_eligible(category: str | None) -> tuple[bool, str]:
     return True, ""
 
 
+@lru_cache(maxsize=1)
+def _sebi_sub_categories() -> dict[str, tuple[str, str]]:
+    """Every SEBI sub-category traa already knows, keyed by its lowercase name.
+
+    Derived from the funds that ARE correctly labelled, so it cannot drift from
+    the catalogue: if AMFI renames a category, this follows.
+    """
+    known: dict[str, tuple[str, str]] = {}
+    for fund in fund_catalogue.all_funds():
+        category, sub_category = split_category(fund.category)
+        if is_eligible(category)[0] and sub_category:
+            known[sub_category.lower()] = (category, sub_category)
+    return known
+
+
+def category_from_name(name: str) -> tuple[str, str] | None:
+    """A fund's real category, read off its own name -- or None if unclear.
+
+    Only used to rescue a fund whose AMFI label is pre-2018 vocabulary. The rule
+    is deliberately strict: exactly one known SEBI sub-category phrase must
+    appear in the name. "Mahindra Manulife Flexi Cap Fund" resolves; "Mahindra
+    Manulife Consumption Fund" does not, because SEBI has no Consumption
+    category and guessing it is Sectoral/Thematic is a judgement this module has
+    no business making.
+
+    Strictness is the point. A wrong category does not error -- it silently
+    ranks a fund against the wrong peers, which is worse than leaving it out.
+    """
+    lowered = name.lower()
+    matches = {
+        value for phrase, value in _sebi_sub_categories().items() if phrase in lowered
+    }
+    return next(iter(matches)) if len(matches) == 1 else None
+
+
 def build_inputs(
     session,
     as_of: date,
     codes: list[str] | None = None,
+    open_ended: frozenset[str] | None = None,
 ) -> BuildResult:
     """Read the store, compute metrics, and hand the scorer its inputs.
 
@@ -142,9 +179,34 @@ def build_inputs(
     for fund in catalogue:
         category, sub_category = split_category(fund.category)
         ok, why = is_eligible(category)
+
         if not ok:
-            unscorable.append(universe.Unscorable(fund.code, why))
-            continue
+            # Second chance, for a fund whose label is stale rather than wrong.
+            #
+            # 3,071 catalogue funds carry pre-2018 vocabulary. Most are genuinely
+            # closed -- capital-protection and fixed-maturity series nobody can
+            # buy -- but 72 of them are open-ended and real, including every fund
+            # of one whole AMC. Dropping those on a label is losing funds, not
+            # filtering them.
+            #
+            # Two conditions, both required. AMFI's open-ended feed has to list
+            # the scheme, which is a fact rather than an inference; and the
+            # fund's own name has to contain exactly one SEBI sub-category, so
+            # the peer group it joins is stated by the fund itself.
+            rescued = None
+            if open_ended is not None and fund.code in open_ended:
+                rescued = category_from_name(fund.name)
+            if rescued is None:
+                unscorable.append(
+                    universe.Unscorable(
+                        fund.code,
+                        why
+                        if open_ended is None or fund.code in open_ended
+                        else f"{why}, and it is a closed-ended scheme",
+                    )
+                )
+                continue
+            category, sub_category = rescued
 
         window = navstore.nav_window(session, fund.code, start=window_start)
         if not window:

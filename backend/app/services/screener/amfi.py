@@ -57,6 +57,18 @@ from app.services.marketdata import mutual_fund
 from app.services.screener import navstore
 
 NAVALL_URL = "https://portal.amfiindia.com/spages/NAVAll.txt"
+
+# The same feed filtered to OPEN-ENDED schemes only, and the only clean way to
+# tell a fund you can buy from one you cannot.
+#
+# AMFI's category labels are unreliable -- 3,071 of our 4,957 catalogue funds
+# carry pre-2018 vocabulary like `Income` or `IDF`. Judging by the label alone
+# throws away real funds, and judging by the fund's name is guesswork. This file
+# answers the actual question: 391 of the funds labelled `IDF` are capital-
+# protection and fixed-maturity series that closed to new money years ago, while
+# an entire AMC (Mahindra Manulife) sits under `Equity Schemes` and is perfectly
+# buyable today. Only the second kind appears here.
+NAVOPEN_URL = "https://portal.amfiindia.com/spages/NAVOpen.txt"
 _TIMEOUT_SECONDS = 60
 
 # The exact header AMFI served on 2026-08-20, probed live. Compared as a tuple
@@ -92,7 +104,12 @@ _MONTHS = {
 # in the parse rate instead of hiding in this counter.
 _NOT_AVAILABLE = frozenset({"N.A.", "N.A", "NA", "N/A"})
 
-_MIN_DATA_ROWS = 10_000  # today's file has 14,283
+_MIN_DATA_ROWS = 10_000
+
+# NAVOpen.txt carried 9,536 codes when measured. A collapse below this means a
+# truncated file, and treating that as "nothing is open-ended" would empty the
+# screen rather than error.
+_MIN_OPEN_ENDED = 5_000  # today's file has 14,283
 _MIN_PARSE_RATE = 0.98
 
 # How long a fetched feed stays on disk. Long enough that a parse failure can
@@ -277,6 +294,54 @@ def fetch_navall(use_cache: bool = True) -> str:
     # runs exactly once a night.
     _prune_disk(now)
     return text
+
+
+def fetch_navopen(use_cache: bool = True) -> str:
+    """The raw NAVOpen.txt. Cached by fetch date, exactly like NAVAll."""
+    key = f"navopen:{date.today().isoformat()}"
+    if use_cache:
+        cached = _read_disk(key)
+        if cached is not None:
+            return cached
+    text = _get_text(NAVOPEN_URL)
+    now = time.time()
+    _write_disk(key, text, now)
+    _prune_disk(now)
+    return text
+
+
+def open_ended_codes(text: str | None = None) -> frozenset[str]:
+    """Every scheme code AMFI lists as open-ended.
+
+    Parsed the same way as NAVAll -- header tuple checked first, data lines
+    identified by their semicolon count -- so a format change here fails the
+    same way rather than silently returning an empty set. An empty set would
+    exclude every fund, which is why it is a hard error and not a shrug.
+    """
+    raw = text if text is not None else fetch_navopen()
+    lines = raw.splitlines()
+    header = next((line for line in lines if line.startswith("Scheme Code")), None)
+    if header is None:
+        raise AmfiFeedError("NAVOpen.txt has no header row")
+    fields = tuple(h.strip() for h in header.split(";"))
+    if fields != _EXPECTED_HEADER:
+        raise AmfiFeedError(
+            f"NAVOpen.txt header changed: {fields!r} (expected {_EXPECTED_HEADER!r})"
+        )
+
+    separators = len(fields) - 1
+    codes = {
+        line.split(";", 1)[0].strip()
+        for line in lines
+        if line.count(";") == separators and not line.startswith("Scheme Code")
+    }
+    codes = frozenset(c for c in codes if c.isdigit())
+    if len(codes) < _MIN_OPEN_ENDED:
+        raise AmfiFeedError(
+            f"NAVOpen.txt listed only {len(codes)} open-ended schemes, "
+            f"below the {_MIN_OPEN_ENDED} floor; the file is truncated"
+        )
+    return codes
 
 
 # ---------------------------------------------------------------- the parser

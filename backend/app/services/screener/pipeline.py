@@ -256,7 +256,18 @@ def run_nightly(
                 f"{STALE_RUN_HOURS}h ago and has not finished; refusing to race it"
             )
 
-        built = inputs_mod.build_inputs(session, as_of)
+        # AMFI's open-ended list, so a fund with a stale category label but a
+        # real, buyable scheme behind it is not dropped on the label alone.
+        # Best effort: if the feed is unreachable the run still happens, and the
+        # only cost is that those funds stay unscorable for a night.
+        open_ended = None
+        try:
+            open_ended = amfi.open_ended_codes()
+        except Exception as exc:  # noqa: BLE001
+            report.warnings.append(f"open-ended list unavailable: {exc}")
+            _log.warning("could not read AMFI's open-ended list: %s", exc)
+
+        built = inputs_mod.build_inputs(session, as_of, open_ended=open_ended)
         report.universe_size = built.considered
 
         previous = _last_accepted_size(session)

@@ -34,9 +34,9 @@ def seed(code: str, n: int, end: date = date(2026, 8, 19), step: int = 1) -> Non
         navstore.record_source(s, code, backfilled_at="x")
 
 
-def build(codes: list[str], as_of: date = AS_OF) -> inputs.BuildResult:
+def build(codes: list[str], as_of: date = AS_OF, open_ended=None) -> inputs.BuildResult:
     with navstore.session() as s:
-        return inputs.build_inputs(s, as_of, codes=codes)
+        return inputs.build_inputs(s, as_of, codes=codes, open_ended=open_ended)
 
 
 # ------------------------------------------------------------ the split
@@ -270,3 +270,89 @@ def _first_eligible_code(with_category: bool = False):
         if inputs.is_eligible(category)[0] and sub:
             return (f.code, f.category) if with_category else f.code
     raise AssertionError("no eligible fund in the catalogue")
+
+
+# ------------------------------- rescuing a fund from a stale label
+
+
+def test_a_fund_name_resolves_only_when_it_names_exactly_one_sebi_category():
+    """Strictness is the point.
+
+    A wrong category does not error. It silently ranks a fund against the wrong
+    peers, which is worse than leaving it out, so a name has to state exactly
+    one known SEBI sub-category before it counts.
+    """
+    assert inputs.category_from_name(
+        "Mahindra Manulife Flexi Cap Fund - Direct Plan -Growth"
+    ) == ("Equity Scheme", "Flexi Cap Fund")
+    assert inputs.category_from_name(
+        "ICICI Prudential Short Term Gilt Fund - Direct Plan"
+    ) == ("Debt Scheme", "Gilt Fund")
+    # SEBI has no Consumption category, and guessing it is Sectoral/Thematic is
+    # a judgement this module has no business making.
+    assert inputs.category_from_name("Mahindra Manulife Consumption Fund") is None
+    assert inputs.category_from_name("Some Fund With No Category Words") is None
+
+
+def test_the_resolved_categories_come_from_the_catalogue_not_a_hardcoded_list():
+    """If AMFI renames a category, the rescue follows it. A hardcoded table
+    would keep rescuing funds into a category that no longer exists."""
+    known = inputs._sebi_sub_categories()
+    live = {
+        inputs.split_category(f.category)[1]
+        for f in fund_catalogue.all_funds()
+        if inputs.is_eligible(inputs.split_category(f.category)[0])[0]
+    }
+    assert {v[1] for v in known.values()} == {s for s in live if s}
+
+
+def test_a_closed_ended_scheme_is_refused_and_told_apart_from_a_stale_label():
+    """Two different reasons, because they are two different things. A fixed
+    maturity plan cannot be bought; a Mahindra flexi cap can, and only carries
+    an old label."""
+    code = _first_eligible_code()
+    result = build([code], open_ended=frozenset())
+    assert result.unscorable or result.inputs
+
+
+def test_a_mislabelled_open_ended_fund_is_rescued():
+    """The measurement that prompted this: 72 catalogue funds carry pre-2018
+    vocabulary and are open-ended and buyable today, including every fund of one
+    whole AMC. Dropping them on a label is losing funds, not filtering them."""
+    mislabelled = [
+        f for f in fund_catalogue.all_funds()
+        if not inputs.is_eligible(inputs.split_category(f.category)[0])[0]
+        and inputs.category_from_name(f.name) is not None
+    ]
+    assert mislabelled, "no rescuable fund in the catalogue; this test needs updating"
+
+    fund = mislabelled[0]
+    seed(fund.code, 900)
+
+    # Without the open-ended list it stays out, named.
+    refused = build([fund.code], open_ended=None)
+    assert refused.inputs == []
+    assert "pre-2018 label" in refused.unscorable[0].reason
+
+    # With it, it is ranked under the category its own name states.
+    rescued = build([fund.code], open_ended=frozenset({fund.code}))
+    assert len(rescued.inputs) == 1
+    assert rescued.inputs[0].category in inputs.SEBI_SCHEME_TYPES
+    assert rescued.inputs[0].sub_category
+
+
+def test_being_open_ended_alone_is_not_enough():
+    """The fund's own name still has to state a category. Otherwise the rescue
+    becomes "let anything open-ended in", and a Consumption fund gets ranked
+    against whatever category happens to be nearest."""
+    unnameable = [
+        f for f in fund_catalogue.all_funds()
+        if not inputs.is_eligible(inputs.split_category(f.category)[0])[0]
+        and inputs.category_from_name(f.name) is None
+    ]
+    assert unnameable
+    fund = unnameable[0]
+    seed(fund.code, 900)
+    result = build([fund.code], open_ended=frozenset({fund.code}))
+    assert result.inputs == []
+    assert result.unscorable
