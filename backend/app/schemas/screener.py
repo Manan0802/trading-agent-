@@ -463,3 +463,71 @@ class HorizonRankOut(BaseModel):
     rank: int
     of: int
     value: float
+
+
+# ── Stock page ───────────────────────────────────────────────────────────────
+
+
+class RatioVsSectorOut(BaseModel):
+    """One ratio beside its sector median.
+
+    Brokers print "Industry P/E" next to P/E and leave P/B, ROE and dividend
+    yield bare, which makes them unreadable — a P/B of 7.6 is expensive for a
+    bank and ordinary for a software company.
+    """
+
+    key: str
+    label: str
+    value: float | None
+    sector_median: float | None
+    verdict: str | None
+    # Whether this reading is good news, which is not the same as high or low:
+    # a low P/E is good and a low ROE is not.
+    better: bool | None
+
+
+class SimilarStockOut(BaseModel):
+    ticker: str
+    symbol: str
+    name: str
+    price: float | None
+    pe: float | None
+    market_cap: float | None
+
+
+class StockPageOut(BaseModel):
+    ticker: str
+    symbol: str
+    name: str
+    sector: str | None
+    industry: str | None
+
+    price: float | None
+    previous_close: float | None
+    day_change_pct: float | None
+    day_low: float | None
+    day_high: float | None
+    week52_low: float | None
+    week52_high: float | None
+    # 0 to 1 between the year's low and high. A price on its own says nothing;
+    # its position in the year says whether you are near the top or the bottom.
+    position_in_52w: float | None
+    volume: int | None
+    market_cap: float | None
+
+    range: str
+    ranges: list[str]
+    # Both rebased to 100 at the window start, so they share one axis.
+    price_series: list[ChartPointOut]
+    sector_series: list[ChartPointOut]
+    peers_compared: int
+
+    ratios: list[RatioVsSectorOut]
+    similar: list[SimilarStockOut]
+    benchmark_sector: str
+    benchmark_constituents: int
+
+    # The ten-factor score with the sentence each factor produced.
+    score: ScoredStockOut | None
+    # The page in plain words, written server-side. See the fund page.
+    plain: dict[str, str]

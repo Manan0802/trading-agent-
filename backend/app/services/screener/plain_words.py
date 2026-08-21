@@ -190,3 +190,100 @@ def risk_sentence(fund) -> str | None:
         f"is what {band} means here. A bad year can be worse than that, and has "
         f"been."
     )
+
+
+# ── Stocks ───────────────────────────────────────────────────────────────────
+
+
+def _crores(rupees: float | None) -> str | None:
+    """Market caps in crores, which is the unit every Indian reader thinks in."""
+    if rupees is None:
+        return None
+    return f"₹{_inr(rupees / 1e7)} Cr"
+
+
+def price_position_sentence(page) -> str | None:
+    """Where the price sits in its own year, which almost nobody prints.
+
+    A price on its own says nothing. The same price as a position between the
+    year's low and high says whether you are buying near the top or the bottom
+    of what the market has recently thought this company is worth.
+    """
+    if page.position_in_52w is None:
+        return None
+    pos = page.position_in_52w
+    if pos <= 0.15:
+        where = "near the bottom of"
+    elif pos >= 0.85:
+        where = "near the top of"
+    else:
+        where = f"{pos:.0%} of the way up"
+    return (
+        f"At {rupees(page.price)} it is trading {where} its last year, which ran "
+        f"from {rupees(page.week52_low)} to {rupees(page.week52_high)}."
+    )
+
+
+def valuation_sentence(page) -> str | None:
+    """Cheap or dear against its own sector, in one line.
+
+    Against the sector, never against the market: a P/B of 7.6 is expensive for
+    a bank and ordinary for a software company, and a single number cannot say
+    which without its peers.
+    """
+    pe = next((r for r in page.ratios if r.key == "pe"), None)
+    if pe is None or pe.value is None or not pe.sector_median:
+        return None
+    ratio = pe.value / pe.sector_median
+    if ratio > 1.3:
+        judgement = f"about {ratio:.1f} times what its sector trades on"
+    elif ratio < 0.75:
+        judgement = f"about {ratio:.0%} of what its sector trades on"
+    else:
+        judgement = "roughly in line with its sector"
+    sector = page.sector or "its sector"
+    return (
+        f"It is priced at {pe.value:.1f} times earnings against a median of "
+        f"{pe.sector_median:.1f} across {sector} — {judgement}."
+    )
+
+
+def quality_sentence(page) -> str | None:
+    """Profitability against peers, which is the other half of "is it cheap"."""
+    roe = next((r for r in page.ratios if r.key == "roe"), None)
+    if roe is None or roe.value is None or not roe.sector_median:
+        return None
+    verdict = "more" if roe.value > roe.sector_median else "less"
+    return (
+        f"For every ₹100 of what shareholders own, it earns about "
+        f"₹{roe.value:.0f} a year. The middle company in its sector earns "
+        f"₹{roe.sector_median:.0f}, so it is {verdict} profitable than its peers."
+    )
+
+
+def size_sentence(page) -> str | None:
+    if page.market_cap is None:
+        return None
+    return f"The whole company is worth {_crores(page.market_cap)} at today's price."
+
+
+def stock_score_sentence(score: float | None, bucket: str | None,
+                         fundamental: float | None, technical: float | None) -> str | None:
+    """What the score is and, immediately, what it is not.
+
+    Forty-one of the hundred points are momentum indicators that this project's
+    own measurements do not support. A score shown without that is a number
+    borrowing credibility it has not earned.
+    """
+    if score is None:
+        return None
+    base = f"It scores {score:.0f} out of 100 on the industry-standard method"
+    if bucket:
+        base += f", which puts it in \"{bucket}\""
+    if fundamental is not None and technical is not None:
+        base += (
+            f". {fundamental:.0f} of that comes from the business — earnings, "
+            f"book value, returns — and {technical:.0f} from price momentum, "
+            f"which our own measurements do not support"
+        )
+    return base + "."

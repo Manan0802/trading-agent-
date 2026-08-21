@@ -39,7 +39,10 @@ from app.schemas.screener import (
     BasketOut,
     BasketSlotOut,
     FundUniverseOut,
+    RatioVsSectorOut,
     ScoredStockOut,
+    SimilarStockOut,
+    StockPageOut,
     StockCoverageOut,
     StockScreenOut,
     UnscorableStockOut,
@@ -60,6 +63,7 @@ from app.services.screener import (
     scoring,
     sector_benchmarks,
     serve,
+    stock_analysis_page,
     stock_scoring,
     stocks,
 )
@@ -602,4 +606,71 @@ def fund_analysis(
             if v
         },
         fund=_with_reasons(target, _load_reasons()),
+    )
+
+
+@router.get("/stocks/{ticker}/analysis", response_model=StockPageOut)
+def stock_page(
+    ticker: str,
+    range: str = Query(stock_analysis_page.DEFAULT_RANGE),
+    user: User = Depends(current_active_user),
+) -> StockPageOut:
+    """One company's page: price against its sector, ratios against their medians.
+
+    Every ratio carries its sector median, not just P/E. A P/B of 7.6 is
+    expensive for a bank and ordinary for a software company, and the bare
+    number cannot say which. The medians are true medians over traa's own NSE
+    universe -- an index P/E is market-cap weighted, so Nifty IT reads near 21
+    because two companies dominate it.
+
+    Four seconds on a cold cache, instant afterwards: peer prices are fetched
+    sixteen at a time and held in process.
+    """
+    _check_choice(range, set(stock_analysis_page.RANGES), "range")
+    if stock_universe.lookup(ticker) is None:
+        raise HTTPException(status_code=404, detail=f"{ticker} is not in the stock universe")
+
+    try:
+        page = stock_analysis_page.build(ticker, date.today(), range_key=range)
+    except Exception as exc:  # noqa: BLE001 -- an unpriceable stock is a 503, not a crash
+        raise HTTPException(
+            status_code=503, detail=f"{ticker} could not be priced right now: {exc}"
+        ) from exc
+
+    entry = stock_universe.lookup(ticker)
+    scored, _unscorable = stocks.rank_entries([entry])
+    score = ScoredStockOut.model_validate(scored[0]) if scored else None
+
+    return StockPageOut(
+        ticker=page.ticker, symbol=page.symbol, name=page.name,
+        sector=page.sector, industry=page.industry,
+        price=page.price, previous_close=page.previous_close,
+        day_change_pct=page.day_change_pct,
+        day_low=page.day_low, day_high=page.day_high,
+        week52_low=page.week52_low, week52_high=page.week52_high,
+        position_in_52w=page.position_in_52w,
+        volume=page.volume, market_cap=page.market_cap,
+        range=page.range_key, ranges=list(stock_analysis_page.RANGES),
+        price_series=[ChartPointOut(date=p.date, value=p.value) for p in page.price_series],
+        sector_series=[ChartPointOut(date=p.date, value=p.value) for p in page.sector_series],
+        peers_compared=page.peers_compared,
+        ratios=[RatioVsSectorOut(**r.__dict__) for r in page.ratios],
+        similar=[SimilarStockOut(**s.__dict__) for s in page.similar],
+        benchmark_sector=page.benchmark_sector,
+        benchmark_constituents=page.benchmark_constituents,
+        score=score,
+        plain={
+            k: v for k, v in {
+                "position": plain_words.price_position_sentence(page),
+                "valuation": plain_words.valuation_sentence(page),
+                "quality": plain_words.quality_sentence(page),
+                "size": plain_words.size_sentence(page),
+                "score": plain_words.stock_score_sentence(
+                    score.total if score else None,
+                    score.bucket if score else None,
+                    score.fundamental if score else None,
+                    score.technical if score else None,
+                ),
+            }.items() if v
+        },
     )

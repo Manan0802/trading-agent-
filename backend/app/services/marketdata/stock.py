@@ -167,7 +167,12 @@ def get_stock_price(ticker: str) -> float:
     return _price_from(_info_cached(ticker), ticker)
 
 
-_HISTORY: dict[str, Any] = {}
+# Keyed by (ticker, period), not ticker alone. Every caller asked for "2y"
+# until the stock page began matching the period to the chart range, at
+# which point a one-year chart was served the three-month frame that a
+# one-month chart had cached under the same key -- and rendered it as a
+# year without complaint.
+_HISTORY: dict[tuple[str, str], Any] = {}
 
 
 def get_price_history(ticker: str, period: str = "2y"):
@@ -181,22 +186,23 @@ def get_price_history(ticker: str, period: str = "2y"):
     Returns None rather than raising: an unavailable stock is simply unranked,
     and one delisted ticker must not fail a screen over seven hundred names.
     """
-    if ticker in _HISTORY:
-        return _HISTORY[ticker]
+    key = (ticker, period)
+    if key in _HISTORY:
+        return _HISTORY[key]
     try:
         frame = yf.Ticker(ticker).history(period=period, auto_adjust=True)
     except Exception:  # noqa: BLE001
-        _HISTORY[ticker] = None
+        _HISTORY[key] = None
         return None
     if frame is None or frame.empty:
-        _HISTORY[ticker] = None
+        _HISTORY[key] = None
         return None
     # yfinance indexes NSE history in Asia/Kolkata. Every date this app
     # compares against is a calendar date, so the index is flattened once here
     # rather than at each comparison, where a tz mismatch raises.
     if getattr(frame.index, "tz", None) is not None:
         frame.index = frame.index.tz_localize(None)
-    _HISTORY[ticker] = frame
+    _HISTORY[key] = frame
     return frame
 
 
