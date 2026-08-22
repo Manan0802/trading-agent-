@@ -187,11 +187,14 @@ export function Decide() {
   }
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ['levers', 15, 0, parsed(debt), parsed(savings)],
+    queryKey: ['levers', 15, parsed(debt), parsed(savings)],
     queryFn: () =>
+      // `monthly_sip` is deliberately NOT sent. The server derives it from this
+      // person's own buys over the last twelve months. Passing 0 — which this
+      // page did, and which is not the same as "unsupplied" — silently removed
+      // the largest lever on the page, the one worth ₹25 lakh.
       fetchLevers({
         years_remaining: 15,
-        monthly_sip: 0,
         high_interest_debt: parsed(debt),
         liquid_savings: parsed(savings),
       }),

@@ -214,3 +214,74 @@ def test_empty_portfolio_is_valid_not_an_error():
     assert body["total_invested"] == 0
     assert body["xirr"] is None
     assert body["absolute_return"] == 0
+
+
+# ---------------------------------------------------------------------------
+# What you add each month: omitted means DERIVE, zero means zero.
+# ---------------------------------------------------------------------------
+
+
+def _recent_sips(headers, holding_id, months=12, amount=25_000.0):
+    """Twelve monthly buys ending last month, so they sit inside the window."""
+    from datetime import date, timedelta
+
+    today = date.today()
+    for i in range(months):
+        when = today - timedelta(days=30 * (i + 1))
+        _add_txn(headers, holding_id, when.isoformat(), "BUY", amount / 100.0, 100.0)
+
+
+def test_omitting_the_monthly_amount_derives_it_from_actual_buys():
+    """The decision screen passed a hardcoded 0, and 0 is not the same as
+    "unsupplied" — it silently removed the largest lever on the page, the one
+    worth ₹25 lakh to the reference user.
+
+    Omitted must mean "work it out from what they actually put in"."""
+    headers = _new_user()
+    holding = _add_fund(headers)
+    _recent_sips(headers, holding)
+
+    got = client.get("/api/v1/portfolio/levers?years_remaining=15", headers=headers)
+    assert got.status_code == 200, got.text
+    keys = [lever["key"] for lever in got.json()["levers"]]
+    assert "save_more" in keys, f"derivation did not fire: {keys}"
+
+
+def test_passing_zero_still_means_zero():
+    """Someone who genuinely adds nothing must not be told to add more on the
+    strength of a purchase they made last year."""
+    headers = _new_user()
+    holding = _add_fund(headers)
+    _recent_sips(headers, holding)
+
+    got = client.get(
+        "/api/v1/portfolio/levers?years_remaining=15&monthly_sip=0", headers=headers
+    )
+    keys = [lever["key"] for lever in got.json()["levers"]]
+    assert "save_more" not in keys, "an explicit zero was overridden by the derivation"
+
+
+def test_a_portfolio_with_no_recent_buys_gets_no_saving_lever():
+    headers = _new_user()
+    _add_fund(headers)
+    got = client.get("/api/v1/portfolio/levers?years_remaining=15", headers=headers)
+    assert "save_more" not in [lever["key"] for lever in got.json()["levers"]]
+
+
+def test_the_four_lists_are_always_present_even_when_empty():
+    """The screen reads all four. A missing key is a crash; an empty array is a
+    finding."""
+    headers = _new_user()
+    body = client.get("/api/v1/portfolio/levers", headers=headers).json()
+    for key in ("gates", "levers", "trades", "unpriced"):
+        assert key in body, key
+        assert isinstance(body[key], list)
+
+
+def test_what_could_not_be_priced_comes_back_named():
+    headers = _new_user()
+    _add_fund(headers)
+    body = client.get("/api/v1/portfolio/levers", headers=headers).json()
+    assert body["unpriced"], "nothing was reported as unpriceable"
+    for gap in body["unpriced"]:
+        assert gap["why"] and gap["what_we_need"]
