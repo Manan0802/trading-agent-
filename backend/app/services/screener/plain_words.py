@@ -458,3 +458,64 @@ def base_rate_coverage_sentence(rate) -> str | None:
             f"not a brochure."
         )
     return f"Measured across all {rate.funds} funds in this category."
+
+
+def track_record_sentence(claim) -> str | None:
+    """How often this kind of claim has been right, with its denominator.
+
+    The thing no Indian investing app publishes about itself. Univest prints
+    "Price moved −196.70 (21.23%) since then" under its verdict — one call
+    marked to market, and you cannot tell whether it was typical or their worst.
+    A hit rate without the sample it rests on is the same trick with a
+    percentage sign.
+    """
+    if claim is None:
+        return None
+    wins = round(claim.wins.median)
+    windows = round(claim.windows.median)
+    rate = round(claim.hit_rate * 100)
+    line = (
+        f"{claim.title} worked in {wins} of {windows} stretches we tested — "
+        f"{rate} times in 100."
+    )
+    if not claim.beats_chance:
+        line += " That is a coin flip, and we say so rather than round it up."
+    spread = claim.spread_pp.median
+    if abs(spread) >= 0.1:
+        direction = "ahead of" if spread > 0 else "behind"
+        line += (
+            f" The funds it picked ended up {abs(spread):.1f} percentage points "
+            f"a year {direction} the ones it rejected."
+        )
+    return line
+
+
+def track_record_caveat(record) -> str:
+    """Why every figure moves, said before anyone notices it moving."""
+    return (
+        f"Measured on {record.measured_on} by re-running the tests, not by "
+        f"copying an old result. Each was run {record.runs} times and the "
+        f"figures shift a little between runs, because the sample depends on "
+        f"which of several thousand price downloads succeed that minute."
+    )
+
+
+def better_signal_sentence(shipped, best) -> str | None:
+    """When our own composite is beaten by one of its own ingredients.
+
+    Measured 2026-08-21: the score we ship works in 61% of stretches; cost on
+    its own works in 83%. Adding risk and consistency to cost dilutes it. That
+    is a finding about our product and it belongs on the screen, not in a
+    commit message.
+    """
+    if shipped is None or best is None or best.key == shipped.key:
+        return None
+    if best.hit_rate <= shipped.hit_rate + 0.05:
+        return None
+    return (
+        f"Worth knowing: {best.title.lower()} on its own worked "
+        f"{round(best.hit_rate * 100)} times in 100, against "
+        f"{round(shipped.hit_rate * 100)} for the score this app ranks on. "
+        f"Cost is already the largest part of that score, and the rest of it "
+        f"appears to dilute rather than improve it."
+    )

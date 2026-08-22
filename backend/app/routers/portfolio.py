@@ -24,6 +24,7 @@ from app.schemas.portfolio import (
     OverlapOut,
     OverlapPairOut,
     LeverOut,
+    TrackRecordOut,
     UnpricedLeverOut,
 )
 from app.services.advisor.fund_universe import BENCHMARK_SCHEME_CODE
@@ -36,7 +37,8 @@ from app.services.portfolio.history import HoldingSeries, build_history
 from app.services.advisor.fund_overlap import analyse_overlap
 from app.services.marketdata import announcements as filings
 from app.routers import screener as screener_router
-from app.services.advisor import asset_mix
+from app.services.advisor import asset_mix, track_record
+from app.services.screener import plain_words
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
 from app.services.portfolio.holding_cost import cost_review
@@ -487,12 +489,35 @@ def get_levers(
         screener_router.base_rate_out(dominant[0], dominant[1]) if dominant else None
     )
 
+    record = track_record.load()
+    shipped = track_record.for_fund_ranking()
+    best = record.best
+
     return LeversOut(
         gates=[LeverOut.model_validate(g) for g in ranked.gates],
         levers=[LeverOut.model_validate(l) for l in ranked.levers],
         trades=[LeverOut.model_validate(t) for t in ranked.trades],
         unpriced=[UnpricedLeverOut.model_validate(u) for u in ranked.unpriced],
         base_rate=base_rate,
+        track_record=(
+            TrackRecordOut(
+                key=shipped.key,
+                title=shipped.title,
+                wins=round(shipped.wins.median),
+                windows=round(shipped.windows.median),
+                hit_rate=round(shipped.hit_rate, 4),
+                spread_pp=shipped.spread_pp.median,
+                beats_chance=shipped.beats_chance,
+                plain=plain_words.track_record_sentence(shipped) or "",
+                measured_on=record.measured_on,
+            )
+            if shipped
+            else None
+        ),
+        # Said out loud when our own composite is beaten by one of its own
+        # ingredients. It currently is: cost alone works 83 times in 100, the
+        # score we ship 61.
+        better_signal=plain_words.better_signal_sentence(shipped, best),
         years_remaining=horizon,
         portfolio_value=summary.total_current_value,
         stale=_stale(holdings),

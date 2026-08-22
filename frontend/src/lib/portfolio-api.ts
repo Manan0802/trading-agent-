@@ -189,6 +189,30 @@ export type UnpricedLever = {
   what_we_need: string
 }
 
+/**
+ * How often a claim of this kind has actually been right.
+ *
+ * `wins` out of `windows` is the denominator, and it is required rather than
+ * optional. Univest prints "Price moved −196.70 (21.23%) since then" under its
+ * verdict — one call marked to market, and you cannot tell from it whether that
+ * call was typical or their worst. A hit rate without its sample is the same
+ * trick with a percentage sign.
+ */
+export type TrackRecord = {
+  key: string
+  title: string
+  wins: number
+  windows: number
+  /** 0 to 1, not a percentage. */
+  hit_rate: number
+  /** Percentage points of forward return a year, top quartile minus bottom. */
+  spread_pp: number
+  /** False when it is no better than a coin over this sample. */
+  beats_chance: boolean
+  plain: string
+  measured_on: string
+}
+
 export type Levers = {
   /** Do these first. They earn nothing and stop a forced sale. */
   gates: Lever[]
@@ -204,6 +228,13 @@ export type Levers = {
    * honest base rate — never a broader category's number in its place.
    */
   base_rate: BaseRate | null
+  /** How often the score this app ranks funds on has actually been right. */
+  track_record: TrackRecord | null
+  /**
+   * Said out loud when one of the score's own ingredients beats the score.
+   * It currently does: cost alone works 83 times in 100, the composite 61.
+   */
+  better_signal: string | null
   years_remaining: number
   portfolio_value: number
 }

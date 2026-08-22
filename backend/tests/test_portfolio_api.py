@@ -327,3 +327,26 @@ def test_both_screens_describe_the_same_category_identically():
         pytest.skip("screener has no completed run in this environment")
     for field in ("category", "sub_category", "funds", "worst_fall", "first_safe_horizon"):
         assert from_decide[field] == from_fund[field], field
+
+
+def test_the_decision_screen_publishes_our_own_hit_rate():
+    """No Indian investing app publishes an audited track record for its own
+    engine. Univest comes closest — "Price moved −196.70 (21.23%) since then" —
+    one call marked to market, with no denominator."""
+    headers = _new_user()
+    body = client.get("/api/v1/portfolio/levers", headers=headers).json()
+    record = body["track_record"]
+    assert record is not None
+    assert record["windows"] >= 40, "a hit rate with no sample is a testimonial"
+    assert 0 < record["hit_rate"] < 1
+    assert f"{record['wins']} of {record['windows']}" in record["plain"]
+    assert record["measured_on"]
+
+
+def test_when_our_own_ingredient_beats_our_score_the_screen_says_so():
+    """Cost alone works 83 times in 100; the score we ship, 61. Adding risk and
+    consistency to cost dilutes it. A product that hides that is marketing."""
+    headers = _new_user()
+    body = client.get("/api/v1/portfolio/levers", headers=headers).json()
+    assert body["better_signal"], "the unflattering comparison was suppressed"
+    assert "dilute" in body["better_signal"]

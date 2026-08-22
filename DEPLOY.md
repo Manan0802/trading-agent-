@@ -98,10 +98,16 @@ backend/.navstore/nav.db   5.2M NAV rows across 4,939 funds, ~175 MB
 ```
 
 `NEXTRADE_NAV_DB` moves it. **Losing this one is not free.** It is what the
-whole fund screener reads, and rebuilding it takes 2-3 minutes of crawling
-mfapi for all 4,957 funds — during which `/api/v1/screener/*` returns **503
-with the rebuild progress in the message**, not an empty ranking. Put it on a
-persistent volume, or accept a few minutes of that after every redeploy.
+whole fund screener reads, and rebuilding it takes **five to thirty minutes**
+of crawling mfapi for all 4,957 funds — during which `/api/v1/screener/*`
+returns **503 with the rebuild progress in the message**, not an empty ranking.
+Put it on a persistent volume, or accept that outage after every redeploy.
+
+(This line said "2-3 minutes" until 2026-08-22, which contradicted
+`scripts/backfill_nav_history.py`'s own docstring in the same repository and
+understated the real downtime by roughly an order of magnitude. mfapi has no
+SLA and has already served half a universe once; the script's number is the
+one to trust because it is the thing doing the crawling.)
 
 It is deliberately a separate SQLite file rather than a table in
 `DATABASE_URL`. That database is under a megabyte; this is 175 MB of public,

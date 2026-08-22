@@ -137,6 +137,34 @@ class CostReviewOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TrackRecordOut(BaseModel):
+    """How often a claim of this kind has actually been right.
+
+    The thing no Indian investing app publishes about itself. Univest comes
+    closest, printing "Price moved −196.70 (21.23%) since then" under its
+    verdict — one call marked to market, with no denominator, so you cannot
+    tell whether it was typical or their worst.
+
+    `wins` out of `windows` is that denominator, and it is required rather than
+    optional for exactly that reason.
+    """
+
+    key: str
+    title: str
+    wins: int
+    windows: int
+    """0 to 1."""
+    hit_rate: float
+    """Percentage points of forward return a year, top quartile minus bottom."""
+    spread_pp: float
+    """False when the claim is no better than a coin over this sample. Shown
+    rather than rounded up."""
+    beats_chance: bool
+    """The sentence a reader sees; the numbers above are for the layout."""
+    plain: str
+    measured_on: str
+
+
 class LeverOut(BaseModel):
     key: str
     title: str
@@ -202,6 +230,10 @@ class LeversOut(BaseModel):
     # before. Null when nothing could be classified, or the category is
     # too thin for an honest base rate — never a broader one in its place.
     base_rate: BaseRateOut | None = None
+    # How often the score this app ranks funds on has actually been right, and
+    # — when one of its own ingredients beats it — that too.
+    track_record: TrackRecordOut | None = None
+    better_signal: str | None = None
     years_remaining: float
     portfolio_value: float
     # Holdings priced from a frozen NAV, by name, with the reason. Present on

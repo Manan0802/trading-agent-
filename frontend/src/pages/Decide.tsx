@@ -135,6 +135,38 @@ function Trades({ data }: { data: Levers }) {
   )
 }
 
+/**
+ * How often the thing we rank on has actually been right.
+ *
+ * No Indian investing app publishes this about its own engine — ARQ Prime, Mojo
+ * Score, Tickertape's Entry Point, ET Money Genius all make forward-looking
+ * calls and none says how often they landed. Univest gets closest with "Price
+ * moved −196.70 (21.23%) since then" under its verdict: one call marked to
+ * market, no denominator, so you cannot tell whether it was typical or their
+ * worst one.
+ *
+ * The denominator is the feature. `wins of windows` is rendered, always.
+ */
+function OurRecord({ data }: { data: Levers }) {
+  const record = data.track_record
+  if (!record) return null
+  return (
+    <Panel title="How often we have actually been right">
+      <div className="flex flex-col gap-3">
+        <p className="max-w-3xl text-[15px] leading-relaxed">{record.plain}</p>
+        {data.better_signal && (
+          <Notice>{data.better_signal}</Notice>
+        )}
+        <p className="max-w-3xl text-xs text-muted-foreground">
+          Measured on {record.measured_on} by re-running the tests against real
+          NAV history, not by copying an old result. Every other app on this
+          market shows you its picks; none of them shows you its scoreboard.
+        </p>
+      </div>
+    </Panel>
+  )
+}
+
 function Unpriced({ data }: { data: Levers }) {
   if (data.unpriced.length === 0) return null
   return (
@@ -311,6 +343,8 @@ export function Decide() {
           )}
 
           <Unpriced data={data} />
+
+          <OurRecord data={data} />
 
           <Panel title="How this page is worked out">
             <div className="flex max-w-3xl flex-col gap-3 text-sm text-muted-foreground">
