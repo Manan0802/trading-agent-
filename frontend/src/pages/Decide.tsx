@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { BaseRatePanel } from '@/components/BaseRatePanel'
 import { Check, CheckList, Eyebrow } from '@/components/ui/check'
 import { Label } from '@/components/ui/label'
 import { Notice } from '@/components/ui/notice'
@@ -265,6 +266,11 @@ export function Decide() {
         </Panel>
       ) : (
         <>
+          {/* Before the levers, not after. The reference class is the outside
+              view and it has to land before any specific recommendation —
+              Kahneman & Lovallo, and the sequence the UK Treasury mandates for
+              infrastructure costing. */}
+          <BaseRatePanel rate={data.base_rate} amount={data.portfolio_value} />
           <Gates data={data} />
 
           <Panel

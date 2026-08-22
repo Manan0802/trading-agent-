@@ -33,6 +33,7 @@ import {
   NO_VALUE,
   categoryGroup,
   formatInr,
+  formatNav,
   formatInrCompact,
   formatPercent,
   formatRatio,
@@ -115,7 +116,7 @@ function FundDetailPanel({
                 {data.is_direct_growth ? 'Direct Growth' : 'Regular plan'}
               </Badge>
               <span className="text-sm">
-                NAV <span className="tnum font-medium">{formatInr(data.latest_nav)}</span>{' '}
+                NAV <span className="tnum font-medium">{formatNav(data.latest_nav)}</span>{' '}
                 <span className="tnum text-xs text-muted-foreground">
                   on {data.latest_nav_date}
                 </span>

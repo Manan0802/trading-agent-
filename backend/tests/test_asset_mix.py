@@ -140,3 +140,35 @@ def test_no_transactions_means_zero_not_a_crash():
 def pytest_approx(value):
     import pytest
     return pytest.approx(value, abs=1)
+
+
+def test_the_dominant_category_is_where_the_money_is():
+    """Which reference class the decision screen should show."""
+    got = asset_mix.dominant_category([
+        H("PPFAS", "MF", "122639", None, 300_000),      # Flexi Cap
+        H("HDFC", "MF", "118955", None, 500_000),       # also Flexi Cap
+    ])
+    assert got is not None
+    category, value = got
+    assert "Flexi Cap" in category
+    assert value == 800_000
+
+
+def test_categories_are_not_blended_into_one_number():
+    """Averaging Small Cap's 20% losing years with Gilt's 5% produces a figure
+    that describes neither. The largest category wins outright."""
+    got = asset_mix.dominant_category([
+        H("Gilt", "MF", "x", "Debt Scheme - Gilt Fund", 900_000),
+        H("PPFAS", "MF", "122639", None, 100_000),
+    ])
+    # 'x' is not in the catalogue, so only the classifiable one counts.
+    assert got is not None and "Flexi Cap" in got[0]
+
+
+def test_stocks_do_not_claim_a_fund_category():
+    assert asset_mix.dominant_category([H("REL", "STOCK", "RELIANCE.NS", None, 900_000)]) is None
+
+
+def test_nothing_classifiable_means_no_reference_class():
+    assert asset_mix.dominant_category([]) is None
+    assert asset_mix.dominant_category([H("?", "MF", "zzz", None, 500_000)]) is None

@@ -14,6 +14,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { BaseRatePanel } from '@/components/BaseRatePanel'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Metric, MetricRow } from '@/components/ui/metric'
@@ -38,7 +39,7 @@ import {
 import {
   NO_VALUE,
   count,
-  formatInr,
+  formatNav,
   formatPercent,
   formatRatio,
   gainClass,
@@ -685,7 +686,7 @@ export function FundAnalysis() {
               <span className="text-sm text-muted-foreground">
                 NAV{' '}
                 <span className="tnum font-medium text-foreground">
-                  {formatInr(data.latest_nav)}
+                  {formatNav(data.latest_nav)}
                 </span>{' '}
                 <span className="tnum text-xs">on {longDate(data.latest_nav_date)}</span>
               </span>
@@ -725,6 +726,12 @@ export function FundAnalysis() {
         </>
       ) : (
         <>
+          {/* Before this fund's own record, not beside it. A base rate shown
+              alongside a vivid individual case gets ignored in favour of the
+              case (Kahneman & Lovallo 1993); reference-class forecasting, which
+              the UK Treasury mandates for infrastructure costing, puts the
+              class first and adjusts afterwards. Sequence, not just presence. */}
+          <BaseRatePanel rate={data.base_rate} />
           <PerformancePanel
             data={data}
             range={range}

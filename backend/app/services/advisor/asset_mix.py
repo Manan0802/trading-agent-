@@ -160,3 +160,30 @@ def monthly_contribution(transactions, as_of, months: int = 12) -> float:
         price = float(getattr(txn, "price", 0) or 0)
         total += units * price
     return round(total / months, 2) if total > 0 else 0.0
+
+
+def dominant_category(holdings) -> tuple[str, float] | None:
+    """The AMFI category holding the most of this person's money, and how much.
+
+    Used to pick which reference class to show on the decision screen. The
+    largest category rather than a blend, because a base rate is a statement
+    about one category — averaging Small Cap's 20% losing years with Gilt's 5%
+    produces a number that describes neither, and the whole point of the class
+    is that it is not widened.
+
+    Returns None when nothing can be classified, which leaves the screen showing
+    no base rate rather than one belonging to a category the person barely owns.
+    """
+    totals: dict[str, float] = {}
+    for holding in holdings:
+        value = float(getattr(holding, "current_value", 0) or 0)
+        if value <= 0 or getattr(holding, "asset_type", "MF") != "MF":
+            continue
+        category = _catalogue_category(getattr(holding, "identifier", ""))
+        if not category:
+            continue
+        totals[category] = totals.get(category, 0.0) + value
+    if not totals:
+        return None
+    category = max(totals, key=lambda k: totals[k])
+    return category, round(totals[category], 2)

@@ -285,3 +285,45 @@ def test_what_could_not_be_priced_comes_back_named():
     assert body["unpriced"], "nothing was reported as unpriceable"
     for gap in body["unpriced"]:
         assert gap["why"] and gap["what_we_need"]
+
+
+def test_the_decision_screen_shows_the_reference_class_for_the_users_own_money():
+    """Not the fund they are reading about — the category holding most of what
+    they actually own, with their own money in it."""
+    headers = _new_user()
+    holding = _add_fund(headers)
+    _recent_sips(headers, holding)
+
+    body = client.get("/api/v1/portfolio/levers", headers=headers).json()
+    rate = body["base_rate"]
+    assert rate is not None, "no reference class for a real holding"
+    assert "Flexi Cap" in rate["sub_category"], rate["sub_category"]
+    assert rate["rupees_at_risk"] and rate["rupees_at_risk"] > 0
+    # The sentences, not just the numbers.
+    assert "of every 100 stretches" in rate["plain"]["base_rate"]
+    assert "₹" in rate["plain"]["worst_fall"]
+
+
+def test_an_empty_portfolio_gets_no_reference_class_rather_than_a_default_one():
+    """A base rate for a category you do not own is worse than none."""
+    headers = _new_user()
+    body = client.get("/api/v1/portfolio/levers", headers=headers).json()
+    assert body["base_rate"] is None
+
+
+def test_both_screens_describe_the_same_category_identically():
+    """The fund page and the decision screen assemble this from one function.
+    Two copies is how two screens start quoting different loss rates for the
+    same category — the failure `scripts/consistency.py` exists to catch."""
+    headers = _new_user()
+    holding = _add_fund(headers)
+    _recent_sips(headers, holding)
+
+    from_decide = client.get("/api/v1/portfolio/levers", headers=headers).json()["base_rate"]
+    from_fund = client.get(
+        "/api/v1/screener/funds/122639/analysis?range=1y", headers=headers
+    ).json().get("base_rate")
+    if from_fund is None:
+        pytest.skip("screener has no completed run in this environment")
+    for field in ("category", "sub_category", "funds", "worst_fall", "first_safe_horizon"):
+        assert from_decide[field] == from_fund[field], field

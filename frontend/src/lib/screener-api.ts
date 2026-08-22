@@ -366,6 +366,53 @@ export type RollingReturns = {
   positive_share: number | null
 }
 
+export type BaseRateHorizon = {
+  key: string
+  /** "one year", "five years" — already worded for a sentence. */
+  words: string
+  /**
+   * How many overlapping monthly-start windows this rests on. They are NOT
+   * independent — that is what a base rate is — and the count is shown so a
+   * reader can see whether a percentile sits on 200 stretches or 4,000.
+   */
+  windows: number
+  /** FRACTION, 0 to 1. 0.203 means 20.3% of stretches ended below where they began. */
+  loss_share: number
+  worst: number
+  p05: number
+  median: number
+  p95: number
+}
+
+/**
+ * What this KIND of fund has done before — the reference class.
+ *
+ * Rendered BEFORE the fund's own record, never beside it. A base rate shown
+ * alongside a vivid individual case gets ignored in favour of the case
+ * (Kahneman & Lovallo 1993); reference-class forecasting, which the UK Treasury
+ * mandates for infrastructure costing, puts the class first and adjusts after.
+ *
+ * Every ratio here is a FRACTION. `worst_fall` −0.574 is a 57.4% drop.
+ */
+export type BaseRate = {
+  category: string
+  sub_category: string
+  funds: number
+  /** Counted, not dropped. Most fund studies quietly exclude wound-up schemes. */
+  funds_wound_up: number
+  horizons: BaseRateHorizon[]
+  worst_fall: number | null
+  median_recovery_days: number | null
+  worst_recovery_days: number | null
+  never_recovered: number
+  /** Shortest horizon where under 2% of stretches lost money, or null. */
+  first_safe_horizon: string | null
+  /** The worst fall applied to the reader's own money, when we know it. RUPEES. */
+  rupees_at_risk: number | null
+  as_of: string
+  plain: Record<string, string>
+}
+
 export type FundAnalysisData = {
   scheme_code: string
   name: string
@@ -399,6 +446,12 @@ export type FundAnalysisData = {
   nav_points_available: number
 
   rolling_1y: RollingReturns
+  /**
+   * What this category has done to people before. Null when the category is too
+   * thin (under 8 funds) to have an honest one — the class is never widened to
+   * a broader one to fill the gap.
+   */
+  base_rate: BaseRate | null
   /** The whole ranked row, so the page needs no second request. */
   fund: ScreenedFund
 }

@@ -1,3 +1,4 @@
+import type { BaseRate } from '@/lib/screener-api'
 import { api } from '@/lib/api'
 
 export type AssetType = 'MF' | 'STOCK'
@@ -197,6 +198,12 @@ export type Levers = {
   trades: Lever[]
   /** What we know matters and could not value, with what we would need. */
   unpriced: UnpricedLever[]
+  /**
+   * What the category holding most of this person's money has done before.
+   * Null when nothing could be classified, or the category is too thin for an
+   * honest base rate — never a broader category's number in its place.
+   */
+  base_rate: BaseRate | null
   years_remaining: number
   portfolio_value: number
 }

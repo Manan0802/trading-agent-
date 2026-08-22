@@ -516,7 +516,7 @@ def one_basket(
             raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-def _base_rate_out(joined_category: str, amount: float | None) -> BaseRateOut | None:
+def base_rate_out(joined_category: str, amount: float | None) -> BaseRateOut | None:
     """One reference class, assembled in one place.
 
     Both the fund page and the decision screen show this. Assembling it twice
@@ -628,7 +628,7 @@ def fund_analysis(
         peer_total_return=result.peer_total_return,
         peers_compared=result.peers_compared,
         clipped_to_fund_history=result.clipped_to_fund_history,
-        base_rate=_base_rate_out(
+        base_rate=base_rate_out(
             f"{target.category} - {target.sub_category}"
             if target.sub_category else target.category,
             amount,

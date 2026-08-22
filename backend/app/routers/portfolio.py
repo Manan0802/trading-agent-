@@ -35,6 +35,7 @@ from app.services.advisor.fund_evidence import expense_ratios
 from app.services.portfolio.history import HoldingSeries, build_history
 from app.services.advisor.fund_overlap import analyse_overlap
 from app.services.marketdata import announcements as filings
+from app.routers import screener as screener_router
 from app.services.advisor import asset_mix
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
@@ -471,11 +472,27 @@ def get_levers(
         equity_share=mix.equity_share,
     )
 
+    # The reference class for wherever most of their money actually is, with
+    # their own money in it. Assembled by the screener router's function rather
+    # than rebuilt here, so this screen and the fund page cannot end up quoting
+    # different loss rates for the same category.
+    dominant = asset_mix.dominant_category(
+        SimpleNamespace(
+            name=h.name, asset_type=h.asset_type, identifier=h.identifier,
+            category=h.category, current_value=values.get(h.id, 0.0),
+        )
+        for h in holdings
+    )
+    base_rate = (
+        screener_router.base_rate_out(dominant[0], dominant[1]) if dominant else None
+    )
+
     return LeversOut(
         gates=[LeverOut.model_validate(g) for g in ranked.gates],
         levers=[LeverOut.model_validate(l) for l in ranked.levers],
         trades=[LeverOut.model_validate(t) for t in ranked.trades],
         unpriced=[UnpricedLeverOut.model_validate(u) for u in ranked.unpriced],
+        base_rate=base_rate,
         years_remaining=horizon,
         portfolio_value=summary.total_current_value,
         stale=_stale(holdings),

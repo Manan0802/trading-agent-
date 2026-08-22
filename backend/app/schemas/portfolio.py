@@ -2,6 +2,7 @@ from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from app.schemas.screener import BaseRateOut
 
 
 class HoldingCreate(BaseModel):
@@ -197,6 +198,10 @@ class LeversOut(BaseModel):
     trades: list[LeverOut] = []
     """What we know matters and could not value, with what we would need."""
     unpriced: list[UnpricedLeverOut] = []
+    # What the category holding most of this person's money has done
+    # before. Null when nothing could be classified, or the category is
+    # too thin for an honest base rate — never a broader one in its place.
+    base_rate: BaseRateOut | None = None
     years_remaining: float
     portfolio_value: float
     # Holdings priced from a frozen NAV, by name, with the reason. Present on

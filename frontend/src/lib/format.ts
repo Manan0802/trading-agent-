@@ -15,6 +15,23 @@ export function formatInr(value: number | null | undefined): string {
   return inr.format(value)
 }
 
+/**
+ * A NAV, which needs its paise.
+ *
+ * `formatInr` rounds to whole rupees, which is right for a portfolio value and
+ * wrong for a unit price: a NAV of ₹90.4028 rendered as "₹90" loses the four
+ * digits people use to check a statement against, and two funds a paisa apart
+ * print identically. AMFI publishes four decimals; two is what a reader can
+ * hold and enough to tell any two funds apart.
+ */
+export function formatNav(value: number | null | undefined): string {
+  if (value === null || value === undefined) return NO_VALUE
+  return `₹${value.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
 /** Signed rupees, for gains and losses. */
 export function formatInrSigned(value: number | null | undefined): string {
   if (value === null || value === undefined) return NO_VALUE
