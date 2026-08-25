@@ -51,6 +51,27 @@ SEBI_SCHEME_TYPES = frozenset({
     "Solution Oriented Scheme",
 })
 
+# Pre-2018 spellings of the five types above, as they still appear in AMFI's
+# feed. Only mechanical renames belong here -- a plural, or SEBI's own earlier
+# name for the same class of scheme. Nothing that requires deciding which peer
+# group a fund joins: that is what the sub-category beside it already states.
+#
+# `Index Funds` and `Overseas Fund of Funds` map to Other Scheme because that is
+# where SEBI's 2017 circular puts index funds, ETFs and overseas FoFs.
+#
+# This is a rescue path, not an eligibility widening. A fund matched here must
+# still appear in AMFI's open-ended feed, so a closed-ended scheme carrying a
+# legacy label stays out exactly as before -- measured: 90 of the 128 live funds
+# with a legacy label are closed-ended, and all 90 remain excluded.
+LEGACY_SCHEME_TYPES = {
+    "Equity Schemes": "Equity Scheme",
+    "Hybrid Schemes": "Hybrid Scheme",
+    "Debt Schemes": "Debt Scheme",
+    "Income/Debt Oriented Schemes": "Debt Scheme",
+    "Index Funds": "Other Scheme",
+    "Overseas Fund of Funds": "Other Scheme",
+}
+
 CATEGORY_SEPARATOR = " - "
 
 # How many NAVs the momentum window needs: 14 scoring days after a 7-day
@@ -195,7 +216,20 @@ def build_inputs(
             # the peer group it joins is stated by the fund itself.
             rescued = None
             if open_ended is not None and fund.code in open_ended:
-                rescued = category_from_name(fund.name)
+                # The label may be stale only in its *spelling* of the scheme
+                # type, with the sub-category beside it already correct --
+                # "Equity Schemes - Thematic Fund" is the plural of a SEBI type
+                # followed by a real SEBI sub-category. Reading the type off the
+                # fund's own category string is stronger evidence than inferring
+                # it from the name, so this is tried first. Measured on the live
+                # feed: 38 open-ended funds are lost to spelling alone, among
+                # them Mirae Asset Great Consumer, Kotak Savings and every
+                # `Index Funds` scheme.
+                alias = LEGACY_SCHEME_TYPES.get(category)
+                if alias is not None and sub_category:
+                    rescued = (alias, sub_category)
+                else:
+                    rescued = category_from_name(fund.name)
             if rescued is None:
                 unscorable.append(
                     universe.Unscorable(

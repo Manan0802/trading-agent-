@@ -356,3 +356,45 @@ def test_being_open_ended_alone_is_not_enough():
     result = build([fund.code], open_ended=frozenset({fund.code}))
     assert result.inputs == []
     assert result.unscorable
+
+
+def test_a_legacy_scheme_type_spelling_is_read_off_the_label_not_the_name():
+    """The plural bug, which cost 24 buyable funds.
+
+    AMFI writes `Equity Schemes - Thematic Fund`: the plural of a SEBI type,
+    followed by a real SEBI sub-category. Eligibility checks only the head, so
+    the plural sank the whole label -- and the name-based rescue could not save
+    it, because `Mirae Asset Great Consumer Fund` contains no SEBI category
+    word. The category string names the peer group itself; that is better
+    evidence than the name, so it is tried first.
+    """
+    fund = next(
+        (
+            f for f in fund_catalogue.all_funds()
+            if inputs.split_category(f.category)[0] in inputs.LEGACY_SCHEME_TYPES
+            and inputs.split_category(f.category)[1]
+        ),
+        None,
+    )
+    assert fund, "no legacy-spelled label in the catalogue; this test needs updating"
+    seed(fund.code, 900)
+
+    head, tail = inputs.split_category(fund.category)
+    assert not inputs.is_eligible(head)[0], "precondition: the head must be ineligible"
+
+    # Closed-ended keeps it out: the rescue is a spelling fix, not a widening.
+    assert build([fund.code], open_ended=frozenset()).inputs == []
+
+    rescued = build([fund.code], open_ended=frozenset({fund.code}))
+    assert len(rescued.inputs) == 1
+    assert rescued.inputs[0].category == inputs.LEGACY_SCHEME_TYPES[head]
+    assert rescued.inputs[0].sub_category == tail
+
+
+def test_legacy_spellings_only_ever_rename_a_scheme_type():
+    """Every alias must land on a real SEBI type, and none may collide with one
+    already valid -- an alias shadowing a live spelling would silently reroute
+    correctly-labelled funds into another peer group."""
+    for legacy, modern in inputs.LEGACY_SCHEME_TYPES.items():
+        assert modern in inputs.SEBI_SCHEME_TYPES, legacy
+        assert legacy not in inputs.SEBI_SCHEME_TYPES, legacy
