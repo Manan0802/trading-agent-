@@ -350,3 +350,36 @@ def test_when_our_own_ingredient_beats_our_score_the_screen_says_so():
     body = client.get("/api/v1/portfolio/levers", headers=headers).json()
     assert body["better_signal"], "the unflattering comparison was suppressed"
     assert "dilute" in body["better_signal"]
+
+
+def test_the_reader_can_move_the_growth_assumption():
+    """Dietvorst (2018): people who can adjust an algorithm's output, even
+    within a restricted range, rely on it more and end up better off."""
+    headers = _new_user()
+    holding = _add_fund(headers)
+    _recent_sips(headers, holding)
+
+    def saving(rate):
+        body = client.get(
+            f"/api/v1/portfolio/levers?years_remaining=15&assumed_return={rate}",
+            headers=headers,
+        ).json()
+        lever = next(l for l in body["levers"] if l["key"] == "save_more")
+        return body, lever["lifetime_value"]
+
+    low_body, low = saving(0.06)
+    high_body, high = saving(0.16)
+    assert high > low * 1.5
+    assert low_body["assumed_return"] == 0.06
+    assert high_body["assumed_return"] == 0.16
+
+
+def test_an_absurd_assumption_is_clamped_and_the_screen_is_told():
+    """A reader who types 40% must see the 16% the numbers were actually built
+    on, not be silently given something else."""
+    headers = _new_user()
+    body = client.get(
+        "/api/v1/portfolio/levers?assumed_return=0.40", headers=headers
+    ).json()
+    assert body["assumed_return"] == 0.16
+    assert body["return_bounds"] == [0.04, 0.16]

@@ -230,6 +230,14 @@ class LeversOut(BaseModel):
     # before. Null when nothing could be classified, or the category is
     # too thin for an honest base rate — never a broader one in its place.
     base_rate: BaseRateOut | None = None
+    # What the figures were built on, echoed back because the value may have
+    # been clamped — someone who typed 40% has to see the 16% actually used.
+    assumed_return: float = 0.12
+    # What the reader is allowed to move it to. Bounded on purpose: Dietvorst
+    # (2018) found bounded adjustment restores reliance, while an unalterable
+    # verdict (2015) gets abandoned the first time it errs. An unbounded box
+    # would let someone type 40% and be told to do something absurd.
+    return_bounds: list[float] = [0.04, 0.16]
     # How often the score this app ranks funds on has actually been right, and
     # — when one of its own ingredients beats it — that too.
     track_record: TrackRecordOut | None = None

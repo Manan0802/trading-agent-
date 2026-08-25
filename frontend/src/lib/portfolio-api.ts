@@ -236,6 +236,10 @@ export type Levers = {
    */
   better_signal: string | null
   years_remaining: number
+  /** What the figures were built on, echoed back — it may have been clamped. */
+  assumed_return: number
+  /** What the reader may move it to. Bounded on purpose. */
+  return_bounds: number[]
   portfolio_value: number
 }
 
@@ -297,6 +301,7 @@ export async function fetchOverlap(): Promise<Overlap> {
  * silently overwrite it.
  */
 export async function fetchLevers(params: {
+  assumed_return?: number
   liquid_savings?: number
   high_interest_debt?: number
   years_remaining?: number

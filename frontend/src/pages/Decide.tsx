@@ -45,10 +45,21 @@ function value(lever: Lever): string | undefined {
   return formatInr(lever.lifetime_value)
 }
 
-/** The band, when the figure moves with an assumption we cannot pin. */
+/**
+ * The figure at the reader's own setting, and the band across every setting.
+ *
+ * Both, not one. Showing only the band made the slider look broken — every
+ * growth lever has a band, so nothing on screen moved when the assumption did.
+ * Showing only the point would hide that the number is an estimate at all.
+ */
 function band(lever: Lever): string | null {
   if (lever.low === null || lever.high === null) return null
-  return `${formatInr(lever.low)} to ${formatInr(lever.high)} depending on what markets do`
+  return `${formatInr(lever.lifetime_value)}`
+}
+
+function spread(lever: Lever): string | null {
+  if (lever.low === null || lever.high === null) return null
+  return `${formatInr(lever.low)} to ${formatInr(lever.high)} across every setting from 4% to 16%`
 }
 
 function LeverRow({ lever }: { lever: Lever }) {
@@ -61,6 +72,9 @@ function LeverRow({ lever }: { lever: Lever }) {
       value={band(lever) ?? value(lever)}
       detail={lever.detail}
     >
+      {spread(lever) && (
+        <p className="text-xs text-muted-foreground">{spread(lever)}</p>
+      )}
       <div className="flex flex-col gap-2 pt-1">
         <button
           type="button"
@@ -211,6 +225,12 @@ export function Decide() {
   // Not in the profile yet, and both change the answer materially. Asked for
   // here rather than assumed away: a credit card at 42% outranks every lever on
   // the page, and assuming there isn't one is the expensive assumption.
+  // Dietvorst, Simmons & Massey (Management Science 2018): people who can
+  // adjust an algorithm's output — even slightly, even within a restricted
+  // range — rely on it more and end up better off. His 2015 paper is the other
+  // half: an unalterable verdict gets abandoned the first time it errs. So this
+  // is adjustable, and bounded, and both halves matter.
+  const [rate, setRate] = useState(0.12)
   const [debt, setDebt] = useState('')
   const [savings, setSavings] = useState('')
 
@@ -220,7 +240,7 @@ export function Decide() {
   }
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ['levers', 15, parsed(debt), parsed(savings)],
+    queryKey: ['levers', 15, rate, parsed(debt), parsed(savings)],
     queryFn: () =>
       // `monthly_sip` is deliberately NOT sent. The server derives it from this
       // person's own buys over the last twelve months. Passing 0 — which this
@@ -228,6 +248,7 @@ export function Decide() {
       // the largest lever on the page, the one worth ₹25 lakh.
       fetchLevers({
         years_remaining: 15,
+        assumed_return: rate,
         high_interest_debt: parsed(debt),
         liquid_savings: parsed(savings),
       }),
@@ -251,6 +272,34 @@ export function Decide() {
           Every decision we can price for you, biggest first. {RUPEES_HINT}
         </p>
       </header>
+
+      <Panel title="What we are assuming">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Label htmlFor="decide-rate" className="shrink-0">
+              If markets return
+            </Label>
+            <input
+              id="decide-rate"
+              type="range"
+              min={4}
+              max={16}
+              step={1}
+              value={Math.round(rate * 100)}
+              onChange={(e) => setRate(Number(e.target.value) / 100)}
+              className="h-9 w-full max-w-xs"
+            />
+            <span className="num-display text-xl">{Math.round(rate * 100)}% a year</span>
+          </div>
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Disagree with us and move it — the figures below rebuild. It stops at
+            4% and 16% because outside that the arithmetic stops describing any
+            decision a person could be making. Two things do not move at all:
+            picking the best fund stays at zero at every setting, and the tax
+            regime is a slab calculation rather than a forecast.
+          </p>
+        </div>
+      </Panel>
 
       <Panel title="Two things we do not know about you">
         <div className="flex flex-col gap-4">

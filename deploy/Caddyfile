@@ -1,0 +1,28 @@
+# HTTPS for the API, with certificates that renew themselves.
+#
+# Oracle's Always Free tier gives you a VM and a public IP and nothing else —
+# no managed TLS. Google OAuth's redirect URI and the app's own BACKEND_URL
+# both assume https, so this is not optional.
+#
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+
+# Replace with your own hostname before first start. Caddy will not obtain a
+# certificate for an IP address, so a domain is required — a free subdomain
+# from any registrar you already own is enough.
+api.example.com {
+	# The app binds to localhost only; this is the one door in.
+	reverse_proxy 127.0.0.1:8020
+
+	# The API sets credentials, and the browser rejects a wildcard alongside
+	# them. ALLOWED_ORIGINS on the app side is the real control — this header
+	# is not set here on purpose, so there is exactly one place it is decided.
+
+	encode gzip
+
+	log {
+		output file /var/log/caddy/nextrade.log
+		# The screener response is ~1.2 MB; logging bodies would fill the disk.
+		format json
+	}
+}

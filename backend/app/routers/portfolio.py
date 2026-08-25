@@ -38,6 +38,7 @@ from app.services.advisor.fund_overlap import analyse_overlap
 from app.services.marketdata import announcements as filings
 from app.routers import screener as screener_router
 from app.services.advisor import asset_mix, track_record
+from app.services.advisor import levers as levers_mod
 from app.services.screener import plain_words
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
@@ -373,6 +374,12 @@ def get_levers(
                     "beats every investment here, guaranteed.",
     ),
     high_interest_rate: float = Query(0.42, gt=0, le=1),
+    assumed_return: float | None = Query(
+        None,
+        description="What you think markets will do, as a fraction. Clamped to "
+                    "0.04–0.16 — outside that the arithmetic stops describing "
+                    "any decision a person could be making. Omit for 0.12.",
+    ),
     db: Session = Depends(get_db),
     user: User = Depends(current_active_user),
 ):
@@ -471,6 +478,7 @@ def get_levers(
         liquid_savings=liquid_savings,
         high_interest_debt=high_interest_debt,
         high_interest_rate=high_interest_rate,
+        assumed_return=assumed_return,
         equity_share=mix.equity_share,
     )
 
@@ -519,6 +527,10 @@ def get_levers(
         # score we ship 61.
         better_signal=plain_words.better_signal_sentence(shipped, best),
         years_remaining=horizon,
+        # Echoed back, because it may have been clamped: a reader who typed 40%
+        # must see the 16% the numbers were actually built on.
+        assumed_return=levers_mod.clamp_return(assumed_return),
+        return_bounds=list(levers_mod.RETURN_BOUNDS),
         portfolio_value=summary.total_current_value,
         stale=_stale(holdings),
     )

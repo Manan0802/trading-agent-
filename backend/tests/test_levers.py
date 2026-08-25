@@ -382,3 +382,82 @@ def test_the_switch_is_valued_only_on_the_money_in_regular_plans():
     small = next(l for l in mostly_direct.levers if l.key == "plan_switch")
     large = next(l for l in all_regular.levers if l.key == "plan_switch")
     assert large.lifetime_value > small.lifetime_value * 5
+
+
+# ---------------------------------------------------------------------------
+# The reader can move the assumption, within bounds.
+#
+# Dietvorst, Simmons & Massey (Management Science 2018): people who can adjust
+# an algorithm's output — even slightly, even within a restricted range — rely
+# on it more and end up better off. His 2015 paper is the other half: an
+# unalterable verdict gets abandoned the first time it errs.
+# ---------------------------------------------------------------------------
+
+
+def test_the_assumption_is_the_readers_to_move():
+    low = full(assumed_return=0.06)
+    high = full(assumed_return=0.16)
+    a = next(l for l in low.levers if l.key == "save_more").lifetime_value
+    b = next(l for l in high.levers if l.key == "save_more").lifetime_value
+    assert b > a * 1.5, "moving the assumption changed nothing"
+
+
+def test_an_absurd_assumption_is_clamped_not_obeyed():
+    """An unbounded box lets someone type 40% and be told to do something
+    absurd with real money. The bounds are the feature, not a limitation."""
+    assert levers_mod.clamp_return(0.40) == levers_mod.RETURN_BOUNDS[1]
+    assert levers_mod.clamp_return(-1.0) == levers_mod.RETURN_BOUNDS[0]
+    assert levers_mod.clamp_return(None) == levers_mod._ASSUMED_RETURN
+    absurd = next(l for l in full(assumed_return=5.0).levers if l.key == "save_more")
+    capped = next(l for l in full(assumed_return=0.16).levers if l.key == "save_more")
+    assert absurd.lifetime_value == capped.lifetime_value
+
+
+def test_every_lever_that_depends_on_growth_carries_a_range():
+    """I originally gave a range only to `save_more`, on the premise that a cost
+    gap compares two paths so the assumption largely cancels. **Measuring it
+    disproved that.** Over fifteen years the direct-plan switch moves 3.2x
+    across the band and save-more moves 2.6x — the switch moves MORE, because a
+    fee saving is a slice of a balance that is itself compounding.
+    """
+    for lever in full().levers:
+        if lever.lifetime_value <= 0 or lever.key in NOT_COMPOUNDED:
+            continue
+        assert lever.low is not None, f"{lever.key} has no range"
+        assert lever.low < lever.lifetime_value < lever.high, lever.key
+
+
+# The one rupee figure here that does NOT move with the assumption, on purpose.
+# `tax_regime` is `saving × years`, uncompounded: the money only grows if the
+# person actually invests it, and assuming they do would be inventing a
+# behaviour. So it correctly has no range, and this set records why rather than
+# letting the test above quietly skip it.
+NOT_COMPOUNDED = {"tax_regime"}
+
+
+def test_the_tax_saving_is_deliberately_not_compounded():
+    """It is the only rupee figure here that does not move when the reader
+    changes the growth assumption — because it is not invested unless they
+    invest it, and the engine will not assume that on their behalf."""
+    at_low = next(l for l in full(assumed_return=0.04).levers if l.key == "tax_regime")
+    at_high = next(l for l in full(assumed_return=0.16).levers if l.key == "tax_regime")
+    assert at_low.lifetime_value == at_high.lifetime_value
+    assert at_low.low is None
+
+
+def test_a_lever_worth_nothing_gets_no_range():
+    """A range around zero would imply the answer might not be zero."""
+    for lever in full().levers:
+        if lever.lifetime_value == 0:
+            assert lever.low is None and lever.high is None, lever.key
+
+
+def test_the_direction_of_every_lever_survives_the_whole_band():
+    """The point of the bounds: a reader who disagrees with 12% should find the
+    ranking still holds, not that it inverts."""
+    for rate in (0.04, 0.08, 0.12, 0.16):
+        got = full(assumed_return=rate)
+        picking = next(l for l in got.levers if l.key == "fund_selection")
+        assert picking.lifetime_value == 0, rate
+        for lever in got.levers:
+            assert lever.lifetime_value >= 0, (lever.key, rate)

@@ -1,5 +1,12 @@
 # Deploying NexTrade
 
+> **Which host, and why:** [`deploy/README.md`](deploy/README.md) — the whole
+> free-for-dev list read against this app's measured needs (628 MB on disk, a
+> 190 MB writable database, two scheduled jobs a day, a process that never
+> sleeps). Two free offers in the entire list clear all three. Scripts for the
+> winner are in [`deploy/`](deploy/).
+
+
 Two halves that deploy separately: a static React bundle, and a FastAPI process
 with a database. The frontend can go anywhere that serves files. The backend
 needs somewhere that keeps a disk and does not sleep.

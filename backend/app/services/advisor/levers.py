@@ -26,12 +26,44 @@ from app.services.advisor.money import inr
 # a saving of 0.64pp compounds similarly at 10% or 14%.
 _ASSUMED_RETURN = 0.12
 
-# The band the "save more" lever is quoted across. Unlike a cost gap, where only
-# the difference between two paths matters, this one scales WITH the assumption:
-# +₹5,000/month over fifteen years is ₹14.6L at 6% and ₹30.6L at 14%. The
-# direction never changes and the size does, so it is shown as a range rather
-# than as a number pretending to a precision it has not got.
-_RETURN_BAND = (0.06, 0.14)
+# What the reader is allowed to move the assumption to.
+#
+# Bounded on purpose, and the bounds are the feature. Dietvorst, Simmons &
+# Massey (Management Science, 2018) found that people who can adjust an
+# algorithm's output — even slightly, even within a restricted range — rely on
+# it more and end up better off, while people shown an unalterable verdict
+# abandon it the first time it errs. An unbounded box would let someone type 40%
+# and be told to do something absurd with real money; a fixed number would be
+# the unalterable verdict his 2015 paper says gets thrown away.
+#
+# 4% is roughly a fixed deposit after tax; 16% is above what Indian equity has
+# delivered over any long stretch. Outside that the arithmetic stops describing
+# any decision a person could actually be making.
+RETURN_BOUNDS = (0.04, 0.16)
+YEARS_BOUNDS = (1.0, 40.0)
+
+
+def clamp_return(rate: float | None) -> float:
+    """A rate the reader chose, held inside what the arithmetic can honestly say."""
+    if rate is None:
+        return _ASSUMED_RETURN
+    return min(max(rate, RETURN_BOUNDS[0]), RETURN_BOUNDS[1])
+
+# The band every rupee figure here is quoted across.
+#
+# This originally applied only to "save more", on the stated premise that a cost
+# gap compares two paths so the return assumption largely cancels. **That was
+# wrong and measuring it disproved it.** Over fifteen years:
+#
+#     save ₹5,000/mo more    ₹14.6L @6% → ₹37.4L @16%    2.6x
+#     direct instead of      ₹5.6L  @6% → ₹17.6L @16%    3.2x   <- moves MORE
+#       regular
+#     the LTCG exemption     ₹3.6L  @6% →  ₹8.1L @16%    2.2x
+#
+# A fee saving is a slice of a balance that is itself compounding, so a higher
+# assumed return makes the slice bigger too. Every lever whose value depends on
+# growth therefore carries a range, not just the one I first thought did.
+_RETURN_BAND = RETURN_BOUNDS
 
 # What a debt fund is assumed to do, for the equity-share trade only.
 _DEBT_RETURN = 0.065
@@ -107,7 +139,8 @@ class LeverSet:
     unpriced: list[Unpriced] = field(default_factory=list)
 
 
-def _compounded_saving(value: float, gap: float, years: float) -> float:
+def _compounded_saving(value: float, gap: float, years: float,
+                       rate: float = _ASSUMED_RETURN) -> float:
     """What a fee saving is worth by the end, not what it sums to along the way.
 
     The fee comes out of a balance that would otherwise have grown, so the
@@ -115,8 +148,8 @@ def _compounded_saving(value: float, gap: float, years: float) -> float:
     """
     if years <= 0 or value <= 0:
         return 0.0
-    gross = value * (1 + _ASSUMED_RETURN) ** years
-    net = value * (1 + _ASSUMED_RETURN - gap) ** years
+    gross = value * (1 + rate) ** years
+    net = value * (1 + rate - gap) ** years
     return gross - net
 
 
@@ -151,6 +184,7 @@ def rank_levers(
     tax_saving: float,
     tax_regime_gap: float = 0.0,
     current_regime: str = "new",
+    assumed_return: float | None = None,
     # The money sitting in REGULAR plans, which is the only money a switch to
     # direct is worth anything on. Separate from `portfolio_value` because they
     # mean different things and one parameter serving both silently zeroed the
@@ -171,6 +205,8 @@ def rank_levers(
     is what separates "you already made this call correctly" from "there is no
     call to make here".
     """
+    rate = clamp_return(assumed_return)
+
     levers: list[Lever] = []
     trades: list[Lever] = []
     gates: list[Lever] = []
@@ -181,16 +217,26 @@ def rank_levers(
         switchable = (
             regular_plan_value if regular_plan_value is not None else portfolio_value
         )
-        on_holdings = _compounded_saving(switchable, gap, years_remaining)
+
+        def switch_worth(at: float) -> float:
+            return _compounded_saving(switchable, gap, years_remaining, at) + (
+                _sip_future_value(monthly_sip, years_remaining, at)
+                - _sip_future_value(monthly_sip, years_remaining, at - gap)
+            )
+
+        switch_low, switch_high = switch_worth(_RETURN_BAND[0]), switch_worth(_RETURN_BAND[1])
+        on_holdings = _compounded_saving(switchable, gap, years_remaining, rate)
         on_future = _sip_future_value(
-            monthly_sip, years_remaining, _ASSUMED_RETURN
-        ) - _sip_future_value(monthly_sip, years_remaining, _ASSUMED_RETURN - gap)
+            monthly_sip, years_remaining, rate
+        ) - _sip_future_value(monthly_sip, years_remaining, rate - gap)
         levers.append(
             Lever(
                 key="plan_switch",
                 title="Move from regular plans to direct",
                 annual_value=round(switchable * gap, 2),
                 lifetime_value=round(on_holdings + on_future, 2),
+                low=round(switch_low, 2),
+                high=round(switch_high, 2),
                 detail=(
                     f"The direct plan of the same fund owns the identical "
                     f"portfolio and costs {gap * 100:.2f} percentage points a "
@@ -308,15 +354,15 @@ def rank_levers(
         )
     )
 
-    levers.extend(_saving_levers(monthly_sip, years_remaining))
-    levers.extend(_tax_harvest_levers(portfolio_value, years_remaining))
+    levers.extend(_saving_levers(monthly_sip, years_remaining, rate))
+    levers.extend(_tax_harvest_levers(portfolio_value, years_remaining, rate))
     levers.extend(_behaviour_levers(portfolio_value, monthly_sip))
 
     # A gate, not a lever. Its value is per YEAR CARRIED, and sorting a
     # per-year figure into a list of lifetime figures ranked a guaranteed 42%
     # return below a ₹5.8L tax saving. You do not weigh clearing a credit card
     # against harvesting an exemption; you clear the card and then do the rest.
-    debt_gate, debt_gap = _debt_lever(high_interest_debt, high_interest_rate)
+    debt_gate, debt_gap = _debt_lever(high_interest_debt, high_interest_rate, rate)
     gates.extend(debt_gate)
     unpriced.extend(debt_gap)
 
@@ -325,7 +371,7 @@ def rank_levers(
     unpriced.extend(gate_gap)
 
     trade, trade_gap = _equity_trade(
-        equity_share, portfolio_value, monthly_sip, years_remaining
+        equity_share, portfolio_value, monthly_sip, years_remaining, rate
     )
     trades.extend(trade)
     unpriced.extend(trade_gap)
@@ -361,13 +407,14 @@ def rank_levers(
 # ---------------------------------------------------------------------------
 
 
-def _saving_levers(monthly_sip: float, years_remaining: float) -> list[Lever]:
+def _saving_levers(monthly_sip: float, years_remaining: float,
+                   rate: float = _ASSUMED_RETURN) -> list[Lever]:
     """The largest lever for almost everybody, and on no Indian screen.
 
-    Quoted as a range on purpose. A cost gap compares two paths and the
-    assumption largely cancels; this one scales with it. Measured across 6% to
-    14%: +₹5,000/month over fifteen years is ₹14.6L to ₹30.6L. Direction fixed,
-    size not — so a single number would be false precision.
+    Quoted as a range, like every lever here whose value depends on growth.
+    Measured across 6% to 16%, +₹5,000/month over fifteen years is ₹14.6L to
+    ₹37.4L. Direction fixed, size not — so a single number would be false
+    precision.
     """
     if monthly_sip <= 0 or years_remaining <= 0:
         return []
@@ -377,7 +424,7 @@ def _saving_levers(monthly_sip: float, years_remaining: float) -> list[Lever]:
         return _sip_future_value(monthly_sip + step, years_remaining, rate) - \
             _sip_future_value(monthly_sip, years_remaining, rate)
 
-    low, high, mid = gain(_RETURN_BAND[0]), gain(_RETURN_BAND[1]), gain(_ASSUMED_RETURN)
+    low, high, mid = gain(_RETURN_BAND[0]), gain(_RETURN_BAND[1]), gain(rate)
     return [
         Lever(
             key="save_more",
@@ -409,21 +456,28 @@ def _saving_levers(monthly_sip: float, years_remaining: float) -> list[Lever]:
     ]
 
 
-def _tax_harvest_levers(portfolio_value: float, years_remaining: float) -> list[Lever]:
+def _tax_harvest_levers(portfolio_value: float, years_remaining: float,
+                        rate: float = _ASSUMED_RETURN) -> list[Lever]:
     """The yearly exemption almost nobody uses, compounded over the horizon."""
     if portfolio_value <= 0 or years_remaining <= 0:
         return []
     yearly = _LTCG_EXEMPT * _LTCG_RATE
-    total = sum(
-        yearly * (1 + _ASSUMED_RETURN) ** max(years_remaining - year - 1, 0)
-        for year in range(int(years_remaining))
-    )
+
+    def harvested(at: float) -> float:
+        return sum(
+            yearly * (1 + at) ** max(years_remaining - year - 1, 0)
+            for year in range(int(years_remaining))
+        )
+
+    total = harvested(rate)
     return [
         Lever(
             key="ltcg_harvest",
             title="Use the ₹1.25 lakh tax-free gain every year",
             annual_value=round(yearly, 2),
             lifetime_value=round(total, 2),
+            low=round(harvested(_RETURN_BAND[0]), 2),
+            high=round(harvested(_RETURN_BAND[1]), 2),
             kind="certain",
             detail=(
                 f"Long-term gains on equity up to {inr(_LTCG_EXEMPT)} a year are "
@@ -492,7 +546,7 @@ def _behaviour_levers(portfolio_value: float, monthly_sip: float) -> list[Lever]
 
 
 def _debt_lever(
-    balance: float | None, rate: float
+    balance: float | None, debt_rate: float, rate: float = _ASSUMED_RETURN
 ) -> tuple[list[Lever], list[Unpriced]]:
     """Expensive debt, priced per year carried and never over the horizon.
 
@@ -513,7 +567,7 @@ def _debt_lever(
                 what_we_need="What you owe on cards or personal loans, and at what rate.",
             )
         ]
-    per_year = balance * (rate - _ASSUMED_RETURN)
+    per_year = balance * (debt_rate - rate)
     return [
         Lever(
             key="high_interest_debt",
@@ -524,9 +578,9 @@ def _debt_lever(
             lifetime_value=round(per_year, 2),
             kind="gate",
             detail=(
-                f"{inr(balance)} at {rate * 100:.0f}% costs {inr(per_year)} a "
+                f"{inr(balance)} at {debt_rate * 100:.0f}% costs {inr(per_year)} a "
                 f"year more than the same money invested is expected to earn. "
-                f"Paying it off is a guaranteed {rate * 100:.0f}% return, which "
+                f"Paying it off is a guaranteed {debt_rate * 100:.0f}% return, which "
                 f"nothing on this app offers."
             ),
             evidence=(
@@ -600,6 +654,7 @@ def _equity_trade(
     portfolio_value: float,
     monthly_sip: float,
     years_remaining: float,
+    rate: float = _ASSUMED_RETURN,
 ) -> tuple[list[Lever], list[Unpriced]]:
     """Deliberately not a lever.
 
@@ -624,11 +679,11 @@ def _equity_trade(
         ]
     if not 0 <= equity_share < 1 or years_remaining <= 0:
         return [], []
-    blended = equity_share * _ASSUMED_RETURN + (1 - equity_share) * _DEBT_RETURN
+    blended = equity_share * rate + (1 - equity_share) * _DEBT_RETURN
     gain = (
-        _sip_future_value(monthly_sip, years_remaining, _ASSUMED_RETURN)
+        _sip_future_value(monthly_sip, years_remaining, rate)
         - _sip_future_value(monthly_sip, years_remaining, blended)
-        + _compounded_saving(portfolio_value, _ASSUMED_RETURN - blended, years_remaining)
+        + _compounded_saving(portfolio_value, rate - blended, years_remaining, rate)
     )
     return [
         Lever(

@@ -1,0 +1,54 @@
+# NexTrade's API, as a service that survives crashes and reboots.
+#
+# The repo ships a Procfile, which is Heroku/buildpack syntax — a bare Ubuntu
+# VM does not read it. This is that one line translated into something an init
+# system will actually keep alive.
+#
+#   sudo cp deploy/nextrade-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now nextrade-api
+
+[Unit]
+Description=NexTrade API
+# The scheduler needs the clock and the network up before it starts, or the
+# first nightly run fires against a machine with no route out.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=nextrade
+WorkingDirectory=/opt/nextrade/backend
+EnvironmentFile=/etc/nextrade.env
+
+# Migrations first, in the same unit, so a deploy can never serve a schema the
+# code does not expect. If this fails the service fails loudly rather than
+# starting against a stale database.
+ExecStartPre=/opt/nextrade/backend/venv/bin/alembic upgrade head
+ExecStart=/opt/nextrade/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8020
+
+# 127.0.0.1, not 0.0.0.0: Caddy terminates TLS and proxies to it. Binding the
+# app to every interface would expose plain HTTP alongside the HTTPS one.
+
+Restart=always
+RestartSec=5
+# An OOM or an unhandled exception must not need a human. 12 GB of RAM is
+# plenty for uvicorn plus numpy/pandas, but yfinance under load has surprised
+# us before.
+OOMPolicy=continue
+
+# The nightly job writes ~5M rows. Give it room to finish rather than being
+# killed mid-transaction, which is how a NAV store gets corrupted.
+TimeoutStopSec=300
+
+StandardOutput=append:/var/log/nextrade/api.log
+StandardError=append:/var/log/nextrade/api.log
+
+# Ordinary hardening. The app needs its own data directory and nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/nextrade/data /var/log/nextrade
+
+[Install]
+WantedBy=multi-user.target
