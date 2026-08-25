@@ -5,6 +5,13 @@
 > 190 MB writable database, two scheduled jobs a day, a process that never
 > sleeps). Two free offers in the entire list clear all three. Scripts for the
 > winner are in [`deploy/`](deploy/).
+>
+> **No credit card?** [`deploy/FREE-NO-CARD.md`](deploy/FREE-NO-CARD.md).
+> Oracle's signup needs a card, so that route changes the architecture instead
+> of the host: the nightly jobs move to GitHub Actions and the NAV store becomes
+> a downloadable artifact, which drops the "writable disk + never sleeps"
+> requirement that made a card unavoidable. Ends on a public HTTPS URL at
+> ₹0/month with no payment method anywhere.
 
 
 Two halves that deploy separately: a static React bundle, and a FastAPI process

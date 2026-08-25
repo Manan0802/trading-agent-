@@ -4,6 +4,13 @@ The whole question, and the honest answer, from actually reading
 [free-for-dev](https://github.com/ripienaar/free-for-dev) end to end — all 57
 sections, 1,705 lines — against what this app measurably needs.
 
+> **This page assumes you can complete Oracle's signup, which requires identity
+> verification and a card.** If you cannot, read
+> [`FREE-NO-CARD.md`](FREE-NO-CARD.md) instead. It does not hunt for a better
+> host — it removes the two requirements that make every free always-on host
+> want a card, by moving the nightly jobs to GitHub Actions and turning the NAV
+> store into a downloadable artifact.
+
 ---
 
 ## What this app needs, measured not guessed
