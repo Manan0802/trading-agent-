@@ -111,6 +111,24 @@ def measure(outputs: list[str], script: str, pattern: str, labels: tuple[str, ..
     return spread([grab(pattern, text, script) for text in outputs], labels)
 
 
+def _window_counts(*blocks: dict) -> str:
+    """Every distinct `windows` value this run observed, low to high.
+
+    Written so `why_ranges` reports the run it belongs to. The figure it
+    replaced said "37, 35, 36, 35 and 35 out of 44" for five runs while `RUNS`
+    was 3, and was reprinted unchanged every time this script ran.
+    """
+    seen: set[int] = set()
+    for block in blocks:
+        for value in block.values():
+            windows = value.get("windows") if isinstance(value, dict) else None
+            if isinstance(windows, dict):
+                seen.update(int(windows[k]) for k in ("low", "median", "high") if k in windows)
+            elif isinstance(value, dict) and "windows" in value:
+                seen.add(int(value["windows"]))
+    return ", ".join(str(n) for n in sorted(seen)) or "none recorded"
+
+
 def build() -> dict:
     print("measuring this app's own claims...", flush=True)
 
@@ -146,12 +164,18 @@ def build() -> dict:
     return {
         "measured_on": date.today().isoformat(),
         "runs_per_measurement": RUNS,
+        # Reports THIS run, not a sentence someone typed once.
+        #
+        # This used to be a hardcoded string describing five runs while RUNS was
+        # 3. It was re-emitted verbatim on every rebuild, so it could never be
+        # wrong and never described the data beside it -- the same shape as a
+        # check.sh that cannot fail. A caveat that is a constant is decoration.
         "why_ranges": (
-            "Each figure is the median of several runs, with the observed range. "
-            "The validators fetch from mfapi at 24 threads and which fetches "
-            "succeed varies, so the sample varies with it — five consecutive "
-            "runs of the identical script gave 37, 35, 36, 35 and 35 windows "
-            "out of 44."
+            f"Each figure is the median of {RUNS} runs of each validator, with "
+            f"the observed range. The validators fetch from mfapi at 24 threads "
+            f"and which fetches succeed varies, so the sample varies with it. "
+            f"Window counts actually seen in this run: "
+            f"{_window_counts(head, cost, composite)}."
         ),
         "signals": head,
         "cost_alone": cost,

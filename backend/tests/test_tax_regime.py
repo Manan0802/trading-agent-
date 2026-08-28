@@ -126,3 +126,36 @@ def test_heavy_deductions_flip_which_direction_the_switch_pays():
     assert regime_switch_saving(
         2_500_000, current="new", is_salaried=True, deductions=850_000
     ) > 0
+
+
+def test_the_stated_financial_year_still_covers_today():
+    """Tax is the largest number this app reports, and slabs change by Budget.
+
+    The module names the years its constants are current for. This fails the
+    moment the Indian financial year moves past the last one named, which is
+    the prompt to re-check against the Budget rather than a claim that anything
+    is wrong. Verified once by hand for FY 2026-27 — Budget 2026-27 changed no
+    personal income tax value — and this makes the next check unmissable.
+    """
+    import re
+    from datetime import date
+    from pathlib import Path
+
+    from app.services.advisor import tax_regime
+
+    # The FIRST line only. A wider window picks up years from the prose below
+    # it — which is how the first version of this test passed a mutation that
+    # backdated the declaration, on pass 125.
+    headline = Path(tax_regime.__file__).read_text().split("\n", 1)[0]
+    years = re.findall(r"FY (\d{4})-(\d{2})", headline)
+    assert years, f"tax_regime.py's first line no longer states its years: {headline!r}"
+    latest_start = max(int(y[0]) for y in years)
+
+    today = date.today()
+    current_fy_start = today.year if today.month >= 4 else today.year - 1
+    assert latest_start >= current_fy_start, (
+        f"tax_regime.py states FY {latest_start}-{str(latest_start + 1)[2:]} but "
+        f"it is now FY {current_fy_start}-{str(current_fy_start + 1)[2:]}. "
+        "Re-check the slabs, 87A rebate, standard deduction and cess against the "
+        "latest Budget, then extend the docstring."
+    )

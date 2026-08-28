@@ -22,6 +22,21 @@ yfinance==1.5.1
 # transitively through yfinance, so a yfinance release that drops it, or a
 # numpy 3.0, would break fund scoring with no signal from this file.
 numpy>=2.0,<3.0
+# Same argument, and it was missed: pandas is imported DIRECTLY by seven files --
+# screener/scoring.py, metrics.py, stock_scoring.py, basket.py, basket_build.py,
+# universe.py and marketdata/fund_holdings.py -- and was declared nowhere. It has
+# been arriving only through mftool and yfinance. numpy got the pin for exactly
+# this reason and pandas got a comment instead. It matters more now, not less:
+# the Phase 1 plan retires yfinance for prices, which removes one of the two
+# suppliers of a dependency the entire scoring engine imports.
+pandas>=3.0,<4.0
+# Third time, same shape: imported directly by marketdata/nse_delivery.py and
+# declared nowhere, arriving only through mftool/yfinance/twilio. The Phase 1
+# plan retires yfinance for prices AND nse_delivery.py is the NSE archive path
+# that plan builds on, so the supplier and the consumer move in opposite
+# directions. tests/test_declared_dependencies.py now fails on the whole class
+# rather than waiting for someone to notice the fourth one.
+requests>=2.31,<3.0
 # Excel engines for marketdata/fund_holdings.py, which reads AMC monthly
 # portfolio disclosures. Both are needed, not one: AMCs name files .xls that are
 # really xlsx and vice versa, so the parser tries each engine in turn. pandas

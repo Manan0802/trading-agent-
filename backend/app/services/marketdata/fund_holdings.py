@@ -302,6 +302,15 @@ def _open_workbook(blob: bytes):
     trusting the name, and the failure mode of trusting it is an exception at
     request time rather than at review time.
     """
+    # Deferred on purpose, and load-bearing rather than stylistic.
+    # `advisor/fund_overlap.py` imports this module for `common_weight`, and
+    # that runs on the REQUEST path. Measured: the serving process is 49 MB with
+    # numpy; a top-level `import pandas` makes it 80 MB. deploy/FREE-NO-CARD.md
+    # measures the API at 46 MB RSS against Render's free tier, and commit
+    # 8a5e4d2 moved the pandas work onto a GitHub runner precisely so the host
+    # would not need a paid plan. Hoisting this line -- the tidier form, which a
+    # linter will suggest -- puts ~30 MB back on every request, and NO TEST
+    # WOULD FAIL. tests/test_request_path_memory.py is the one that does.
     import pandas as pd
 
     errors = []

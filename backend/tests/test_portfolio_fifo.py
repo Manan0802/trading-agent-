@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from app.services.portfolio.fifo import TxnInput, apply_fifo
+from app.services.portfolio.fifo import RealisedGain, TxnInput, apply_fifo
 
 
 def buy(d: date, units: float, price: float) -> TxnInput:
@@ -108,3 +108,34 @@ def test_full_exit_leaves_no_open_units():
     assert result.cost_basis == pytest.approx(0)
     assert result.open_lots == []
     assert result.total_realised_gain == pytest.approx(3000)
+
+
+def test_long_term_counts_months_not_days():
+    """Section 2(42A) counts MONTHS. A 365-day proxy breaks across a leap day.
+
+    Measured before the fix: three of five boundary cases disagreed with the
+    statute and **all three ran the same way** — `holding_days > 365` said
+    long-term where the law says short-term, so the app reported 12.5% where
+    20% was owed. That understates the tax by 7.5pp of the gain, on precisely
+    the day it tells the holder the wait is over. Roughly one purchase date in
+    four has its anniversary on the far side of a 29 February.
+
+    `366` is the same mistake with a different constant — it breaks the
+    non-leap years instead. Only calendar arithmetic matches the words.
+    """
+
+    def lt(buy: date, sell: date) -> bool:
+        return RealisedGain(
+            buy_date=buy, sell_date=sell, units=1.0, buy_price=1.0, sell_price=2.0
+        ).is_long_term_equity
+
+    # exactly twelve months is NOT "more than twelve months", leap year or not
+    assert not lt(date(2024, 1, 1), date(2025, 1, 1))     # 366 days, spans 29 Feb
+    assert not lt(date(2023, 3, 1), date(2024, 3, 1))     # 366 days, spans 29 Feb
+    assert not lt(date(2024, 3, 1), date(2025, 3, 1))     # 365 days, no leap day
+    # one day past the anniversary is long-term, in both kinds of year
+    assert lt(date(2024, 1, 1), date(2025, 1, 2))
+    assert lt(date(2023, 3, 1), date(2024, 3, 2))
+    # 29 Feb clamps to 28 Feb rather than granting a free day
+    assert not lt(date(2024, 2, 29), date(2025, 2, 28))
+    assert lt(date(2024, 2, 29), date(2025, 3, 1))

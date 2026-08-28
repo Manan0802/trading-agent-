@@ -2,7 +2,26 @@
 
 **Read this first.** If you know nothing about this project, this file + the PRD + the research doc = full understanding of *what* we're building and *how*. Written so a total beginner (or a fresh AI agent) can get up to speed in 15 minutes.
 
-**Last updated:** 2026-06-29 · **Phase:** research + planning complete, ready to build Phase 1 (no app code yet).
+**Last updated:** 2026-08-28 · **Phase:** Part A (Financial Advisor) is built and running. Part B (Trading Agent) is not started.
+
+> ⚠️ **This line said "no app code yet" until 2026-08-28, which was true when it
+> was written on 2026-06-29 and wrong for the 158 commits that followed.** It is
+> the first thing anyone is told to read, so it is the worst place in the repo
+> for a stale status. What actually exists today:
+>
+> | | |
+> |---|---|
+> | Backend | FastAPI, **49 endpoints**, 92 response schemas, 7 Alembic migrations |
+> | Tests | **1,603**, plus `./check.sh` — **11 checks in 10 groups**: pytest, NAV-store integrity, scoring parity across library versions, the frontend typecheck+build, adversarial inputs, cross-view consistency, account isolation, a page sweep (seeded and brand-new), mobile, and accessibility |
+> | Data | 5.2M-row NAV store, AMFI expense ratios, a 1,686-fund Groww universe |
+> | Frontend | React + Vite, 49 `.tsx` files, four Playwright harnesses |
+> | Advisor | goals, SIP, allocation, tax (both regimes), levers, look-through, cost review — **600 users and 757 goals in the dev database**, each with an LLM explanation |
+> | Deployed | **no.** `gh release list` is empty; `deploy/FREE-NO-CARD.md` is the route to a public URL at ₹0/month |
+>
+> **Where to go next:** `docs/phase-1-redesign.md` is the current plan and is
+> **an extension of Part A, not a rebuild of it** — it adds fund selection and
+> portfolio analysis on top of the calculator described below. Its §0 says what
+> it does and does not cover; its §9.1 is what is still open.
 
 ---
 

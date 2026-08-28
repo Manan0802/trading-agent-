@@ -1,4 +1,9 @@
-"""Indian income tax under both regimes, FY 2025-26 (AY 2026-27).
+"""Indian income tax under both regimes, FY 2025-26 and FY 2026-27.
+
+Budget 2026-27 (1 Feb 2026) made no change to personal income tax, so every
+constant below is current for FY 2026-27 (AY 2027-28) as well. Re-confirm
+after the next Budget: `tests/test_tax_regime.py` fails once the stated year
+falls behind the current financial year, which is the prompt to check.
 
 The new regime is the default since FY 2023-24 and most salaried people are
 better off in it, because its slabs are wide enough that the deductions the old

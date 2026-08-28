@@ -350,7 +350,13 @@ def get_momentum_ranking(
     scored.sort(key=lambda pair: -pair[1])
     unranked = [e.symbol for e, s in measured if s is None]
 
-    start, end = mom.window()
+    # The stated window is read off a frame that was actually scored, so
+    # `measured_from`/`measured_to` describe the rows the ranking used rather
+    # than a calendar approximation of them.
+    scored_frame = next(
+        (stock.get_price_history(e.ticker) for e, s in measured if s is not None), None
+    )
+    start, end = mom.window(history=scored_frame)
     return {
         "index": index,
         "measured_from": start.isoformat(),

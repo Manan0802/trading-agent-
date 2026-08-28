@@ -81,10 +81,34 @@ def score(ticker: str, history=None) -> float | None:
     return recent / old - 1.0 if old > 0 else None
 
 
-def window(today: date | None = None) -> tuple[date, date]:
-    """The calendar span the score covers, for showing alongside it."""
+def window(today: date | None = None, history=None) -> tuple[date, date]:
+    """The calendar span the score covers — derived from the same rows when it can be.
+
+    This used to hardcode 365 and 30 CALENDAR days while `score()` indexes
+    `_LOOKBACK_DAYS = 250` and `_SKIP_DAYS = 21` TRADING rows. Two independent
+    expressions of one span, tied together by nothing. They agreed only by
+    arithmetic coincidence — 250 trading days is about a year, 21 about a month
+    — and the comment above those constants says in as many words that changing
+    either invalidates the statistics, so they are exactly the kind that get
+    changed on purpose. A mutation moving the calendar figure passed the whole
+    suite, because the API's `measured_from`/`measured_to` is the app's *claim*
+    about its own coverage and nothing compared it to the computation.
+
+    Given a price frame, the span is read off the very rows `score()` uses, so
+    the claim cannot drift from the measurement. Without one it falls back to
+    the calendar approximation, which is honest for a label and is why the
+    fallback is documented rather than silent.
+    """
+    if history is not None and len(history) >= _MIN_DAYS:
+        index = history.index
+        return _as_date(index[-_MIN_DAYS]), _as_date(index[-_SKIP_DAYS])
     end = (today or date.today()) - timedelta(days=30)
     return end - timedelta(days=365), end
+
+
+def _as_date(value) -> date:
+    """A pandas timestamp, a datetime or a date, all reduced to a date."""
+    return value.date() if hasattr(value, "date") else value
 
 
 def band(rank: int, total: int) -> str:

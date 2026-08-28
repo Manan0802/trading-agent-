@@ -29,7 +29,14 @@ async def authorize(response: Response):
         redirect_uri,
         code_challenge=code_challenge,
         code_challenge_method="S256",
-        extras_params={"prompt": "consent", "access_type": "offline"},
+        # NO `access_type=offline`, and that is the whole point of this line
+        # existing. It was here, and it is the flag that makes Google mint a
+        # long-lived REFRESH TOKEN -- which `fastapi-users` then stores in a
+        # plaintext column, in production on Turso, a third party. This flow
+        # calls `get_id_email()` once and never refreshes anything, so the
+        # credential had no use and every risk. Deleting the request deletes
+        # the asset, which beats encrypting it. Scopes are identity-only.
+        extras_params={"prompt": "consent"},
     )
 
     response.set_cookie(
@@ -55,16 +62,28 @@ async def callback(
 
     redirect_uri = _redirect_uri()
     code_verifier = request.cookies.get(PKCE_COOKIE_NAME)
+    # The authorization code is not logged, not even a prefix. It is
+    # single-use and short-lived, so the prefix was low risk -- but on a free
+    # tier these logs land in the host's dashboard, and "log a bit of the
+    # credential" is a habit rather than a decision.
     logger.info(
-        f"OAuth callback: redirect_uri={redirect_uri!r} code_prefix={code[:12]!r} "
-        f"has_code_verifier={code_verifier is not None}"
+        "OAuth callback: redirect_uri=%r has_code_verifier=%s",
+        redirect_uri,
+        code_verifier is not None,
     )
 
     try:
         token = await google_oauth_client.get_access_token(code, redirect_uri, code_verifier)
     except GetAccessTokenError as e:
         body = e.response.text if e.response is not None else str(e)
-        logger.error(f"Google token exchange failed: {body}")
+        # Status and a short prefix only. The full body from a token endpoint
+        # can echo request material back, and on a free tier these logs land in
+        # the host's dashboard.
+        logger.error(
+            "Google token exchange failed: HTTP %s %s",
+            e.response.status_code if e.response is not None else "?",
+            body[:120],
+        )
         raise HTTPException(400, f"Google token exchange failed: {body}")
 
     account_id, account_email = await google_oauth_client.get_id_email(token["access_token"])
