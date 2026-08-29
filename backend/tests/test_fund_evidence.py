@@ -87,12 +87,26 @@ def test_ter_is_converted_from_percent_to_fraction():
     the mutation that deletes `/ 100.0` still survived. The test was
     decoration. It has to use a code that is actually in the table.
     """
-    # 103490 = QUANTUM VALUE FUND in app/data/expense_ratios.json:
-    # direct_ter 1.12, regular_ter 2.15, both stored as PERCENTAGES.
+    # 103490 = QUANTUM VALUE FUND. The TER itself is READ from the table rather
+    # than typed here: AMFI refiles monthly, and this fund's direct TER moved
+    # from 1.12 to 1.14 on the 2026-08-29 rebuild. A test that pins the value
+    # fails every time the world updates and says nothing about the conversion,
+    # which is the thing that can actually be wrong.
+    import json
+    from pathlib import Path
+
+    table = json.loads(
+        (Path(__file__).parent.parent / "app" / "data" / "expense_ratios.json").read_text()
+    )
+    filed = table["103490"]
     ev = build_evidence("103490", "Quantum Value Fund", "Equity", _series(400))
     assert ev is not None
-    assert ev.direct_ter == pytest.approx(0.0112)
-    assert ev.regular_ter == pytest.approx(0.0215)
+    assert ev.direct_ter == pytest.approx(filed["direct_ter"] / 100.0)
+    assert ev.regular_ter == pytest.approx(filed["regular_ter"] / 100.0)
+    assert filed["direct_ter"] > 0.5, (
+        "the table must still hold PERCENTAGES; if it ever stored fractions the "
+        "assertions above would pass while the scorer got a hundredth of the cost"
+    )
     # and the sanity band the scorer relies on: a TER is never a whole number
     assert 0.0 < ev.direct_ter < 0.10
 

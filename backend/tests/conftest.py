@@ -37,3 +37,21 @@ def _remove_test_db() -> None:
             path.unlink()
         except OSError:
             pass
+
+
+# ---------------------------------------------------------------------------
+# No test may call a real language model.
+#
+# `Settings` declared only `groq_api_key` and it was empty, so for months no
+# test could reach a model even by accident. The moment `gemini_api_key` was
+# read, `test_llm_explainer.py` started making a live call on every run: it
+# spent Manan's free quota, took a second, and asserted against whatever the
+# model felt like writing that morning. It then failed -- correctly, for a real
+# reason -- and the reason was buried under the fact that it should never have
+# been calling out at all.
+#
+# The key is cleared for every test. A test that wants the client's behaviour
+# injects a MockTransport (see test_gemini_client.py); a test that wants the
+# narration stubs `call_llm`.
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["GROQ_API_KEY"] = ""

@@ -23,20 +23,27 @@ def test_the_saving_is_compounded_not_multiplied():
     ten years, and quoting it that way would be the same overstatement this
     project keeps catching elsewhere."
 
-    103490 = QUANTUM VALUE FUND: direct 1.12, regular 2.15, gap 1.03pp.
-    Multiplied would give ₹10,300 on a lakh. Compounded gives ~₹10,780 — and the
-    two only diverge by 5% here, which is exactly why a wrong one would survive
-    a glance.
+    103490 = QUANTUM VALUE FUND, a gap of roughly a point a year. Multiplied
+    would give about ₹10,300 on a lakh; compounded about ₹10,780 — the two
+    diverge by only 5%, which is exactly why the wrong one survives a glance.
+
+    The TERs are read from the table rather than typed in. AMFI refiles monthly
+    and this fund moved from 1.12 to 1.14 on the 2026-08-29 rebuild; pinning the
+    value tests the world, and the arithmetic is what can be wrong.
     """
     cost = cost_for("103490")
-    assert cost.direct_ter == 1.12
-    assert cost.regular_ter == 2.15
-    assert cost.saving_pct_per_year == pytest.approx(1.03)
+    gap = cost.regular_ter - cost.direct_ter
+    assert gap > 0.5, "this fund is the example because its gap is large enough to see"
+    assert cost.saving_pct_per_year == pytest.approx(gap, abs=0.005)
 
-    compounded = CALCULATOR_AMOUNT * ((1 + 1.03 / 100) ** 10 - 1)
+    compounded = CALCULATOR_AMOUNT * ((1 + gap / 100) ** 10 - 1)
     assert cost.saving_on_a_lakh_over_10y == pytest.approx(compounded, abs=1)
     # and it is NOT the naive figure
-    assert cost.saving_on_a_lakh_over_10y != pytest.approx(CALCULATOR_AMOUNT * 0.1030, abs=1)
+    naive = CALCULATOR_AMOUNT * (gap * 10 / 100)
+    assert cost.saving_on_a_lakh_over_10y != pytest.approx(naive, abs=1)
+    assert cost.saving_on_a_lakh_over_10y > naive, (
+        "compounding a cost saving must exceed multiplying it"
+    )
 
 
 def test_an_unknown_fund_returns_nulls_not_zeros():

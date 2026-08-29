@@ -1,14 +1,23 @@
-"""Whole fund houses have no expense ratio, and cost is how this app ranks.
+"""Expense-ratio coverage, and the two ways it used to be lost.
 
-`build_expense_ratios.py` walks AMFI's AMC ids with a hardcoded ceiling,
-`_MAX_MF_ID = 55`. Pass 120 probed AMFI directly: ids 56-86 return TER rows for
-at least 24 fund houses, including 63 Groww, 64 Parag Parikh, 77 Zerodha and 82
-JioBlackRock. The ceiling is the cause, confirmed rather than inferred — and the
-app's central method, established by `validate_cost_ranking.py`, is cost.
+Cost is how this app ranks, established by `validate_cost_ranking.py`, so a fund
+with no TER is a fund the method does not reach.
 
-GREEN HERE MEANS "the known defect, unchanged". The test exists so the number
-cannot grow unnoticed, and so a fix shows up as a failure rather than passing
-silently.
+**Defect one, fixed:** `build_expense_ratios.py` walked AMFI's AMC ids with a
+hardcoded `_MAX_MF_ID = 55`. Ids 56-86 carry at least 24 fund houses, including
+63 Groww, 64 Parag Parikh, 77 Zerodha and 82 JioBlackRock -- 297 live funds
+across 23 houses, every one of them an AMC that registered recently. The walk
+now stops on eight consecutive empty ids and the 2026-08-29 rebuild reached 86.
+
+**Defect two, found by fixing the first:** the builder REPLACED the file, so one
+crawl that missed a fund deleted its cost. The rebuild dropped 469 buyable funds
+and added 357 -- a net loss of 112 on the app's only measured signal -- and
+several of the dropped funds normalised to exactly the string AMFI had used for
+them, so the join was not at fault. AMFI simply did not serve them that day. It
+now merges: a TER filed in July is still the TER filed in July, `as_of` says so,
+and newer always wins.
+
+This file now pins the FIXED state. A regression shows up as a failure.
 """
 
 import json
@@ -19,9 +28,10 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parent.parent
 DATA = BACKEND / "app" / "data"
 
-# Live fund houses with zero TER coverage, measured on pass 118.
-HOUSES_WITH_NO_TER = 23
-LIVE_FUNDS_AFFECTED = 297
+# What the two defects cost when they were live, kept as the thing not to
+# regress to.
+HOUSES_ONCE_AT_ZERO = 23
+LIVE_FUNDS_ONCE_AFFECTED = 297
 
 
 def _live_house_coverage() -> dict[str, tuple[int, int]]:
@@ -47,32 +57,76 @@ def _live_house_coverage() -> dict[str, tuple[int, int]]:
     return {h: (total, with_ter) for h, (total, with_ter) in per_house.items()}
 
 
-def test_the_ter_gap_is_whole_fund_houses_not_scattered_funds():
+def test_no_live_fund_house_is_left_without_a_single_expense_ratio():
+    """23 houses were at zero, covering 297 live funds. Now none is."""
     coverage = _live_house_coverage()
     zero = {h: t for h, (t, w) in coverage.items() if w == 0 and t > 0}
-    assert len(zero) == HOUSES_WITH_NO_TER, (
-        f"{len(zero)} houses have no TER at all, was {HOUSES_WITH_NO_TER}: "
-        f"{sorted(zero)[:6]}"
+    assert not zero, (
+        f"{len(zero)} live fund houses have no TER at all: {sorted(zero)[:6]}. "
+        f"This was {HOUSES_ONCE_AT_ZERO} houses and "
+        f"{LIVE_FUNDS_ONCE_AFFECTED} funds before the AMC ceiling was removed"
     )
-    assert sum(zero.values()) == LIVE_FUNDS_AFFECTED
 
 
-def test_the_houses_a_reader_should_not_skim_past():
-    """Groww is the platform; PPFAS Flexi Cap is among India's most held funds.
+def test_almost_every_buyable_fund_can_be_priced():
+    """The number that matters, because it is measured against what you can buy.
 
-    122639 is also the scheme code this plan uses as its own example URL, so the
-    app ships a detail page for a fund whose expense ratio it cannot state.
+    Counting against the whole catalogue is technically true and misleading:
+    ICICI has 456 catalogue funds with no TER and exactly FOUR of them are
+    buyable, the rest being closed-ended series and wound-up schemes.
     """
+    from app.services.advisor import buyable
+
+    ters = json.loads((DATA / "expense_ratios.json").read_text())
+    codes = buyable.buyable_codes()
+    priced = len(codes & set(ters))
+    assert priced / len(codes) >= 0.95, (
+        f"only {priced} of {len(codes)} buyable funds can be priced "
+        f"({priced / len(codes) * 100:.0f}%). Cost is the one signal this app "
+        "has measured, so an unpriced fund is outside the method"
+    )
+
+
+def test_a_crawl_that_misses_a_fund_does_not_delete_its_cost():
+    """The merge, pinned against the code.
+
+    Replacing the file cost 112 buyable funds their TER in a single rebuild,
+    and every one of them still had a published figure from the month before.
+    """
+    import ast
+
+    source = (BACKEND / "scripts" / "build_expense_ratios.py").read_text()
+    tree = ast.parse(source)
+    names = {
+        node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+    }
+    assert "_merge_with_committed" in names, (
+        "the builder writes the file without merging, so one bad crawl deletes "
+        "every fund it failed to reach"
+    )
+    main = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "main")
+    called = {
+        n.func.id
+        for n in ast.walk(main)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+    }
+    assert "_merge_with_committed" in called, "the merge exists but is not called"
+
+
+def test_the_houses_the_ceiling_used_to_hide():
+    """Groww is the platform Manan invests through; PPFAS Flexi Cap is among
+    India's most widely held funds, and 122639 is the scheme code this plan uses
+    as its own example URL. The app shipped a detail page for it and could not
+    state its expense ratio."""
     coverage = _live_house_coverage()
     for house in ("Groww Mutual Fund", "PPFAS Mutual Fund"):
         total, with_ter = coverage.get(house, (0, 0))
         assert total > 0, f"{house} is no longer in the catalogue"
-        assert with_ter == 0, (
-            f"{house} now has TER coverage — remove it here and update §9.1."
-        )
+        assert with_ter > 0, f"{house} is back to zero TER coverage"
 
     ters = json.loads((DATA / "expense_ratios.json").read_text())
-    assert "122639" not in ters, "Parag Parikh Flexi Cap now has a TER — update §9.1"
+    assert "122639" in ters, "Parag Parikh Flexi Cap has lost its TER again"
+    assert ters["122639"].get("direct_ter"), "its direct TER is missing"
 
 
 def test_the_walk_stops_on_evidence_not_on_a_number():

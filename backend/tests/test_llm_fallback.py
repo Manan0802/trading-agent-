@@ -36,7 +36,12 @@ def test_a_model_that_answers_is_used(monkeypatch):
     monkeypatch.setattr(
         client.gemini, "generate", lambda *_a, **_k: "Aapka ghar ka plan theek hai."
     )
-    assert get_goal_explanation(_GOAL, _SIP, _ALLOC) == "Aapka ghar ka plan theek hai."
+    out = get_goal_explanation(_GOAL, _SIP, _ALLOC)
+    assert out.startswith("Aapka ghar ka plan theek hai."), "the model's words survive"
+    assert "guaranteed nahi" in out, (
+        "and the disclaimer is added, because the model did not write one — see "
+        "test_disclaimer_is_enforced.py"
+    )
 
 
 def test_a_second_provider_that_explodes_becomes_a_template_not_a_500(monkeypatch):
