@@ -18,6 +18,15 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./nextrade.db"
     groq_api_key: str = ""
+    # Read at last. GEMINI_API_KEY has been sitting in .env unread while
+    # `groq_api_key` -- the only key Settings declared -- is empty, so the app's
+    # entire narration layer has been silently returning "" and falling back.
+    gemini_api_key: str = ""
+    # Overridden by GEMINI_MODEL in .env, which is where the real choice lives
+    # -- this repo's .env selects `gemini-3.1-flash-lite`. The default is only
+    # what a fresh checkout gets, and it is a Flash model because Flash is the
+    # tier with a free quota; Pro is not.
+    gemini_model: str = "gemini-2.5-flash"
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_whatsapp_number: str = "whatsapp:+14155238886"

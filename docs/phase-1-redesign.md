@@ -69,7 +69,7 @@ hand-typed transactions that nothing currently checks (§11.7).
 engineering, one product/design, one build-readiness, and one checking the
 document against the filesystem — for **44 findings**. The three that mattered
 most were each **my own largest claim being wrong** (§17.6, §1.1, §1.3).
-1,770 tests green; the exit-signal gate passes with a verified instrument.
+1,792 tests green; the exit-signal gate passes with a verified instrument.
 
 **`grounding.py`'s four known holes were closed on 2026-08-28** (§17.6), so
 nothing written *for this plan* carries a recorded unfixed defect. Three things
@@ -2706,7 +2706,7 @@ synthetic second month and mark it unverified until the real one lands.
 |---|---|---|
 | **3.1** | ~~Fix `grounding.py`'s four holes~~ — **done, 2026-08-28** (§17.6): all four closed plus two found while closing them, 38 tests → 50, ambiguity rejection 95.7% → 0.2% re-measured on 39 live payloads. What remains here is **wiring it to a caller**, which is the real slice-3 work: the module still has none **Acceptance:** **no narration reaches any surface without `check_all`.** Proven by removing the check in a test and asserting a fabricated figure *does* reach the screen — the guard has to be shown failing, or nobody knows it runs | 1 |
 | **3.2** | **The 18 tool functions** and their **JSON contracts**. Of the 18 in §3.5, **none exist today**; roughly eight are wrappers over existing engines and **four** — `look_through`, `company_exposure`, `switch_cost`, `fund_cost_rank` — are new. 🟢 **`fund_ter_history` came off this list on pass 26: Groww already ships it.** The JSON shape is what `check_all` validates and what the cache key hashes, so it is written **before** any of them. 🔴 **Acceptance, added on pass 88 — this was the only one of the sixteen steps with none, and it is the largest at four sessions.** Three things, each a test: every tool declares a JSON schema **before** its implementation, and a tool whose real output does not validate against its own declared schema **fails the suite**; `check_all` rejects a figure that is absent from the tool output it claims to come from, **proven by removing the figure from the payload and asserting the narration is refused**; and the cache key hashes the contract, so changing a tool's shape cannot serve a stale entry — the failure §17.x already records once, where a key omitted its period | 4 |
-| **3.3** | **A Gemini client.** There is none. `services/llm/client.py` is 26 lines of Groq, and `Settings` declares only `groq_api_key` — `GEMINI_API_KEY` sits in `.env` unread. Client, `Settings` fields, tool-call loop, retry, cache **Acceptance:** a **forced 429** is retried using the API's own `retryDelay`, and when retries are exhausted the surface falls back to template narration **with the app still correct**. Tested by injecting the 429, not by waiting for one — §4.4 establishes there is no published limit to design against, so this path is the design | 2 |
+| **3.3** | ✅ **DONE 2026-08-29.** `services/llm/gemini.py` written and **verified against the live API**, not only against mocks. `Settings` declared exactly one key, `groq_api_key`, and it is **empty** — so every narration in this app has been returning `""` and falling through to a template, correctly and silently, while `GEMINI_API_KEY` sat in `.env` unread. **A forced 429 is retried on the API's own `retryDelay`**, parsed off the raw body rather than the decoded JSON so a shape change in `error.details[]` cannot turn a rate limit into a KeyError; a delay above 60s is refused, because that is the DAILY quota and waiting for it on a page load is a hang, not a retry. Exhaustion returns **None, never a partial sentence**. 18 tests, all offline: forced 429 with and without the server's number, non-429 not retried, network failure, no key, six malformed success bodies including a safety-filtered response that carries `candidates` with no `parts`, and the key asserted to travel as a header rather than in the URL. 🔴 **A gap my own test found:** `call_llm`'s docstring said *never raises* and the code did not guard it — the narration layer could take down a page whose numbers were already computed and correct. | 1 |
 | **3.4** | `/ask`, the refusal set, the adversarial suite **Acceptance:** **every refusal in §5 has a test that the answer is refused**, and the adversarial suite from §4.3 passes. A refusal set with no test is a paragraph | 1 |
 
 **The claims decision, taken here rather than discovered:** the model returns
@@ -2859,7 +2859,7 @@ around it.
 ```
 the ENTIRE app so far    158 commits · 20 active days · 56 calendar days
                          50 endpoints · 94 schemas · 7 migrations
-                         1,770 tests · a 5.2M-row NAV store · 49 .tsx files
+                         1,792 tests · a 5.2M-row NAV store · 49 .tsx files
                          median 2,758 lines changed per active day
 
 this plan estimated      31 sessions  =  155% of all of that
