@@ -35,8 +35,15 @@ class Refusal:
     # both the SUBJECT and the ASK -- "underperforming" alone is a description,
     # "should I sell my underperforming fund" is a request for a verdict.
     patterns: tuple[re.Pattern, ...]
+    # And what it must NOT look like. This app DOES recommend selling -- out of a
+    # regular plan into its direct twin, or into a cheaper fund in the same
+    # category -- because cost is the one thing it has measured. A blanket
+    # sell-refusal would refuse the app's own strongest advice.
+    excludes: tuple[re.Pattern, ...] = ()
 
     def matches(self, question: str) -> bool:
+        if any(p.search(question) for p in self.excludes):
+            return False
         return all(p.search(question) for p in self.patterns)
 
 
@@ -44,8 +51,23 @@ def _p(*sources: str) -> tuple[re.Pattern, ...]:
     return tuple(re.compile(s, re.I) for s in sources)
 
 
-_SELL_VERB = r"\b(sell|exit|switch out|redeem|get rid of|dump|book out|move out)\b"
+# Suffixes matter: `\bredeem\b` does not match "redeeming", and "Is it worth
+# redeeming the laggard" is the same question as "should I redeem the laggard".
+# A refusal that only fires on one grammatical form is a refusal a user walks
+# straight past without meaning to.
+_SELL_VERB = (
+    r"\b(sell\w*|exit\w*|switch(?:ing|ed)? out|redeem\w*|get(?:ting)? rid of"
+    r"|dump\w*|book(?:ing)? out|mov(?:e|ing) out|offload\w*)\b"
+)
 _ASK = r"\b(should|shall|do i|can i|is it|worth|advice|advise|recommend|ought)\b"
+
+# The advice this app actually gives, which happens to involve selling. A sell
+# question mentioning any of these is about cost, and cost is answerable.
+_COST_GROUNDS = re.compile(
+    r"\b(cost|cheap\w*|expensive|expense ratio|ter|direct plan|direct"
+    r"|regular plan|commission|fee|fees|charges)\b",
+    re.I,
+)
 
 REFUSALS: tuple[Refusal, ...] = (
     Refusal(
@@ -116,10 +138,11 @@ REFUSALS: tuple[Refusal, ...] = (
         ),
         answer=(
             "No price alerts, streaks or daily profit-and-loss on the home "
-            "screen. Not a technical limit — checking more often is associated "
-            "with trading more and earning less, and a screen that rewards you "
-            "for looking is working against the one behaviour that actually "
-            "compounds."
+            "screen. Not a technical limit. The research on attention and retail "
+            "investors runs one way: checking more often is associated with "
+            "trading more and earning less, and a screen that rewards you for "
+            "looking is working against the one behaviour that actually "
+            "compounds — leaving it alone."
         ),
     ),
     Refusal(
@@ -191,16 +214,37 @@ REFUSALS: tuple[Refusal, ...] = (
             "we have no way to check what it measures."
         ),
     ),
+    Refusal(
+        id="sell-on-no-stated-basis",
+        patterns=_p(
+            _SELL_VERB,
+            r"\b(which|what|any|some)\b.{0,24}\b(fund|holding|scheme|sip)\b"
+            r"|\b(fund|holding|scheme)\b.{0,24}\b(should|shall|to)\b",
+            _ASK + r"|\bwhich\b|\bwhat\b|\btell me\b",
+        ),
+        excludes=(_COST_GROUNDS,),
+        answer=(
+            "We do not pick a fund for you to sell. There is exactly one sell we "
+            "will recommend and it is about cost, not performance: moving from a "
+            "regular plan to the direct plan of the same fund, which is the same "
+            "portfolio without the distributor's commission. Everything else "
+            "would be a performance verdict, and sorting funds by past return "
+            "put the WORSE quartile on top by 0.9 percentage points here, "
+            "winning 19 of 44 windows. Ask about cost and there is a real answer."
+        ),
+    ),
 )
 
 
 def refusal_for(question: str) -> Refusal | None:
     """The first refusal this question triggers, or None.
 
-    Order matters only where two could match. `sell-the-winner` sits after
-    `sell-the-underperformer` because "should I sell my worst performer" contains
-    neither winner word, and the reverse is also true -- they are disjoint by
-    construction rather than by ordering luck.
+    **Order matters, and specific beats general.** `sell-on-no-stated-basis` is
+    deliberately LAST: it fires on any sell question that names no criterion, so
+    placed anywhere else it swallows the specific rules and answers
+    "the fund manager left, should I redeem?" with a lecture about performance
+    ranking. Each specific rule gets first refusal so the REASON matches the
+    question. A test pins the position.
     """
     text = question or ""
     for rule in REFUSALS:

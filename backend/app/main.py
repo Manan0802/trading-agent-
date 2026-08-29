@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
-from app.routers import advisor, alerts, auth, portfolio, research, screener
+from app.routers import advisor, alerts, ask, auth, portfolio, research, screener
 from app.jobs.scheduler import start_scheduler
 from app.auth.backend import auth_backend
 from app.auth.fastapi_users_app import fastapi_users
@@ -83,6 +83,7 @@ app.add_middleware(
 
 app.include_router(advisor.router)
 app.include_router(alerts.router)
+app.include_router(ask.router, prefix="/api/v1")
 app.include_router(auth.router)
 app.include_router(portfolio.router)
 app.include_router(research.router)
