@@ -3,7 +3,7 @@ import { Panel } from '@/components/ui/panel'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { AllocationPie } from '@/components/AllocationPie'
+import { SortedStackedBar } from '@/components/charts'
 import { GoalFundPlan } from '@/components/GoalFundPlan'
 import { EditGoal } from '@/components/EditGoal'
 import { Levers } from '@/components/Levers'
@@ -111,11 +111,54 @@ export function GoalDetail() {
             and its share redistributed, so what is actually bought can differ
             from this. The plan below is the one that reports what happens. */}
         <Panel title="The mix this goal aims for">
-          <AllocationPie
-            equity={data.equity_allocation ?? 0}
-            debt={data.debt_allocation ?? 0}
-            gold={data.gold_allocation ?? 0}
+          {/* One sorted bar, not a donut. §13.6: never a pie. A donut asks
+              people to compare angles, which they are measurably bad at, and it
+              needs a legend — so reading it is a lookup rather than a look. The
+              notes that used to live in the pie's tooltip are below, where they
+              can be read without hovering. */}
+          <SortedStackedBar
+            label="The mix this goal aims for"
+            segments={[
+              {
+                label: 'Equity',
+                value: data.equity_allocation ?? 0,
+                className: 'bg-[var(--chart-1)]',
+              },
+              {
+                label: 'Debt',
+                value: data.debt_allocation ?? 0,
+                className: 'bg-[var(--chart-3)]',
+              },
+              {
+                label: 'Gold',
+                value: data.gold_allocation ?? 0,
+                className: 'bg-[var(--chart-5)]',
+              },
+            ]}
           />
+          <dl className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+            <div>
+              <dt className="inline font-medium text-foreground">Equity. </dt>
+              <dd className="inline">
+                Stocks and equity funds. Grows the most over a long horizon, and
+                falls the hardest in a bad year.
+              </dd>
+            </div>
+            <div>
+              <dt className="inline font-medium text-foreground">Debt. </dt>
+              <dd className="inline">
+                Bonds and debt funds. Steadier, and what the plan leans on when
+                equity is down.
+              </dd>
+            </div>
+            <div>
+              <dt className="inline font-medium text-foreground">Gold. </dt>
+              <dd className="inline">
+                A hedge. It tends not to move with Indian equity, so it cushions
+                the worst years.
+              </dd>
+            </div>
+          </dl>
         </Panel>
 
         {data.llm_explanation && (

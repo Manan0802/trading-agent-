@@ -69,7 +69,7 @@ hand-typed transactions that nothing currently checks (§11.7).
 engineering, one product/design, one build-readiness, and one checking the
 document against the filesystem — for **44 findings**. The three that mattered
 most were each **my own largest claim being wrong** (§17.6, §1.1, §1.3).
-1,852 tests green; the exit-signal gate passes with a verified instrument.
+1,880 tests green; the exit-signal gate passes with a verified instrument.
 
 **`grounding.py`'s four known holes were closed on 2026-08-28** (§17.6), so
 nothing written *for this plan* carries a recorded unfixed defect. Three things
@@ -2820,7 +2820,7 @@ or does it go?**
 | **4.1** | Navigation shell — sidebar, trail, `⌘K`, real URLs **Acceptance:** every surface is reachable from every other without the browser back button; **deep links resolve on a cold load**; and browser back does what it says. The `/screener/fund/:schemeCode` → `/fund/:code` move keeps the old path working | 2 |
 | **4.2** | `Find` — virtualised, faceted, compare tray, **overlap against what he already owns** **Acceptance:** 1,686 rows scroll without dropping frames on Manan's own machine; and overlap against his holdings shows **`n/a` when unmeasured, never `0%`** — §14, because 0% reads as perfectly diversified, the opposite of "we could not tell" | 4 |
 | **4.3** | `Today` and `Why` **Acceptance:** **every figure on `Today` appears in `Why` with its source named.** That is §14's coverage rule applied to the app's own front page | 2 |
-| **4.4** | **§13.6's devices — all eight, because zero exist (pass 30).** The slice used to say "the remaining… dot grid, bullet, underwater, slope, fan", which implied three were done; the other three — **rebased line, sorted stacked bar, and sparkline** — were unpriced, and §3.2 puts a sparkline in every `Find` row. `lib/chart.ts` gives real groundwork (UTC dates, axis ticks, padded domains, tooltip style) but no rebasing function. **Acceptance:** each device renders its **empty and loading states**, not a blank box (§13's ten states exist because loading and template-fallback were missing entirely); **and `AllocationPie.tsx` is DELETED, not deprecated** — it is a shipped recharts donut on `GoalDetail`, and §13.6 says never a pie, so leaving it means the app shows allocation two ways on two screens | 3 |
+| **4.4** | ✅ **DONE 2026-08-29 — all eight built, and the pie is deleted.** `components/charts/`: dot grid, bullet, underwater, slope, fan, rebased line, sorted stacked bar, sparkline. **Every one routes through a shared `ChartFrame` that renders loading and empty as themselves** — the two states §13.5 says were missing from every chart in this app, where the result is a blank rectangle indistinguishable from *"this fund had no drawdown"*, *"we could not fetch it"* and *"the component threw"*. Each empty state names WHAT is missing rather than saying "no data". The two helpers `lib/chart.ts` lacked are written: `rebase` (to the first date BOTH series have — rebasing each to its own first point silently compares different periods and looks entirely normal) and `underwater`. **`AllocationPie.tsx` is deleted, not deprecated**, and `GoalDetail` now shows the mix as one sorted bar with the three notes in prose beneath, where they can be read without hovering. The sparkline is a single `<path>` in plain SVG because §3.2 puts one in every `Find` row and a `ResponsiveContainer` per row is a `ResizeObserver` per row. ⚠️ **The 28 tests are STRUCTURAL and say so** — there is no React test runner here and adding one is not this slice. They catch a device that stops routing through the frame; `scripts/a11y.mjs` walks the live app for what they cannot. | 3 |
 
 🟢 **Which half of this estimate to trust — settled on pass 111 by measuring
 every slice's own claims against the repo.**
@@ -2859,7 +2859,7 @@ around it.
 ```
 the ENTIRE app so far    158 commits · 20 active days · 56 calendar days
                          51 endpoints · 96 schemas · 7 migrations
-                         1,852 tests · a 5.2M-row NAV store · 49 .tsx files
+                         1,880 tests · a 5.2M-row NAV store · 58 .tsx files
                          median 2,758 lines changed per active day
 
 this plan estimated      31 sessions  =  155% of all of that

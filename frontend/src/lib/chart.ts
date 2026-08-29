@@ -181,3 +181,45 @@ export const TOOLTIP_STYLE = {
   borderRadius: 'var(--radius-md)',
   fontSize: 12,
 } as const
+
+/**
+ * Two series put on the same starting line, so their SHAPES can be compared.
+ *
+ * Named in the plan as the one piece of groundwork this file was missing. A
+ * fund at ₹94 NAV and its benchmark at 26,400 cannot be drawn on one axis: the
+ * fund is a flat line along the bottom. Rebasing both to 100 at the first date
+ * they share is what makes "did it beat the index" a thing you can see rather
+ * than a number you have to be told.
+ *
+ * The base is the first date where BOTH have a value. Rebasing each to its own
+ * first point silently compares different periods when one series starts
+ * earlier, and the result looks entirely normal.
+ */
+export function rebase(rows: ChartRow[], to = 100): ChartRow[] {
+  const first = rows.find((r) => r.own !== null && r.peer !== null)
+  if (!first || !first.own || !first.peer) return rows
+  const ownBase = first.own
+  const peerBase = first.peer
+  return rows.map((r) => ({
+    date: r.date,
+    own: r.own === null ? null : (r.own / ownBase) * to,
+    peer: r.peer === null ? null : (r.peer / peerBase) * to,
+  }))
+}
+
+/**
+ * How far below its own running peak a series has been, as a negative percent.
+ *
+ * The input for the underwater device. Drawdown is the risk number people
+ * actually feel — a 40% fall is a fact about a year of your life, where
+ * "volatility 18%" is not.
+ */
+export function underwater(
+  points: { date: string; value: number }[],
+): { date: string; drawdown: number }[] {
+  let peak = -Infinity
+  return points.map((p) => {
+    peak = Math.max(peak, p.value)
+    return { date: p.date, drawdown: peak > 0 ? (p.value / peak - 1) * 100 : 0 }
+  })
+}
