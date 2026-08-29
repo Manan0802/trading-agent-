@@ -76,7 +76,10 @@ class TestTheCommandPaletteReachesEverything:
         app = _read("App.tsx")
         assert "<CommandPalette destinations={NAV} />" in app
 
-    def test_all_six_destinations_are_in_that_list(self):
+    def test_every_destination_is_in_that_list(self):
+        """Pinned as a set, not a count. A destination added to the nav and
+        missing from ⌘K is exactly the drift this list exists to prevent, and a
+        count would let a swap through."""
         app = _read("App.tsx")
         block = app[app.index("const NAV = ["):]
         block = block[: block.index("]")]
@@ -84,11 +87,20 @@ class TestTheCommandPaletteReachesEverything:
         assert routes == {
             "/portfolio",
             "/research",
+            "/why",
             "/decide",
             "/screener",
             "/goals",
             "/profile",
         }, routes
+
+    def test_every_destination_in_the_list_is_actually_routed(self):
+        """A palette entry that 404s is worse than a missing one."""
+        app = _read("App.tsx")
+        block = app[app.index("const NAV = ["):]
+        block = block[: block.index("]")]
+        for route in re.findall(r"to: '([^']+)'", block):
+            assert f'path="{route}"' in app, f"{route} is in the nav and not routed"
 
     def test_it_opens_on_both_cmd_k_and_ctrl_k(self):
         palette = _read("components/CommandPalette.tsx")

@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 // thing an unauthenticated visitor needs and there is nothing to defer.
 const Portfolio = lazy(() => import('@/pages/Portfolio').then((m) => ({ default: m.Portfolio })))
 const Research = lazy(() => import('@/pages/Research').then((m) => ({ default: m.Research })))
+const Why = lazy(() => import('@/pages/Why').then((m) => ({ default: m.Why })))
 const Screener = lazy(() => import('@/pages/Screener').then((m) => ({ default: m.Screener })))
 const Decide = lazy(() => import('@/pages/Decide').then((m) => ({ default: m.Decide })))
 const FundAnalysis = lazy(() =>
@@ -58,6 +59,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 const NAV = [
   { to: '/portfolio', label: 'Portfolio', hint: 'what you own' },
   { to: '/research', label: 'Research', hint: 'what has been shown to work' },
+  { to: '/why', label: 'Why', hint: 'where every number comes from' },
   { to: '/decide', label: 'Decide', hint: 'the levers worth pulling' },
   { to: '/screener', label: 'Screener', hint: 'find a fund' },
   { to: '/goals', label: 'Goals', hint: 'what you are saving for' },
@@ -156,6 +158,16 @@ export default function App() {
               element={
                 <RequireAuth>
                   <Portfolio />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/why"
+              element={
+                <RequireAuth>
+                  <Layout>
+                    <Why />
+                  </Layout>
                 </RequireAuth>
               }
             />
