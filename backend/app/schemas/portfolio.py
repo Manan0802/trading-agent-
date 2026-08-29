@@ -407,3 +407,26 @@ class AlreadyOwnOut(BaseModel):
     summary: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CompanyExposureOut(BaseModel):
+    """How much of one company you own, through every fund that holds it.
+
+    "How much Reliance do I own?" — the question §3.5 says no Indian app answers,
+    because answering it means opening every fund and adding up.
+
+    `covered_share` is not a footnote. It says what fraction of the portfolio
+    this figure looked inside, and without it a small number is indistinguishable
+    from a portfolio we mostly could not read.
+    """
+
+    isin: str
+    name: str
+    value: float
+    share_pct: float | None
+    # (fund name, rupees through it), heaviest first.
+    through: list[tuple[str, float]]
+    covered_share: float
+    summary: str
+
+    model_config = ConfigDict(from_attributes=True)

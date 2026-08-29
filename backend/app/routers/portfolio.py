@@ -21,6 +21,7 @@ from app.schemas.portfolio import (
     LeversOut,
     AlreadyOwnOut,
     AnnouncementOut,
+    CompanyExposureOut,
     AnnouncementsOut,
     CompanyOut,
     LookThroughOut,
@@ -39,6 +40,7 @@ from app.services.advisor.fund_evidence import expense_ratios
 from app.services.portfolio.history import HoldingSeries, build_history
 from app.services.advisor.fund_overlap import analyse_overlap
 from app.services.marketdata import holdings_store
+from app.services.advisor.money import inr
 from app.services.portfolio.already_own import overlap_with_holdings
 from app.services.portfolio.look_through import concentrated, look_through
 from app.services.marketdata import announcements as filings
@@ -884,5 +886,63 @@ def get_already_own(
         share_pct=result.share_pct,
         through=[list(t) for t in result.through[:6]],
         reason=result.reason,
+        summary=summary,
+    )
+
+
+@router.get("/company-exposure/{isin}", response_model=CompanyExposureOut)
+def get_company_exposure(
+    isin: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """How much of one company this user owns, through every fund that holds it.
+
+    §3.5 calls this the question no Indian app answers. Answering it means
+    opening every fund and adding up, which is what the holdings store exists
+    for — and it is why `look_through` and this one are the same arithmetic read
+    from two ends.
+
+    The ISIN is not typed by a person. It comes from a resolver, and this route
+    validates it regardless: a code we hold nothing for is a 404, never a zero.
+    """
+    holdings = [
+        h
+        for h in db.query(Holding).filter(Holding.user_id == user.id).all()
+        if h.asset_type == "MF"
+    ]
+    priced: list[tuple[str, float]] = []
+    for holding in holdings:
+        name = identify(holding.identifier, holding.name).official_name or holding.name
+        value = float(holding.quantity or 0) * float(holding.avg_price or 0)
+        if value > 0:
+            priced.append((name, value))
+
+    result = look_through(priced)
+    match = next((c for c in result.companies if c.isin == isin), None)
+    if match is None:
+        # Not zero. "You own none of this" and "none of the funds we could open
+        # holds it" are different claims, and the second is the honest one when
+        # 71% of the portfolio was unreadable.
+        raise HTTPException(
+            404,
+            f"We hold no disclosed position in {isin} across the "
+            f"{result.covered_share:.0f}% of your portfolio we could read.",
+        )
+
+    share = result.share_of_portfolio(match)
+    summary = (
+        f"You own {inr(round(match.value))} of {match.name} — {share:.1f}% of "
+        f"everything you hold — through {match.fund_count} "
+        f"{'fund' if match.fund_count == 1 else 'funds'}. "
+        f"This looked inside {result.covered_share:.0f}% of your portfolio."
+    )
+    return CompanyExposureOut(
+        isin=match.isin,
+        name=match.name,
+        value=round(match.value, 2),
+        share_pct=round(share, 2),
+        through=[(n, round(v, 2)) for n, v in match.via],
+        covered_share=round(result.covered_share, 2),
         summary=summary,
     )

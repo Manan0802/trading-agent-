@@ -22,6 +22,7 @@ arrangement the momentum screen already runs on.
 
 from __future__ import annotations
 
+import math
 import statistics
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -154,10 +155,20 @@ def _closes_from(frame, start: date | None) -> list[tuple[date, float]]:
 
 
 def _rebase(series: list[tuple[date, float]]) -> list[Point]:
-    if not series or series[0][1] <= 0:
+    """Rebase to 100, dropping any point that is not a real number.
+
+    A NaN close is a price we do not have, and it is not a point on a chart.
+    Carrying it through produced `ValueError: Out of range float values are not
+    JSON compliant: nan` from the JSON encoder — a 500 on the company page, from
+    ONE bad value in a 240-point peer series, and only for whichever ticker
+    happened to have a gap that day. Pydantic validates a NaN float happily, so
+    nothing upstream of the encoder objects.
+    """
+    clean = [(d, v) for d, v in series if isinstance(v, (int, float)) and math.isfinite(v)]
+    if not clean or clean[0][1] <= 0:
         return []
-    base = series[0][1]
-    return [Point(d, round(v / base * 100.0, 4)) for d, v in series]
+    base = clean[0][1]
+    return [Point(d, round(v / base * 100.0, 4)) for d, v in clean]
 
 
 def _sector_median(
@@ -179,10 +190,16 @@ def _sector_median(
         for d in s:
             counts[d] = counts.get(d, 0) + 1
     needed = max(2, int(len(rebased) * 0.6))
-    return [
-        Point(d, round(statistics.median([s[d] for s in rebased if d in s]), 4))
-        for d in sorted(d for d, n in counts.items() if n >= needed)
-    ]
+    out: list[Point] = []
+    for d in sorted(day for day, n in counts.items() if n >= needed):
+        # Guarded a second time on purpose. `_rebase` cleans its input, but the
+        # median of a list containing one NaN is NaN, so a single bad value
+        # anywhere in the sample would take the whole series down — and the
+        # failure lands in the JSON encoder, past every validator.
+        values = [s[d] for s in rebased if d in s and math.isfinite(s[d])]
+        if len(values) >= max(2, needed):
+            out.append(Point(d, round(statistics.median(values), 4)))
+    return out
 
 
 # (key, label, lower is better) -- because a low P/E is good news and a low ROE

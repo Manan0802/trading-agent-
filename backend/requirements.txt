@@ -52,3 +52,8 @@ xlrd>=2.0.1
 # matching scipy's SLSQP rather than approximating it. ~19 MB, and nothing else
 # in the app needs it.
 scipy>=1.14,<2.0
+
+# Validates the tool registry's declared output shapes. §3.2's acceptance is
+# that a tool whose output does not match its own contract FAILS THE SUITE, and
+# a contract nothing checks is a comment.
+jsonschema==4.26.0
