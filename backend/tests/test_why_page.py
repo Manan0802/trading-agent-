@@ -7,11 +7,14 @@ none of it answers the question somebody actually has — *why should I believe
 the number I am looking at* — because that question is asked about the front
 page, not about whichever page happens to hold the evidence.
 
-⚠️ **`Today` is NOT built, and that is a decision rather than an omission.**
-`Today` and `Holdings` are one file, `Portfolio.tsx`, and splitting it is
-decision 2 in BUILD.md — a product call about which of the two keeps
-`/portfolio`. BUILD.md says in as many words not to start 4.3 before it lands.
-So `Why` ships and the split waits.
+✅ **`Today` is built too, and the split it needed is decided.** `Today` and
+`Holdings` were one file, `Portfolio.tsx`, and splitting it is decision 2 in
+BUILD.md — a product call about which of the two keeps `/portfolio`. The call:
+**`/portfolio` keeps Today**, because `/` redirects there, so it is the app's
+front door — and a front door should answer *how am I doing* rather than open
+onto a table. Holdings lives at `/portfolio/holdings`, which is where a
+deliberate destination belongs: you go there to add a purchase or correct a unit
+count, not to glance.
 """
 
 import re
@@ -108,25 +111,51 @@ class TestItLeadsWithTheUncomfortableHalf:
         assert "sorts as the cheapest fund" in page
 
 
-class TestTheHonestyStatesSurvive:
-    """The three §14 states that must not be lost, checked where they live.
+class TestTheHonestyStatesSurviveTheSplit:
+    """The three §14 states, checked on the page that now owns the rows.
 
-    `Portfolio.tsx` is untouched by this slice — the Today/Holdings split is
-    decision 2 — so these assert the states are still there, which is exactly
-    what the acceptance asks for.
+    This is the acceptance for splitting `Portfolio.tsx`: a rewrite is the most
+    reliable way to lose things learned expensively, and each of these was added
+    because a real number went wrong quietly.
     """
 
     def test_a_misnamed_holding_still_says_so(self):
-        page = _read("pages/Portfolio.tsx")
-        assert "misnamed_as" in page
+        page = _read("pages/Holdings.tsx")
+        assert "misnamed_as" in page, (
+            "the scheme code drives every figure and the name is a label; when "
+            "they disagree the row is about a different fund and looks correct"
+        )
 
     def test_a_stale_price_still_says_the_value_is_not_current(self):
-        page = _read("pages/Portfolio.tsx")
+        page = _read("pages/Holdings.tsx")
         assert re.search(r"not current", page, re.I), (
-            "a stale portfolio value rendered without a warning is the most "
-            "confident wrong number this app can show"
+            "a NAV keeps being served after a scheme stops publishing, so a "
+            "frozen price reads as today's value — the most confident wrong "
+            "number this app can show"
         )
 
     def test_a_holding_whose_price_failed_is_still_excluded_by_name(self):
-        page = _read("pages/Portfolio.tsx")
+        page = _read("pages/Holdings.tsx")
         assert "price_error" in page
+
+    def test_the_old_single_page_is_gone_rather_than_left_behind(self):
+        """A dead copy is a place for the next edit to land unnoticed."""
+        assert not (SRC / "pages" / "Portfolio.tsx").exists()
+
+    def test_today_and_holdings_share_one_cached_response(self):
+        """Same query key, same fetch: moving between them costs no request."""
+        for page in ("pages/Today.tsx", "pages/Holdings.tsx"):
+            assert "queryKey: ['portfolio']" in _read(page), page
+
+    def test_today_links_to_the_list_where_somebody_wonders(self):
+        today = _read("pages/Today.tsx")
+        assert 'to="/portfolio/holdings"' in today
+
+    def test_the_front_door_still_answers_how_am_i_doing(self):
+        """`/` redirects to `/portfolio`, so whatever is there is the app's
+        opening statement. It keeps the summary and the levers."""
+        app = _read("App.tsx")
+        assert '<Today />' in app
+        today = _read("pages/Today.tsx")
+        assert "<Levers />" in today
+        assert "Portfolio value" in today

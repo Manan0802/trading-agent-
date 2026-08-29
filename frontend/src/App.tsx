@@ -17,7 +17,8 @@ import { cn } from '@/lib/utils'
 // before the first paint — including somebody on a phone who has not added a
 // holding yet and will see no chart at all. Login stays eager: it is the first
 // thing an unauthenticated visitor needs and there is nothing to defer.
-const Portfolio = lazy(() => import('@/pages/Portfolio').then((m) => ({ default: m.Portfolio })))
+const Today = lazy(() => import('@/pages/Today').then((m) => ({ default: m.Today })))
+const Holdings = lazy(() => import('@/pages/Holdings').then((m) => ({ default: m.Holdings })))
 const Research = lazy(() => import('@/pages/Research').then((m) => ({ default: m.Research })))
 const Why = lazy(() => import('@/pages/Why').then((m) => ({ default: m.Why })))
 const Screener = lazy(() => import('@/pages/Screener').then((m) => ({ default: m.Screener })))
@@ -57,7 +58,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 // apart -- a palette that reaches five of six is worse than none, because the
 // missing one is the one somebody will hunt for.
 const NAV = [
-  { to: '/portfolio', label: 'Portfolio', hint: 'what you own' },
+  { to: '/portfolio', label: 'Today', hint: 'how you are doing' },
+  { to: '/portfolio/holdings', label: 'Holdings', hint: 'every position, with cost and XIRR' },
   { to: '/research', label: 'Research', hint: 'what has been shown to work' },
   { to: '/why', label: 'Why', hint: 'where every number comes from' },
   { to: '/decide', label: 'Decide', hint: 'the levers worth pulling' },
@@ -111,7 +113,12 @@ function Layout({ children }: { children: React.ReactNode }) {
                   to={item.to}
                   className={({ isActive }) =>
                     cn(
-                      'shrink-0 rounded-md px-2.5 py-2 text-sm transition-colors',
+                      // min-h-11 is 44px, the smallest target a thumb hits
+                      // reliably. Without it the links measured 16px tall on a
+                      // phone once the nav gained a seventh item and started
+                      // scrolling — a link you cannot tap is not navigation.
+                      'flex shrink-0 items-center rounded-md px-2.5 py-2 text-sm',
+                      'min-h-11 transition-colors',
                       isActive
                         ? 'bg-secondary font-medium text-foreground'
                         : 'text-muted-foreground hover:text-foreground',
@@ -157,7 +164,19 @@ export default function App() {
               path="/portfolio"
               element={
                 <RequireAuth>
-                  <Portfolio />
+                  <Today />
+                </RequireAuth>
+              }
+            />
+            {/* One level down, deliberately. `/` redirects to `/portfolio`, so
+                that route is the app's front door and answers "how am I doing";
+                the list is where you go to add a purchase or correct a unit
+                count, which is a task rather than a glance. */}
+            <Route
+              path="/portfolio/holdings"
+              element={
+                <RequireAuth>
+                  <Holdings />
                 </RequireAuth>
               }
             />
@@ -165,9 +184,7 @@ export default function App() {
               path="/why"
               element={
                 <RequireAuth>
-                  <Layout>
-                    <Why />
-                  </Layout>
+                  <Why />
                 </RequireAuth>
               }
             />

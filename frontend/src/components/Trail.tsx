@@ -104,7 +104,15 @@ export function Trail({ leaf }: { leaf?: string }) {
                 <>
                   <Link
                     to={hop.to}
-                    className="rounded-sm underline-offset-2 hover:text-foreground hover:underline"
+                    // A breadcrumb is small by design and a tap target is not.
+                    // The phone harness measured this at 31x16 against a 44x44
+                    // minimum — a word like "Goals" is 31px wide, so BOTH axes
+                    // needed work. The vertical padding is cancelled by a
+                    // negative margin so the row keeps its height; the
+                    // horizontal minimum is not, because a couple of pixels of
+                    // slack around a crumb costs nothing and clipping the first
+                    // one against the page edge would.
+                    className="-my-3 inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm px-1 py-3 underline-offset-2 hover:text-foreground hover:underline"
                   >
                     {hop.label}
                   </Link>

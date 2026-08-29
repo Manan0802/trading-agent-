@@ -86,6 +86,7 @@ class TestTheCommandPaletteReachesEverything:
         routes = set(re.findall(r"to: '([^']+)'", block))
         assert routes == {
             "/portfolio",
+            "/portfolio/holdings",
             "/research",
             "/why",
             "/decide",

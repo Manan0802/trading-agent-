@@ -6,8 +6,15 @@
  * so reading it is a lookup. One sorted bar puts the largest slice first, the
  * labels on the segments, and the comparison on one axis.
  *
- * Segments below `minLabelPct` are drawn and not labelled, rather than merged
- * into "Other". Merging hides a name the reader may be looking for.
+ * A small segment is drawn and named in the legend rather than merged into
+ * "Other". Merging hides a name the reader may be looking for.
+ *
+ * **The numbers live in the legend, not inside the bar.** White text on an
+ * arbitrary palette colour cannot be guaranteed readable — the accessibility
+ * walk measured a 10% gold segment at **1.47:1 against the 4.5:1 minimum**, and
+ * there is no build-time fix because the colours are CSS variables the viewer's
+ * theme can change. So the bar carries proportion, which is what a bar is for,
+ * and the legend beneath carries every label and figure at full contrast.
  */
 import { ChartFrame, chartState } from './ChartFrame'
 
@@ -27,13 +34,11 @@ export function SortedStackedBar({
   segments,
   loading = false,
   label,
-  minLabelPct = 8,
   format = (pct: number) => `${pct.toFixed(0)}%`,
 }: {
   segments: Segment[]
   loading?: boolean
   label: string
-  minLabelPct?: number
   format?: (pct: number) => string
 }) {
   const total = segments.reduce((sum, s) => sum + Math.max(0, s.value), 0)
@@ -52,19 +57,14 @@ export function SortedStackedBar({
                 className={`${s.className ?? PALETTE[i % PALETTE.length]} flex items-center justify-center`}
                 style={{ width: `${pct}%` }}
                 title={`${s.label} ${format(pct)}`}
-              >
-                {pct >= minLabelPct && (
-                  <span className="truncate px-1 text-[10px] font-medium text-white">
-                    {format(pct)}
-                  </span>
-                )}
-              </div>
+                aria-hidden
+              />
             )
           })}
         </div>
-        <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
           {sorted.map((s, i) => (
-            <li key={s.label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <li key={s.label} className="flex items-center gap-1.5 text-xs text-foreground">
               <span className={`size-2 rounded-sm ${s.className ?? PALETTE[i % PALETTE.length]}`} />
               {s.label} <span className="num">{format((s.value / total) * 100)}</span>
             </li>

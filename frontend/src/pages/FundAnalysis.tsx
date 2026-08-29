@@ -662,15 +662,19 @@ function HoldingsPanel({ data }: { data: FundAnalysisData }) {
           </p>
           <ul className="mt-3 divide-y">
             {holdings.top.map((h) => (
-              <li key={`${h.isin ?? h.name}`} className="flex items-baseline justify-between gap-3 py-1.5">
+              <li key={`${h.isin ?? h.name}`} className="flex items-baseline justify-between gap-3">
                 <Link
                   to={`/screener/stock/${encodeURIComponent(h.name)}`}
                   state={{ via }}
-                  className="truncate text-sm underline-offset-2 hover:underline"
+                  // 44px of height, because a row of company names is a list of
+                  // links and the phone harness measured these at 20px tall.
+                  // The padding lives on the link rather than the <li> so the
+                  // whole tappable strip is the thing that navigates.
+                  className="flex min-h-11 flex-1 items-center truncate py-2 text-sm underline-offset-2 hover:underline"
                 >
                   {h.name}
                 </Link>
-                <span className="num shrink-0 text-sm text-muted-foreground">
+                <span className="num shrink-0 self-center text-sm text-muted-foreground">
                   {h.weight.toFixed(2)}%
                 </span>
               </li>

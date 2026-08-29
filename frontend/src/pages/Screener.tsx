@@ -1040,18 +1040,29 @@ function FundRows({
           </TableCell>
         ))}
         {onCompare && (
-          <TableCell className="w-10 align-top">
-            <input
-              type="checkbox"
-              checked={compared}
-              // Disabled only when the tray is full AND this one is not in it,
-              // so unchecking always works. A checkbox you cannot uncheck is a
-              // trap, and the tray fills up in four clicks.
-              disabled={!compared && compareFull}
-              onChange={() => onCompare(fund)}
-              aria-label={`Compare ${fund.name}`}
-              className="mt-1 size-4 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-40"
-            />
+          <TableCell className="w-12 p-0 align-top">
+            <label
+              className="flex cursor-pointer items-center justify-center"
+              title={`Compare ${fund.name}`}
+            >
+              <input
+                type="checkbox"
+                checked={compared}
+                // Disabled only when the tray is full AND this one is not in it,
+                // so unchecking always works. A checkbox you cannot uncheck is a
+                // trap, and the tray fills up in four clicks.
+                disabled={!compared && compareFull}
+                onChange={() => onCompare(fund)}
+                aria-label={`Compare ${fund.name}`}
+                // 44px on a phone, 16px from `sm:` up. Wrapping a small input
+                // in a large label does NOT fix this — the harness measures the
+                // input's own box, and so does a thumb. A checkbox that is
+                // chunky on a phone and ordinary on a laptop is the honest
+                // answer to a control that is used with a finger in one place
+                // and a mouse in the other.
+                className="size-11 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-40 sm:size-4"
+              />
+            </label>
           </TableCell>
         )}
       </TableRow>
