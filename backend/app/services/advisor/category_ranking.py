@@ -63,12 +63,41 @@ def rank_codes(
         return CategoryRanking(category=label, ranked=[], unscorable=[], priced=0)
 
     def load(entry):
-        try:
-            navs = mutual_fund.get_nav_history(entry.code)
-        except mutual_fund.MutualFundDataError:
-            return None, None
+        # Retried once, and NEVER dropped silently.
+        #
+        # This was `except MutualFundDataError: return None, None`, which took
+        # the fund out of the ranked list AND out of the unscorable list — it
+        # simply evaporated. That matters because **the score is peer-relative**:
+        # a fund's number is its standing among the peers that happened to load,
+        # so one transient fetch failure moves EVERY OTHER fund's score, and
+        # nothing on screen said the peer group had shrunk.
+        #
+        # Measured on a cold server: the goal plan and the research page returned
+        # 87.81 and 88.13 for the same fund in the same category, and on the
+        # second call — everything cached — they agreed exactly. Two surfaces
+        # disagreeing about one number is the thing this app exists not to do.
+        navs = None
+        for attempt in range(2):
+            try:
+                navs = mutual_fund.get_nav_history(entry.code)
+                break
+            except mutual_fund.MutualFundDataError as exc:
+                if attempt == 1:
+                    return None, UnscorableFund(
+                        scheme_code=entry.code,
+                        scheme_name=entry.name,
+                        reason=(
+                            f"its NAV history could not be fetched ({exc}), so it "
+                            "is named here rather than vanishing from a ranking "
+                            "everyone else's score is measured against"
+                        ),
+                    )
         if not navs:
-            return None, None
+            return None, UnscorableFund(
+                scheme_code=entry.code,
+                scheme_name=entry.name,
+                reason="no NAV history was returned for this scheme",
+            )
 
         # A scheme that wound up or matured keeps its whole history in the feed,
         # so it scores like any other fund and can rank above the ones you can
