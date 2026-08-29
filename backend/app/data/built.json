@@ -1,0 +1,30 @@
+{
+ "base_rates.json": {
+  "as_of": "2026-08-20",
+  "how": "built"
+ },
+ "expense_ratios.json": {
+  "as_of": "2026-07-26",
+  "how": "built"
+ },
+ "factor_evidence.json": {
+  "as_of": "2026-08-06",
+  "how": "built"
+ },
+ "fund_catalogue.json": {
+  "as_of": "2026-07-21",
+  "how": "inferred from the newest latest_nav_date among 4,957 entries"
+ },
+ "sector_benchmarks.json": {
+  "as_of": "2026-08-21",
+  "how": "mtime \u2014 no builder recorded it; a floor, not a fact"
+ },
+ "stock_universe.json": {
+  "as_of": "2026-07-22",
+  "how": "mtime \u2014 no builder recorded it; a floor, not a fact"
+ },
+ "track_record.json": {
+  "as_of": "2026-08-22",
+  "how": "built"
+ }
+}

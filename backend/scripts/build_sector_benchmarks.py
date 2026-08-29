@@ -25,6 +25,8 @@ from pathlib import Path
 
 import yfinance as yf
 
+from app.services import data_built  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "app" / "data" / "sector_benchmarks.json"
 
@@ -121,6 +123,7 @@ def main() -> int:
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, indent=1, sort_keys=True))
+    data_built.record("sector_benchmarks.json")
 
     print(f"\n{len(out) - 1} sectors -> {OUT}  ({failures} lookups failed)")
     for sector, entry in sorted(out.items()):

@@ -46,6 +46,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from app.services import data_built  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "app" / "data" / "track_record.json"
 
@@ -221,6 +223,8 @@ def main() -> int:
         return 1
 
     OUT.write_text(json.dumps(payload, indent=1))
+
+    data_built.record("track_record.json")
     print(f"\nwrote {OUT}\n")
 
     def line(label: str, block: dict) -> None:

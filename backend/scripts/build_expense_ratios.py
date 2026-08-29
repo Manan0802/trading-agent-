@@ -36,6 +36,8 @@ from pathlib import Path
 
 import httpx
 
+from app.services import data_built  # noqa: E402
+
 BASE = "https://www.amfiindia.com/api/populate-te-rdata-revised"
 ROOT = Path(__file__).resolve().parent.parent
 CATALOGUE = ROOT / "app" / "data" / "fund_catalogue.json"
@@ -199,6 +201,7 @@ def main() -> int:
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, indent=1, sort_keys=True))
+    data_built.record("expense_ratios.json")
 
     # What this run did NOT cover, per fund house. The hole that `_MAX_MF_ID`
     # left was 23 houses at zero for eleven review passes, and nothing here

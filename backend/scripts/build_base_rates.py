@@ -44,6 +44,8 @@ from sqlalchemy import text  # noqa: E402
 from app.services.advisor import fund_catalogue  # noqa: E402
 from app.services.screener import navstore  # noqa: E402
 
+from app.services import data_built  # noqa: E402
+
 OUT = ROOT / "app" / "data" / "base_rates.json"
 
 HORIZONS = {"1y": 365, "3y": 1095, "5y": 1826, "7y": 2557, "10y": 3653}
@@ -326,6 +328,8 @@ def main() -> int:
         return 1
 
     OUT.write_text(json.dumps(payload, indent=1))
+
+    data_built.record("base_rates.json")
     coverage = payload["coverage"]
     print(f"\nwrote {coverage['categories_rated']} categories to {OUT}")
     print(

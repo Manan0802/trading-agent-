@@ -25,6 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import httpx  # noqa: E402
 import pandas as pd  # noqa: E402
 
+from app.services import data_built  # noqa: E402
+
 _SOURCE = (
     "https://faculty.iima.ac.in/iffm/Indian-Fama-French-Momentum/DATA/"
     "2025-12_FourFactors_and_Market_Returns_Monthly_SurvivorshipBiasAdjusted.csv"
@@ -162,6 +164,7 @@ def main() -> int:
         "momentum_curve": curve,
     }
     _OUT.write_text(json.dumps(payload, indent=2))
+    data_built.record("factor_evidence.json")
 
     print(f"\nwrote {_OUT.relative_to(Path.cwd()) if _OUT.is_relative_to(Path.cwd()) else _OUT}")
     print(f"  {payload['period']['from']} to {payload['period']['to']}, "

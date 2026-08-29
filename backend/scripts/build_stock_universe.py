@@ -24,6 +24,8 @@ from pathlib import Path
 
 import httpx
 
+from app.services import data_built  # noqa: E402
+
 BASE = "https://nsearchives.nseindia.com/content/indices"
 OUT = Path(__file__).resolve().parent.parent / "app" / "data" / "stock_universe.json"
 
@@ -91,6 +93,7 @@ def main() -> int:
     ordered = sorted(stocks.values(), key=lambda s: s["name"] or s["symbol"])
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(ordered, indent=1))
+    data_built.record("stock_universe.json")
 
     print(f"\n{len(ordered)} stocks -> {OUT}")
     for index_name, _ in INDEX_FILES:

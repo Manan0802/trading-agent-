@@ -22,6 +22,8 @@ from pathlib import Path
 
 import httpx
 
+from app.services import data_built  # noqa: E402
+
 BASE = "https://api.mfapi.in"
 OUT = Path(__file__).resolve().parent.parent / "app" / "data" / "fund_catalogue.json"
 
@@ -127,6 +129,7 @@ def main() -> int:
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(by_category, indent=1, sort_keys=True))
+    data_built.record("fund_catalogue.json")
 
     print(f"\n{len(found)} funds across {len(by_category)} categories -> {OUT}")
     for category, funds in sorted(
