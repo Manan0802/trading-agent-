@@ -6,6 +6,7 @@ import { AuthCallback } from '@/pages/AuthCallback'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { WakingNotice } from '@/components/WakingNotice'
 import { clearToken, isAuthenticated } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
@@ -119,7 +120,12 @@ function Layout({ children }: { children: React.ReactNode }) {
       {/* Wider than a reading column: a dashboard's job is to put several
           answers in one glance, and 6xl forced the panels into a single stack
           on every screen size anyone actually uses. */}
-      <main className="mx-auto max-w-[100rem] px-4 py-8 sm:px-6 sm:py-10">{children}</main>
+      <main className="mx-auto flex max-w-[100rem] flex-col gap-4 px-4 py-8 sm:px-6 sm:py-10">
+        {/* Above the page, not inside it: the server is waking for every
+            request on the page, not for one panel. */}
+        <WakingNotice />
+        {children}
+      </main>
     </div>
   )
 }
