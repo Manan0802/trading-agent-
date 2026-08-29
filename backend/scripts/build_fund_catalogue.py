@@ -23,6 +23,7 @@ from pathlib import Path
 import httpx
 
 from app.services import data_built  # noqa: E402
+from scripts.build_expense_ratios import normalise  # noqa: E402
 
 BASE = "https://api.mfapi.in"
 OUT = Path(__file__).resolve().parent.parent / "app" / "data" / "fund_catalogue.json"
@@ -51,8 +52,13 @@ _INTEGRITY_CODES = [
 ]
 
 
+_REGULAR = re.compile(r"\bregular\b", re.I)
+PAIRS_OUT = Path(__file__).resolve().parent.parent / "app" / "data" / "plan_pairs.json"
+
+
 def candidates(client: httpx.Client) -> list[dict]:
     schemes = client.get(f"{BASE}/mf", timeout=120).json()
+    _write_plan_pairs(schemes)
     return [
         s
         for s in schemes
@@ -60,6 +66,45 @@ def candidates(client: httpx.Client) -> list[dict]:
         and _GROWTH.search(s["schemeName"])
         and not _PAYOUT.search(s["schemeName"])
     ]
+
+
+def _write_plan_pairs(schemes: list[dict]) -> None:
+    """regular scheme code -> the direct plan of the same fund.
+
+    Built from rows this crawl already fetched and was about to throw away. The
+    catalogue keeps direct plans only, which is right -- it is the
+    recommendation universe. But a person holding a REGULAR plan types its code,
+    and without this edge the app has never heard of it, so the badge §11.7
+    calls the largest number it will ever show cannot fire for the one person it
+    exists for.
+
+    Joined on the same normalised name `build_expense_ratios.py` uses for its
+    own join, so both sides strip plan and option suffixes identically. Measured
+    at 3,762 of 4,136 regular growth plans, 91%.
+    """
+    direct: dict[str, str] = {}
+    regular: dict[str, str] = {}
+    for scheme in schemes:
+        name = scheme["schemeName"]
+        if not _GROWTH.search(name) or _PAYOUT.search(name):
+            continue
+        key = normalise(name)
+        if not key:
+            continue
+        if _DIRECT.search(name):
+            direct.setdefault(key, str(scheme["schemeCode"]))
+        elif _REGULAR.search(name):
+            regular.setdefault(key, str(scheme["schemeCode"]))
+
+    pairs = {code: direct[key] for key, code in regular.items() if key in direct}
+    PAIRS_OUT.parent.mkdir(parents=True, exist_ok=True)
+    PAIRS_OUT.write_text(json.dumps(pairs, indent=1, sort_keys=True))
+    data_built.record("plan_pairs.json")
+    matched = len(pairs) / len(regular) * 100 if regular else 0.0
+    print(
+        f"plan pairs: {len(pairs)} of {len(regular)} regular growth plans "
+        f"matched to a direct twin ({matched:.0f}%) -> {PAIRS_OUT}"
+    )
 
 
 def fetch_meta(client: httpx.Client, code: int) -> dict | None:
