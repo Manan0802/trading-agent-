@@ -23,6 +23,7 @@ import re
 from dataclasses import dataclass
 from functools import lru_cache
 
+from app.services.advisor import plan_pairs
 from app.services.advisor.fund_catalogue import CatalogueFund, all_funds
 from app.services.marketdata.mutual_fund import MutualFundDataError, get_scheme_meta
 
@@ -142,7 +143,55 @@ def misnamed_as(scheme_code: str, typed_name: str) -> str | None:
 
 
 def identify(scheme_code: str, typed_name: str = "") -> PlanIdentity:
-    """Resolve one holding: what plan it is on, and its direct equivalent."""
+    """Resolve one holding: what plan it is on, and its direct equivalent.
+
+    The precomputed pairing is tried first. It is built from AMFI's own scheme
+    list at catalogue-build time by joining both plans of a fund on the same
+    normalised name `build_expense_ratios.py` uses, and it covers 3,762 of the
+    4,136 regular growth plans AMFI lists.
+
+    Two reasons it goes first. It is a LOCAL lookup, and the path below opens
+    with `get_scheme_meta`, a network call per holding just to learn the plan
+    type -- on a five-fund portfolio that is five round trips before any number
+    appears. And it is built once, from the full list, rather than resolved per
+    holding against a catalogue that holds only direct plans.
+
+    When it does not know the code, everything below runs exactly as before,
+    including the refusal when a stripped name matches more than one scheme.
+    """
+    twin = plan_pairs.direct_twin(scheme_code)
+    if twin is not None:
+        catalogue_names = {f.code: f.name for f in all_funds()}
+        direct_name = catalogue_names.get(twin)
+        if direct_name:
+            return PlanIdentity(
+                scheme_code=scheme_code,
+                official_name=typed_name or None,
+                plan="regular",
+                direct_code=twin,
+                direct_name=direct_name,
+            )
+        # Paired, but the direct side is not in the recommendation universe --
+        # a fund we would not suggest buying. Say what it is; do not name a
+        # scheme we cannot show.
+        return PlanIdentity(
+            scheme_code=scheme_code,
+            # NOT the typed name. This field means "what AMFI publishes for
+            # this code", and the whole reason this module exists is that the
+            # typed string is a label, not evidence -- code 118955 is AMFI's
+            # DIRECT plan and someone had typed "Regular Plan" against it. The
+            # fast path skips the network and so cannot know the official name;
+            # None says so, and callers already fall back to the typed name for
+            # display. The wrong-fund guard is `misnamed_as`, which does its own
+            # lookup and is unaffected.
+            official_name=None,
+            plan="regular",
+            note=(
+                "This is a regular plan. Its direct version is not in the "
+                "browsable universe, so we are not naming one to switch to."
+            ),
+        )
+
     official: str | None = None
     try:
         official = get_scheme_meta(scheme_code).scheme_name

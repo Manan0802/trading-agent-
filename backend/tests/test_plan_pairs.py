@@ -87,3 +87,57 @@ def test_the_badge_can_now_produce_a_rupee_figure():
 def test_two_pairings_verified_by_hand(regular, direct):
     """Spot checks, so a rebuild that silently reshuffles the edge is caught."""
     assert plan_pairs.direct_twin(regular) == direct
+
+
+class TestTheFastPathInsidePlanIdentity:
+    """`identify()` resolves a regular code locally, and says what it found.
+
+    Two mutations survived the first version of this suite, and both are the
+    kind that look harmless in a diff:
+
+    - labelling a regular holding `plan="direct"`, which tells someone paying a
+      distributor that they are already on the cheap plan and silences the badge
+      for exactly the person it was built for;
+    - dropping the `if direct_name` branch, which names a scheme code the app
+      cannot show a page for, because 49 of the 3,762 pairs point at a direct
+      plan outside the browsable universe.
+    """
+
+    def test_a_regular_holding_is_labelled_regular(self):
+        from app.services.portfolio.plan_identity import identify
+
+        found = identify("100033")
+        assert found.plan == "regular", (
+            "a regular holding labelled anything else silences the one lever "
+            "this app has measured"
+        )
+        assert found.direct_code == "119436"
+        assert found.direct_name, "a code with no name is not a followable instruction"
+
+    def test_a_pair_outside_the_universe_is_refused_rather_than_named(self):
+        from app.services.portfolio.plan_identity import identify
+
+        found = identify("100646")
+        assert found.plan == "regular", "it is still a regular plan, and says so"
+        assert found.direct_code is None, (
+            "120784 is not in the catalogue, so we cannot show it, price it or "
+            "rank it — naming it sends the reader to a broker's search box with "
+            "a code we know nothing about"
+        )
+        assert found.note and "not in the browsable universe" in found.note
+
+    def test_the_fast_path_makes_no_network_call(self):
+        """The reason it goes first. Five holdings used to mean five round trips."""
+        import app.services.portfolio.plan_identity as mod
+        from app.services.portfolio.plan_identity import identify
+
+        def explode(*_a, **_k):
+            raise AssertionError("identify() hit the network for a known pair")
+
+        original = mod.get_scheme_meta
+        mod.get_scheme_meta = explode
+        try:
+            assert identify("100033").direct_code == "119436"
+            assert identify("100646").direct_code is None
+        finally:
+            mod.get_scheme_meta = original
