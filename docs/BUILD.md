@@ -75,7 +75,7 @@ after.
 | **0.3** | **Make the builder report its coverage** — houses found, schemes matched, catalogue funds still without a TER. Its docstring currently claims the unresolved are *"mostly ETFs and closed-ended schemes"*, which was false while 297 open-ended funds were missing, and is what kept the gap invisible for eleven passes | the run prints the three counts and fails if coverage drops |
 | **0.4** | **Give every committed data file an `as_of`.** Three of seven cannot say how old they are: `fund_catalogue.json` (the universe — its age is only inferable from the newest `latest_nav_date`, 38 days), `stock_universe.json`, and **`sector_benchmarks.json`**, whose P/E and P/B medians decide whether a stock reads cheap or dear | every file in `app/data/` carries a build date, and the stock page shows it beside the peer count it already shows |
 | **0.5** | **`Decide.tsx` reads `return_bounds`** instead of hardcoding `min={4} max={16}`. They agree today and nothing keeps them agreeing | `tests/test_return_bounds_agree.py` is deleted because it has nothing left to pin |
-| **0.6** | **Separate the document gate.** 18 of the suite's tests check *this documentation* against the repo. They belong in the suite — §11's whole argument is that an unchecked claim goes wrong quietly — but `check.sh`'s step is labelled *"unit tests"*, so a stale count in a doc reds the code gate | `check.sh` gains one step, *"the document still matches the repo"*; a doc failure names itself |
+| **0.6** | **Separate the document gate.** 18 of the suite's tests check *this documentation* against the repo. They belong in the suite — §11's whole argument is that an unchecked claim goes wrong quietly — but `check.sh`'s step is labelled *"unit tests"*, so a stale count in a doc reds the code gate | **break one document claim and one code behaviour, separately, and the two steps go red separately.** Changing `47 things are open` to `46` must red the document step and leave the unit-test step green; breaking a service must do the reverse. A single step that goes red for both cannot tell a builder which they broke |
 | **0.7** | **The waking state.** Render free sleeps after 15 minutes, so for an app opened a few times a week **almost every session is a cold start**. `src/lib/api.ts` is 56 lines with no timeout and no `AbortController` | a >2s wait shows the waking state, not a frozen skeleton; a cold boot is exercised in `sweep.mjs` |
 
 ---
@@ -171,9 +171,19 @@ routed, and named nowhere in the plan until pass 105:
   /login                   Login.tsx          136   the first screen, and the cold start
 ```
 
-**Build order inside the slice:** 4.4 first (nothing shrinks it, and §3.2 puts a
-sparkline in every `Find` row), then 4.2's two genuinely absent features, then
-4.1's trail and ⌘K, then 4.3 — which is one rewrite plus one new page.
+**Build order: 4.4 first**, because nothing already-built shrinks it and §3.2
+puts a sparkline in every `Find` row — everything after it draws on the devices.
+
+| | what | acceptance |
+|---|---|---|
+| **4.4** | **§13.6's eight devices** — dot grid, bullet, underwater, slope, fan, **rebased line, sorted stacked bar, sparkline**. The step used to say five; the count is eight, and `lib/chart.ts` gives real groundwork (UTC dates, axis ticks, padded domains, tooltip style) but **no rebasing function** | each device renders its **empty and loading** states, not a blank box — §13.5's ten states exist because those two were missing entirely. And **`AllocationPie.tsx` is deleted, not deprecated**: it is a shipped recharts donut on `GoalDetail`, §13.6 says never a pie, and leaving it means allocation is shown two ways on two screens |
+| **4.2** | **`Find`'s two genuinely absent features** — overlap-at-the-moment-of-choosing, and the compare tray. Everything else in §3.3 ships: category-first (52 references), a stated reason per fund (26), facets (36), sorting (70), coverage including `unscorable` (51) | opening a fund shows **what share of it he already owns**, and shows **`n/a` when unmeasured, never `0%`** — §14, because 0% reads as perfectly diversified, the opposite of "we could not tell". ⚠️ **Do not add virtualisation without deciding it first** (decision 4 below): `Screener.tsx` paginates at `PAGE_SIZE = 100` with a comment naming the exact failure it prevents, so the acceptance *"1,686 rows scroll without dropping frames"* describes a design this repo already rejected on measured grounds |
+| **4.1** | **The trail and `⌘K`.** Navigation, deep links and back already work — the nav is a **horizontal top bar**, not the sidebar §15 specifies, and it `overflow-x-auto` scrolls rather than hiding, which honours §15's *"a hidden nav is the opposite of the ask"* by a different means | from a company page reached through a fund, **the trail names both hops** and each is clickable; `⌘K` reaches every one of the six real destinations. **Deep links already resolve on a cold load** — assert it rather than build it |
+| **4.3** | **`Today`, and `Why` as a new page.** These are two different jobs: `Today` is a rewrite of `Portfolio.tsx`, `Why` does not exist and its content is currently scattered across `Decide`, `Screener` and `Research` | **every figure on `Today` appears in `Why` with its source named** — §14's coverage rule applied to the app's own front page. And **the three honesty states survive the rewrite**: a `misnamed_as` holding still says so, a stale price still says *"This value is not current"*, and a `price_error` holding is still excluded from returns by name |
+
+⚠️ **4.3 is priced as one step and is two.** Splitting `Portfolio.tsx` into
+`Today` and `Holdings` is decision 2 below; building `Why` is new work. Do not
+start 4.3 before that decision lands.
 
 **Delete `AllocationPie.tsx`.** It is a shipped recharts donut on `GoalDetail`,
 §13.6 says never a pie, and leaving it means allocation is shown two ways on two
