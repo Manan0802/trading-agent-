@@ -3,6 +3,10 @@
   "as_of": "2026-08-20",
   "how": "built"
  },
+ "category_synonyms.json": {
+  "as_of": "2026-08-29",
+  "how": "built"
+ },
  "expense_ratios.json": {
   "as_of": "2026-07-26",
   "how": "built"
@@ -12,8 +16,8 @@
   "how": "built"
  },
  "fund_catalogue.json": {
-  "as_of": "2026-07-21",
-  "how": "inferred from the newest latest_nav_date among 4,957 entries"
+  "as_of": "2026-08-29",
+  "how": "built"
  },
  "groww_buyable.json": {
   "as_of": "2026-08-29",

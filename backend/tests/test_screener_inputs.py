@@ -81,21 +81,25 @@ def test_no_catalogue_category_contains_two_separators():
     assert doubled == [], f"a sub-category now contains the separator: {doubled[:3]}"
 
 
-def test_the_split_produces_the_five_sebi_scheme_types_and_1886_funds():
+def test_the_split_produces_the_five_sebi_scheme_types_and_2015_funds():
     """Pins the shape the whole screen is built on.
 
-    Joined, the catalogue has 90 categories and would grade in 90 peer groups.
-    Split, it has five scheme types holding 1,886 funds across 39
-    (category, sub_category) pairs -- and upstream grades on the scheme type,
-    so a flexi cap is ranked against 586 equity funds, not against 62 flexi caps.
+    Joined, the catalogue would grade in over a hundred peer groups. Split, it
+    has five scheme types holding 2,015 funds across 41 (category,
+    sub_category) pairs -- and upstream grades on the scheme type, so a flexi
+    cap is ranked against every equity fund, not against 62 flexi caps.
+
+    1,886 -> 2,015 on 2026-08-29. Not new funds: funds that were already in the
+    catalogue wearing AMFI's other spelling of their own category, recovered by
+    the measured synonym fold in `fund_catalogue.canonical_category`.
     """
     eligible = [
         f for f in fund_catalogue.all_funds()
         if inputs.is_eligible(inputs.split_category(f.category)[0])[0]
     ]
-    assert len(eligible) == 1886
+    assert len(eligible) == 2015
     pairs = {inputs.split_category(f.category) for f in eligible}
-    assert len(pairs) == 39
+    assert len(pairs) == 41
     assert {c for c, _ in pairs} == set(inputs.SEBI_SCHEME_TYPES)
 
 

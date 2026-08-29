@@ -115,14 +115,29 @@ class TestTheFastPathInsidePlanIdentity:
         assert found.direct_name, "a code with no name is not a followable instruction"
 
     def test_a_pair_outside_the_universe_is_refused_rather_than_named(self):
+        """Found by asking the data rather than by naming a fund that may move.
+
+        The example used to be hardcoded as 100646, and the catalogue rebuild
+        pulled its twin INTO the universe — so the test failed for the best
+        possible reason and stopped testing the branch.
+        """
+        import json
+
+        from app.services.advisor.fund_catalogue import all_funds
         from app.services.portfolio.plan_identity import identify
 
-        found = identify("100646")
+        catalogue = {f.code for f in all_funds()}
+        pairs = json.loads((DATA / "plan_pairs.json").read_text())
+        outside = [r for r, d in pairs.items() if d not in catalogue]
+        if not outside:
+            pytest.skip("every paired direct plan is now in the catalogue")
+
+        found = identify(outside[0])
         assert found.plan == "regular", "it is still a regular plan, and says so"
         assert found.direct_code is None, (
-            "120784 is not in the catalogue, so we cannot show it, price it or "
-            "rank it — naming it sends the reader to a broker's search box with "
-            "a code we know nothing about"
+            f"{pairs[outside[0]]} is not in the catalogue, so we cannot show it, "
+            "price it or rank it — naming it sends the reader to a broker's "
+            "search box with a code we know nothing about"
         )
         assert found.note and "not in the browsable universe" in found.note
 
@@ -138,6 +153,6 @@ class TestTheFastPathInsidePlanIdentity:
         mod.get_scheme_meta = explode
         try:
             assert identify("100033").direct_code == "119436"
-            assert identify("100646").direct_code is None
+            assert identify("000000").direct_code is None
         finally:
             mod.get_scheme_meta = original

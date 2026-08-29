@@ -519,17 +519,25 @@ def _real_sub_category_sizes() -> dict[tuple, int]:
     return dict(sizes)
 
 
-def test_exactly_two_sub_categories_fall_below_the_five_peer_floor():
+def test_exactly_four_sub_categories_fall_below_the_five_peer_floor():
     """Measured, not assumed -- the brief for this module said three.
 
-    Gilt Fund with 10 year constant duration has exactly five funds, and five
-    passes. Only Contra and Balanced Hybrid are genuinely below it, and both
-    then rank against 586 equity and 224 hybrid funds respectively, where the
-    absolute cap is the only clause that can ever let them speak.
+    Contra and Balanced Hybrid have always been below it. The 2026-08-29
+    catalogue rebuild added two more, and they are the floor doing its job
+    rather than a regression: `Gold ETF` and `Other  ETFs` are exchange-traded
+    products that arrived when the candidate filters widened, and a percentile
+    computed over three funds is not a percentile.
+
+    All four then rank against their scheme type, where the absolute cap is the
+    only clause that can ever let them speak.
     """
     thin = sorted(k for k, n in _real_sub_category_sizes().items() if n < port._MIN_PCTL_PEERS)
-    assert thin == [("Equity Scheme", "Contra Fund"),
-                    ("Hybrid Scheme", "Balanced Hybrid Fund")]
+    assert thin == [
+        ("Equity Scheme", "Contra Fund"),
+        ("Hybrid Scheme", "Balanced Hybrid Fund"),
+        ("Other Scheme", "Gold ETF"),
+        ("Other Scheme", "Other  ETFs"),
+    ]
 
 
 def test_no_real_category_is_thin_enough_to_silence_a_fund_entirely():
@@ -544,14 +552,19 @@ def test_no_real_category_is_thin_enough_to_silence_a_fund_entirely():
     assert len(sizes) == 5
 
 
-def test_the_absolute_cap_binds_independently_in_twenty_of_the_thirty_nine_groups():
-    """ceil(0.15 * 33) is 5, so below 34 peers the two clauses are one clause."""
+def test_the_absolute_cap_binds_independently_in_twentytwo_of_the_fortyone_groups():
+    """ceil(0.15 * 33) is 5, so below 34 peers the two clauses are one clause.
+
+    41 groups and 2,015 funds after the 2026-08-29 rebuild and the measured
+    category-synonym fold, from 39 and 1,886. The rise is funds that were
+    already there wearing AMFI's other spelling of their own category.
+    """
     sizes = _real_sub_category_sizes()
-    assert len(sizes) == 39 and sum(sizes.values()) == 1886
+    assert len(sizes) == 41 and sum(sizes.values()) == 2015
     binds = [k for k, n in sizes.items() if math.ceil(port._TOP_PCTL_FRAC * n) > port._MAX_DISPLAY_RANK]
-    assert len(binds) == 20
+    assert len(binds) == 22
     assert all(n >= 34 for k, n in sizes.items() if k in binds)
-    assert max(n for k, n in sizes.items() if k not in binds) == 33
+    assert max(n for k, n in sizes.items() if k not in binds) == 32
 
 
 # ------------------------------------------------------- against their source

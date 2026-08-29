@@ -21,6 +21,8 @@ from app.schemas.portfolio import (
     LeversOut,
     AnnouncementOut,
     AnnouncementsOut,
+    CompanyOut,
+    LookThroughOut,
     OverlapOut,
     OverlapPairOut,
     LeverOut,
@@ -35,6 +37,8 @@ from app.services.portfolio.benchmark import compare_to_benchmark
 from app.services.advisor.fund_evidence import expense_ratios
 from app.services.portfolio.history import HoldingSeries, build_history
 from app.services.advisor.fund_overlap import analyse_overlap
+from app.services.marketdata import holdings_store
+from app.services.portfolio.look_through import concentrated, look_through
 from app.services.marketdata import announcements as filings
 from app.routers import screener as screener_router
 from app.services.advisor import asset_mix, track_record
@@ -649,6 +653,12 @@ def get_overlap(
     # than as zero overlap.
     def _portfolio(holding: Holding):
         name = identify(holding.identifier, holding.name).official_name or holding.name
+        # The store first. It holds the same parsed disclosures and answers in
+        # one query, so a portfolio that is already stored costs no download at
+        # all -- which is the whole point of building it.
+        stored = holdings_store.load(name)
+        if stored is not None:
+            return holding.identifier, stored
         try:
             return holding.identifier, fund_holdings.portfolio_for(name)
         except Exception:  # noqa: BLE001 - overlap must survive any AMC outage
@@ -741,4 +751,86 @@ def get_announcements(
         withheld=withheld,
         filtered_out=filtered_out,
         not_covered=not_covered,
+    )
+
+
+@router.get("/look-through", response_model=LookThroughOut)
+def get_look_through(
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """Which companies this user actually owns, through all their funds at once.
+
+    Five equity funds are not five things. They are a few hundred companies,
+    several of them held through four funds at once, and that position is
+    invisible on every other screen: HDFC Bank at 7% of one fund, 9% of another
+    and 6% of a third is ONE bet.
+
+    The response leads with what it could not read. Holdings come from AMC
+    monthly disclosures and seven AMCs have a verified source, so a real
+    portfolio routinely contains funds this cannot open — and a look-through
+    that silently reports only the readable part produces a number that looks
+    exactly like a complete answer.
+    """
+    holdings = [
+        h
+        for h in db.query(Holding).filter(Holding.user_id == user.id).all()
+        if h.asset_type == "MF"
+    ]
+
+    priced: list[tuple[str, float]] = []
+    for holding in holdings:
+        name = identify(holding.identifier, holding.name).official_name or holding.name
+        value = float(holding.quantity or 0) * float(holding.avg_price or 0)
+        if value > 0:
+            priced.append((name, value))
+
+    result = look_through(priced)
+
+    def _out(company) -> CompanyOut:
+        return CompanyOut(
+            isin=company.isin,
+            name=company.name,
+            industry=company.industry,
+            value=round(company.value, 2),
+            share_pct=round(result.share_of_portfolio(company), 2),
+            via=[(n, round(v, 2)) for n, v in company.via],
+        )
+
+    heavy = concentrated(result)
+    if not priced:
+        summary = "Add a fund holding and this will show the companies behind it."
+    elif result.covered_share <= 0:
+        summary = (
+            f"None of your {len(priced)} funds publishes a portfolio we can read, "
+            "so we cannot show what is inside them."
+        )
+    else:
+        parts = [
+            f"We could read {result.covered_share:.0f}% of your portfolio "
+            f"({len(result.companies)} companies)."
+        ]
+        if heavy:
+            top = heavy[0]
+            parts.append(
+                f"{top.name} is {result.share_of_portfolio(top):.1f}% of everything "
+                f"you hold, through {top.fund_count} "
+                f"{'fund' if top.fund_count == 1 else 'funds'}."
+            )
+        if result.unopened:
+            parts.append(
+                f"{len(result.unopened)} "
+                f"{'fund does' if len(result.unopened) == 1 else 'funds do'} not "
+                "publish a portfolio we can read, so nothing here counts them."
+            )
+        summary = " ".join(parts)
+
+    return LookThroughOut(
+        companies=[_out(c) for c in result.companies[:50]],
+        concentrated=[_out(c) for c in heavy],
+        covered_value=round(result.covered_value, 2),
+        unopened_value=round(result.unopened_value, 2),
+        unopened=list(result.unopened),
+        covered_share=round(result.covered_share, 2),
+        summary=summary,
     )

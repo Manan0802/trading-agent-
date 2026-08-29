@@ -348,3 +348,42 @@ class AnnouncementsOut(BaseModel):
     # in here permanently: exchange filings are per company and AMC addenda
     # have no feed.
     not_covered: dict[str, str]
+
+
+class CompanyOut(BaseModel):
+    """One company, and every rupee reaching it through every fund that holds it."""
+
+    isin: str
+    name: str
+    industry: str | None
+    value: float
+    # Against the WHOLE portfolio, including the funds we could not open. See
+    # LookThroughOut.covered_share for why that denominator and not the other.
+    share_pct: float
+    # (fund name, rupees) heaviest first. "through 4 of your funds" is the
+    # sentence worth showing, and it needs the names to be believable.
+    via: list[tuple[str, float]]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LookThroughOut(BaseModel):
+    """The companies behind the funds, and how much of the portfolio was readable.
+
+    `covered_share` is not a footnote. Holdings come from AMC monthly
+    disclosures and seven AMCs have a verified source, so a real portfolio will
+    routinely contain funds this cannot open. Reporting only what was read
+    produces a number that looks exactly like a complete answer and is not one.
+    """
+
+    companies: list[CompanyOut]
+    concentrated: list[CompanyOut]
+    covered_value: float
+    unopened_value: float
+    # Named, so the user can see WHICH funds are missing from the picture.
+    unopened: list[str]
+    # 0-100. Below 100 the whole answer is partial and the screen must say so.
+    covered_share: float
+    summary: str
+
+    model_config = ConfigDict(from_attributes=True)

@@ -1,0 +1,192 @@
+{
+ "Equity Schemes - ELSS- Tax Saver Fund": {
+  "canonical": "Equity Scheme - ELSS",
+  "funds": 17,
+  "of": 17
+ },
+ "Equity Schemes - Flexi Cap Fund": {
+  "canonical": "Equity Scheme - Flexi Cap Fund",
+  "funds": 12,
+  "of": 12
+ },
+ "Equity Schemes - Focused Fund": {
+  "canonical": "Equity Scheme - Focused Fund",
+  "funds": 9,
+  "of": 9
+ },
+ "Equity Schemes - Large & Mid Cap Fund": {
+  "canonical": "Equity Scheme - Large & Mid Cap Fund",
+  "funds": 11,
+  "of": 11
+ },
+ "Equity Schemes - Large Cap Fund": {
+  "canonical": "Equity Scheme - Large Cap Fund",
+  "funds": 8,
+  "of": 8
+ },
+ "Equity Schemes - Mid Cap Fund": {
+  "canonical": "Equity Scheme - Mid Cap Fund",
+  "funds": 11,
+  "of": 11
+ },
+ "Equity Schemes - Multi Cap Fund": {
+  "canonical": "Equity Scheme - Multi Cap Fund",
+  "funds": 10,
+  "of": 10
+ },
+ "Equity Schemes - Sectoral Fund": {
+  "canonical": "Equity Scheme - Sectoral/ Thematic",
+  "funds": 16,
+  "of": 16
+ },
+ "Equity Schemes - Small Cap Fund": {
+  "canonical": "Equity Scheme - Small Cap Fund",
+  "funds": 11,
+  "of": 11
+ },
+ "Equity Schemes - Thematic Fund": {
+  "canonical": "Equity Scheme - Sectoral/ Thematic",
+  "funds": 42,
+  "of": 42
+ },
+ "Equity Schemes - Value Fund": {
+  "canonical": "Equity Scheme - Value Fund",
+  "funds": 7,
+  "of": 7
+ },
+ "Fund of Funds Scheme (Domestic) - Fund of Funds Scheme (Domestic)": {
+  "canonical": "Other Scheme - FoF Domestic",
+  "funds": 48,
+  "of": 48
+ },
+ "Hybrid Schemes - Aggressive Hybrid Fund": {
+  "canonical": "Hybrid Scheme - Aggressive Hybrid Fund",
+  "funds": 14,
+  "of": 14
+ },
+ "Hybrid Schemes - Arbitrage Fund": {
+  "canonical": "Hybrid Scheme - Arbitrage Fund",
+  "funds": 13,
+  "of": 13
+ },
+ "Hybrid Schemes - Balanced Advantage Fund/ Dynamic Asset Allocation": {
+  "canonical": "Hybrid Scheme - Dynamic Asset Allocation or Balanced Advantage",
+  "funds": 10,
+  "of": 10
+ },
+ "Hybrid Schemes - Conservative Hybrid Fund": {
+  "canonical": "Hybrid Scheme - Conservative Hybrid Fund",
+  "funds": 8,
+  "of": 8
+ },
+ "Hybrid Schemes - Equity Savings Fund": {
+  "canonical": "Hybrid Scheme - Equity Savings",
+  "funds": 6,
+  "of": 6
+ },
+ "Hybrid Schemes - Multi Asset Allocation Fund": {
+  "canonical": "Hybrid Scheme - Multi Asset Allocation",
+  "funds": 13,
+  "of": 13
+ },
+ "Income/Debt Oriented Schemes - 10-year Constant Maturity Gilt Fund": {
+  "canonical": "Debt Scheme - Gilt Fund with 10 year constant duration",
+  "funds": 5,
+  "of": 5
+ },
+ "Income/Debt Oriented Schemes - Banking and PSU Debt Fund": {
+  "canonical": "Debt Scheme - Banking and PSU Fund",
+  "funds": 14,
+  "of": 14
+ },
+ "Income/Debt Oriented Schemes - Corporate Bond Fund": {
+  "canonical": "Debt Scheme - Corporate Bond Fund",
+  "funds": 7,
+  "of": 7
+ },
+ "Income/Debt Oriented Schemes - Credit Risk Fund": {
+  "canonical": "Debt Scheme - Credit Risk Fund",
+  "funds": 5,
+  "of": 5
+ },
+ "Income/Debt Oriented Schemes - Dynamic Term Fund": {
+  "canonical": "Debt Scheme - Dynamic Bond",
+  "funds": 18,
+  "of": 18
+ },
+ "Income/Debt Oriented Schemes - Floating Interest Rates Fund": {
+  "canonical": "Debt Scheme - Floater Fund",
+  "funds": 10,
+  "of": 10
+ },
+ "Income/Debt Oriented Schemes - Gilt Fund": {
+  "canonical": "Debt Scheme - Gilt Fund",
+  "funds": 9,
+  "of": 9
+ },
+ "Income/Debt Oriented Schemes - Liquid Fund": {
+  "canonical": "Debt Scheme - Liquid Fund",
+  "funds": 14,
+  "of": 14
+ },
+ "Income/Debt Oriented Schemes - Long Term Fund": {
+  "canonical": "Debt Scheme - Long Duration Fund",
+  "funds": 10,
+  "of": 10
+ },
+ "Income/Debt Oriented Schemes - Medium Term Fund": {
+  "canonical": "Debt Scheme - Medium Duration Fund",
+  "funds": 12,
+  "of": 12
+ },
+ "Income/Debt Oriented Schemes - Medium to Long Term Fund": {
+  "canonical": "Debt Scheme - Medium to Long Duration Fund",
+  "funds": 12,
+  "of": 12
+ },
+ "Income/Debt Oriented Schemes - Money Market Fund": {
+  "canonical": "Debt Scheme - Money Market Fund",
+  "funds": 9,
+  "of": 9
+ },
+ "Income/Debt Oriented Schemes - Overnight Fund": {
+  "canonical": "Debt Scheme - Overnight Fund",
+  "funds": 12,
+  "of": 12
+ },
+ "Income/Debt Oriented Schemes - Short Term Fund": {
+  "canonical": "Debt Scheme - Short Duration Fund",
+  "funds": 18,
+  "of": 18
+ },
+ "Income/Debt Oriented Schemes - Ultra Short Term Fund": {
+  "canonical": "Debt Scheme - Ultra Short Duration Fund",
+  "funds": 18,
+  "of": 19
+ },
+ "Income/Debt Oriented Schemes - Ultra Short to Short Term Fund": {
+  "canonical": "Debt Scheme - Low Duration Fund",
+  "funds": 23,
+  "of": 23
+ },
+ "Index Funds - Debt Funds": {
+  "canonical": "Other Scheme - Index Funds",
+  "funds": 19,
+  "of": 20
+ },
+ "Index Funds - Equity Funds": {
+  "canonical": "Other Scheme - Index Funds",
+  "funds": 50,
+  "of": 51
+ },
+ "Overseas Fund of Funds - Fund of Funds investing overseas": {
+  "canonical": "Other Scheme - FoF Overseas",
+  "funds": 17,
+  "of": 17
+ },
+ "Solution Oriented Schemes ** - Retirement Fund": {
+  "canonical": "Solution Oriented Scheme - Retirement Fund",
+  "funds": 6,
+  "of": 6
+ }
+}
