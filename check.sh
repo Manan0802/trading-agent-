@@ -51,8 +51,27 @@ if sh "false | tail -1"; then
   exit 2
 fi
 
+# Two steps, not one. Eighteen of the suite's tests assert things about the
+# DOCUMENTATION -- that §9.1's headline matches its own table, that a file:line
+# citation still lands on the line it quotes, that the plan's stated suite size
+# is the real one. They belong in the suite: §11's whole argument is that a
+# claim nothing checks is a claim that goes wrong quietly, and the front page
+# said "thirty-six review passes" for dozens of passes while the log held
+# eighty-four. But run under one label, a stale count in a document turns the
+# CODE gate red, and a builder who touched no code cannot tell which broke.
+_DOC_TESTS="tests/test_plan_counts.py tests/test_plan_structure.py \
+tests/test_plan_refusals.py tests/test_plan_endpoint_counts.py \
+tests/test_data_built.py tests/test_category_names.py tests/test_ter_coverage.py \
+tests/test_return_bounds_agree.py"
+
 step "unit tests"
-run "pytest" sh "cd backend && venv/bin/python -m pytest -q 2>&1 | tail -3"
+run "pytest" sh "cd backend && venv/bin/python -m pytest -q \
+  $(for t in $_DOC_TESTS; do printf -- '--ignore=%s ' \"\$t\"; done) 2>&1 | tail -3"
+
+step "the document still matches the repo"
+# Not code. These fail when a number in the plan stops being true of the repo --
+# a count, a line citation, a file that lost its build date.
+run "counts, citations, and dated data" sh "cd backend && venv/bin/python -m pytest -q $_DOC_TESTS 2>&1 | tail -3"
 
 # The tests run against fixtures, so they cannot ask whether the NAVs already on
 # disk are the ones AMFI published. Inserts are ON CONFLICT DO NOTHING, which
