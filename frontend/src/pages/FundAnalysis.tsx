@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AlreadyOwn } from '@/components/AlreadyOwn'
 import { useTrailLeaf } from '@/components/Trail'
 import { Link, useParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
@@ -802,6 +803,9 @@ export function FundAnalysis() {
             <RollingPanel data={data} />
           </div>
           <ReasonsPanel data={data} />
+          {/* Before the holdings list, not after: the question "does this add
+              anything" comes before "what is in it". */}
+          <AlreadyOwn schemeCode={data.scheme_code} />
           <HoldingsPanel data={data} />
           <FiguresPanel data={data} />
         </>

@@ -19,6 +19,7 @@ from app.schemas.portfolio import (
     HistoryPointOut,
     CostReviewOut,
     LeversOut,
+    AlreadyOwnOut,
     AnnouncementOut,
     AnnouncementsOut,
     CompanyOut,
@@ -38,6 +39,7 @@ from app.services.advisor.fund_evidence import expense_ratios
 from app.services.portfolio.history import HoldingSeries, build_history
 from app.services.advisor.fund_overlap import analyse_overlap
 from app.services.marketdata import holdings_store
+from app.services.portfolio.already_own import overlap_with_holdings
 from app.services.portfolio.look_through import concentrated, look_through
 from app.services.marketdata import announcements as filings
 from app.routers import screener as screener_router
@@ -832,5 +834,55 @@ def get_look_through(
         unopened_value=round(result.unopened_value, 2),
         unopened=list(result.unopened),
         covered_share=round(result.covered_share, 2),
+        summary=summary,
+    )
+
+
+@router.get("/already-own/{scheme_code}", response_model=AlreadyOwnOut)
+def get_already_own(
+    scheme_code: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+):
+    """How much of this fund the user already reaches through the funds they hold.
+
+    The question `Find` could not answer, and the one that decides whether adding
+    a fund does anything at all. Somebody with two large-cap funds who buys a
+    third is usually buying the same thirty companies a third time — and every
+    other number on the screen, including the rank, will say the third fund is
+    good.
+
+    Null, never zero, when it cannot be measured.
+    """
+    from app.services.advisor.fund_catalogue import all_funds
+
+    names = {f.code: f.name for f in all_funds()}
+    candidate = names.get(str(scheme_code))
+    if candidate is None:
+        raise HTTPException(404, f"No fund with scheme code {scheme_code}")
+
+    held = [
+        identify(h.identifier, h.name).official_name or h.name
+        for h in db.query(Holding).filter(Holding.user_id == user.id).all()
+        if h.asset_type == "MF" and h.identifier != str(scheme_code)
+    ]
+
+    result = overlap_with_holdings(candidate, held)
+    if not result.measured:
+        summary = result.reason or "We could not measure the overlap."
+    elif result.share_pct < 1:
+        summary = "Almost nothing in this fund is already in your portfolio."
+    else:
+        lead = result.through[0][0] if result.through else "your funds"
+        summary = (
+            f"You already own {result.share_pct:.0f}% of this fund through the "
+            f"funds you hold, most of it through {lead}."
+        )
+
+    return AlreadyOwnOut(
+        scheme_code=str(scheme_code),
+        share_pct=result.share_pct,
+        through=[list(t) for t in result.through[:6]],
+        reason=result.reason,
         summary=summary,
     )

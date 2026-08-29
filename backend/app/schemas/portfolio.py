@@ -387,3 +387,23 @@ class LookThroughOut(BaseModel):
     summary: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AlreadyOwnOut(BaseModel):
+    """How much of a fund you are considering you already reach through your own.
+
+    `share_pct` is null, never 0, when it could not be measured. 0% reads as
+    perfectly diversified — the opposite of "we could not tell", and the more
+    attractive of the two readings, so a silent zero encourages the purchase it
+    should have questioned. §14.
+    """
+
+    scheme_code: str
+    share_pct: float | None
+    # (fund name, share of the candidate it reaches), heaviest first.
+    through: list[tuple[str, float]]
+    # Why there is no number, when there is none.
+    reason: str | None = None
+    summary: str
+
+    model_config = ConfigDict(from_attributes=True)

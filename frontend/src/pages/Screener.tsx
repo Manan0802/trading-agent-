@@ -44,6 +44,7 @@ import {
   type StockCoverage,
   type StockFilters,
 } from '@/lib/screener-api'
+import { COMPARE_LIMIT, CompareTray } from '@/components/CompareTray'
 import { cn } from '@/lib/utils'
 
 /** "a, b and c", because a list rendered with commas alone reads as a fragment. */
@@ -509,6 +510,7 @@ function HeadRow<K extends string>({
   columns,
   sort,
   onSort,
+  compare = false,
 }: {
   /** What the sticky first column is called. It holds two things, not one. */
   firstLabel: string
@@ -516,6 +518,8 @@ function HeadRow<K extends string>({
   sort: { key: K; dir: 1 | -1 } | null
   /** Omitted on the grouped view, where the order is stated and nothing to sort. */
   onSort?: (key: K) => void
+  /** Adds the compare column's header, so the row and the header agree. */
+  compare?: boolean
 }) {
   return (
     <TableRow className="bg-card hover:bg-card">
@@ -557,6 +561,14 @@ function HeadRow<K extends string>({
           </TableHead>
         )
       })}
+      {compare && (
+        <TableHead className="w-10 text-right">
+          <span className="sr-only">Add to comparison</span>
+          <span aria-hidden className="text-xs font-normal text-muted-foreground">
+            vs
+          </span>
+        </TableHead>
+      )}
     </TableRow>
   )
 }
@@ -834,6 +846,18 @@ function AllFundsView({
 }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null)
   const [page, setPage] = useState(0)
+  // Kept as whole rows rather than codes: the tray has to keep showing a fund
+  // after a filter change hides it, and looking it back up in the filtered list
+  // silently empties the comparison the moment somebody narrows the search.
+  const [compare, setCompare] = useState<ScreenedFund[]>([])
+
+  function toggleCompare(fund: ScreenedFund) {
+    setCompare((current) => {
+      const without = current.filter((f) => f.scheme_code !== fund.scheme_code)
+      if (without.length !== current.length) return without
+      return current.length >= COMPARE_LIMIT ? current : [...current, fund]
+    })
+  }
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['screener-all', filters],
@@ -854,7 +878,10 @@ function AllFundsView({
   }, [rows, sort])
 
   const columns = visibleColumns(group)
-  const span = columns.length + 1
+  // +1 for the sticky name column, +1 for the compare checkbox. A DetailRow
+  // that spans one column short leaves a visible gap at the end of every
+  // expanded row, and only this list has the checkbox.
+  const span = columns.length + 2
 
   if (isLoading) return <ScreenerLoading />
   if (isError || !data) return <Notice>{errorSentence(error)}</Notice>
@@ -889,7 +916,13 @@ function AllFundsView({
             <TableScroller>
               <Table>
                 <TableHeader>
-                  <HeadRow firstLabel="Rank and scheme" columns={columns} sort={sort} onSort={onSort} />
+                  <HeadRow
+                    firstLabel="Rank and scheme"
+                    columns={columns}
+                    sort={sort}
+                    onSort={onSort}
+                    compare
+                  />
                 </TableHeader>
                 <TableBody>
                   {visible.map((f) => (
@@ -901,6 +934,9 @@ function AllFundsView({
                       span={span}
                       isOpen={openCode === f.scheme_code}
                       onToggle={() => onToggle(f.scheme_code)}
+                      compared={compare.some((c) => c.scheme_code === f.scheme_code)}
+                      onCompare={toggleCompare}
+                      compareFull={compare.length >= COMPARE_LIMIT}
                     />
                   ))}
                 </TableBody>
@@ -947,6 +983,17 @@ function AllFundsView({
       </Panel>
 
       <CoveragePanel coverage={data.coverage} shown={sorted.length} />
+
+      {/* Fixed to the bottom, so the list stays scrollable while the shortlist
+          sits under it. It is the only element in the app that overlays the
+          page, and it earns that by being the thing you are actively building. */}
+      <CompareTray
+        funds={compare}
+        onRemove={(code) =>
+          setCompare((current) => current.filter((f) => f.scheme_code !== code))
+        }
+        onClear={() => setCompare([])}
+      />
     </>
   )
 }
@@ -959,6 +1006,9 @@ function FundRows({
   span,
   isOpen,
   onToggle,
+  compared,
+  onCompare,
+  compareFull,
 }: {
   fund: ScreenedFund
   position: number
@@ -966,6 +1016,9 @@ function FundRows({
   span: number
   isOpen: boolean
   onToggle: () => void
+  compared?: boolean
+  onCompare?: (fund: ScreenedFund) => void
+  compareFull?: boolean
 }) {
   return (
     <>
@@ -986,6 +1039,21 @@ function FundRows({
             {column.cell(fund)}
           </TableCell>
         ))}
+        {onCompare && (
+          <TableCell className="w-10 align-top">
+            <input
+              type="checkbox"
+              checked={compared}
+              // Disabled only when the tray is full AND this one is not in it,
+              // so unchecking always works. A checkbox you cannot uncheck is a
+              // trap, and the tray fills up in four clicks.
+              disabled={!compared && compareFull}
+              onChange={() => onCompare(fund)}
+              aria-label={`Compare ${fund.name}`}
+              className="mt-1 size-4 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-40"
+            />
+          </TableCell>
+        )}
       </TableRow>
       {isOpen && <DetailRow fund={fund} span={span} />}
     </>

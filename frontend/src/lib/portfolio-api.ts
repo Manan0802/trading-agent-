@@ -353,3 +353,24 @@ export type MomentumRanking = {
 export async function fetchMomentum(limit = 60): Promise<MomentumRanking> {
   return (await api.get('/api/v1/research/momentum', { params: { limit } })).data
 }
+
+/**
+ * How much of a fund you are considering you already own through your own funds.
+ *
+ * `share_pct` is null, never 0, when it could not be measured — 0% reads as
+ * perfectly diversified, which is the opposite of "we could not tell" and the
+ * more attractive of the two readings.
+ */
+export type AlreadyOwn = {
+  scheme_code: string
+  share_pct: number | null
+  through: [string, number][]
+  reason: string | null
+  summary: string
+}
+
+export async function fetchAlreadyOwn(schemeCode: string): Promise<AlreadyOwn> {
+  return (
+    await api.get(`/api/v1/portfolio/already-own/${encodeURIComponent(schemeCode)}`)
+  ).data
+}
