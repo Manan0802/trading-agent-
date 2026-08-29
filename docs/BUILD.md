@@ -238,7 +238,7 @@ Seven, and none of them blocks starting.
 4. **Virtualisation, or not.** Installing `@tanstack/react-virtual` and `react-table` and rewriting the one view that already works, to reach an acceptance criterion describing a design this repo rejected on measured grounds.
 5. **The risk questionnaire averages ability with willingness**, and the PRD specifies it. `[10,9,2,1]`, `[1,3,8,10]` and `[6,6,6,6]` all score 6 — the household least able to hold through a fall is handed the same equity as the one most able. **Ability is a ceiling, not a term in a mean.** Fixing it departs from the PRD.
 6. **The rebalancer's 5pp absolute band** is specified in the PRD and built line for line — a 5% gold sleeve must **double** to trigger, while the same 5pp is an 8% relative move on a 60% equity sleeve. Fixing it is a specification change.
-7. **How many people use this.** It moves three dates, not one decision: §8.1 does not turn on it and §8.2 explicitly retires client count as the mechanism — *"single-user is not a property of this app; it is a property of the login screen."*
+7. **How many people use this.** It moves three dates, not one decision: §8.1 does not turn on it and §8.2 explicitly retires client count as the mechanism — *"Single-user is not a property of this app; it is a property of the login screen."*
 
 ---
 
