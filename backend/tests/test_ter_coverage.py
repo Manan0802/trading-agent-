@@ -75,8 +75,35 @@ def test_the_houses_a_reader_should_not_skim_past():
     assert "122639" not in ters, "Parag Parikh Flexi Cap now has a TER — update §9.1"
 
 
-def test_the_id_ceiling_that_causes_it_is_still_there():
+def test_the_walk_stops_on_evidence_not_on_a_number():
+    """The fix, pinned — and pinned against the code, not against prose.
+
+    A first version of this test asserted `"_MAX_MF_ID = 55" in source`. After
+    the fix, that string still appeared — inside the comment explaining what
+    the old constant had cost — so the test went on passing against a file that
+    no longer contained the defect. A checker that matches a quotation of the
+    wrong form instead of the form itself is the same failure the plan's own
+    contrast-pair guard exists for.
+    """
+    import ast
+
     source = (BACKEND / "scripts" / "build_expense_ratios.py").read_text()
-    assert "_MAX_MF_ID = 55" in source, (
-        "the AMC id ceiling changed — re-measure coverage and update this test"
+    tree = ast.parse(source)
+    assigned = {
+        target.id: node.value
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+
+    assert "_MAX_MF_ID" not in assigned, (
+        "the hardcoded AMC ceiling is back — it cost 297 live funds their "
+        "expense ratio, across 23 whole fund houses including Groww's own"
+    )
+    stop = assigned.get("_STOP_AFTER_EMPTY")
+    assert stop is not None, "the walk must stop on consecutive empty ids"
+    assert isinstance(stop, ast.Constant) and stop.value >= 8, (
+        "eight is four times the largest gap observed inside the live id "
+        f"range; {getattr(stop, 'value', None)} is not enough margin"
     )

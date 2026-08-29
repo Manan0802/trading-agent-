@@ -8,8 +8,14 @@ The catch is the join. AMFI's TER rows are keyed on `NSDLSchemeCode`, which
 appears nowhere in the NAV feed our catalogue is built from, so scheme names are
 the only bridge. Names are matched on a normalised form (plan and option
 suffixes stripped, punctuation collapsed) within the same fund house, which
-resolves the great majority; what does not resolve is mostly ETFs and
-closed-ended schemes that are not in our universe anyway.
+resolves the great majority.
+
+This used to say the unresolved were "mostly ETFs and closed-ended schemes that
+are not in our universe anyway". That was false, and it is what made the hole
+invisible: on 2026-08-28, **297 live open-ended funds across 23 whole fund
+houses** had no row here -- Groww's own AMC among them -- because the AMC walk
+stopped at a hardcoded id. The run now prints its own coverage, so the next
+version of that sentence has to survive a number.
 
 Both plans are kept. `regular_ter - direct_ter` is the annual cost of buying the
 same portfolio through a distributor, which is a number worth showing a user.
@@ -44,8 +50,21 @@ _HEADERS = {
     "Referer": "https://www.amfiindia.com/",
 }
 
-# AMFI numbers its AMCs; the live set is sparse within this range.
-_MAX_MF_ID = 55
+# AMFI numbers its AMCs as they register, so any fixed ceiling goes stale the
+# day a new house arrives above it. `_MAX_MF_ID = 55` did exactly that: probed
+# on 2026-08-28, ids 56-86 held at least 24 live houses -- 63 Groww, 64 Parag
+# Parikh, 77 Zerodha, 82 JioBlackRock -- and every one of them was invisible to
+# this table, leaving 297 live funds with no expense ratio at all. The scorer
+# does not drop those funds; it gives them a NEUTRAL cost, which reads exactly
+# like a measured one.
+#
+# So the walk stops on evidence rather than on a number. Eight consecutive empty
+# ids is four times the largest gap ever observed inside the live range (56-57,
+# 59-60 and 65-66 are empty while 86 still answers), and costs nine wasted
+# requests a month against a run that already makes hundreds.
+_STOP_AFTER_EMPTY = 8
+_ID_HARD_CEILING = 400  # a runaway guard, not the expected end
+_PAGE_SIZE = 500
 _PAGE_SIZE = 500
 _MAX_PAGES = 12
 _PAUSE = 0.15
@@ -134,8 +153,18 @@ def main() -> int:
     with httpx.Client(headers=_HEADERS) as client:
         for month in _months_to_try():
             found_this_month = 0
-            for mf_id in range(1, _MAX_MF_ID + 1):
-                for row in fetch_amc(client, mf_id, month):
+            empty_run = 0
+            highest_live = 0
+            for mf_id in range(1, _ID_HARD_CEILING + 1):
+                rows = fetch_amc(client, mf_id, month)
+                if not rows:
+                    empty_run += 1
+                    if empty_run >= _STOP_AFTER_EMPTY:
+                        break
+                    continue
+                empty_run = 0
+                highest_live = mf_id
+                for row in rows:
                     key = normalise(row.get("Scheme_Name", ""))
                     if not key:
                         continue
@@ -143,7 +172,8 @@ def main() -> int:
                     if seen is None or row.get("TER_Date", "") > seen.get("TER_Date", ""):
                         latest[key] = row
                         found_this_month += 1
-            print(f"  {month}: {found_this_month} scheme rows, {len(latest)} unique so far")
+            print(f"  {month}: {found_this_month} scheme rows, {len(latest)} unique so far "
+                  f"(highest live AMC id {highest_live})")
             # Every month is merged, keeping the newest TER_Date per scheme. A
             # scheme absent from the latest filing is still worth its last
             # published figure, and stopping at the first productive month left
@@ -169,6 +199,37 @@ def main() -> int:
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, indent=1, sort_keys=True))
+
+    # What this run did NOT cover, per fund house. The hole that `_MAX_MF_ID`
+    # left was 23 houses at zero for eleven review passes, and nothing here
+    # said so -- the run reported how many schemes it wrote and never how many
+    # it missed. A gap that announces itself does not need to be found.
+    by_house: dict[str, list[int]] = {}
+    for funds in catalogue.values():
+        for fund in funds:
+            house = fund.get("fund_house") or "?"
+            counts = by_house.setdefault(house, [0, 0])
+            counts[0] += 1
+            if fund["code"] in out:
+                counts[1] += 1
+    uncovered = {h: n for h, (n, got) in by_house.items() if got == 0 and n > 0}
+    print(
+        f"\ncoverage: {len(out)} schemes across "
+        f"{sum(1 for _, (n, got) in by_house.items() if got)} fund houses"
+    )
+    if uncovered:
+        print(
+            f"  {len(uncovered)} houses with NO expense ratio at all, "
+            f"covering {sum(uncovered.values())} catalogue funds:"
+        )
+        for house, n in sorted(uncovered.items(), key=lambda kv: -kv[1])[:12]:
+            print(f"    {n:4d}  {house}")
+        print(
+            "  A house at zero is almost always the walk stopping short, not "
+            "AMFI withholding: check the highest live AMC id printed above."
+        )
+    else:
+        print("  every fund house in the catalogue has at least one TER")
 
     with_direct = [v["direct_ter"] for v in out.values() if v["direct_ter"]]
     gaps = [
