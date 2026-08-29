@@ -121,6 +121,42 @@ def test_both_routes_now_declare_a_shape():
     assert declared.get("/api/v1/research/evidence") is FactorEvidenceOut
 
 
+def test_the_route_survives_the_form_s_own_defaults():
+    """The regression this file did not catch the first time.
+
+    Every parametrised case above passes a `basic_salary`. The app's own form
+    does not, and without it the employer-NPS action has no amount — it is a
+    percentage of basic. Declaring `amount` required therefore 500'd the
+    endpoint for the ordinary path while five hand-picked incomes all passed.
+
+    A contract validated only against fixtures you chose is a contract validated
+    against your own assumptions.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    for income in (1_200_000, 1_200_001, 2_400_000, 50_000_000):
+        response = client.post(
+            "/api/v1/advisor/tax-saving",
+            json={
+                "annual_income": income,
+                "existing_80c": 0,
+                "existing_80d": 0,
+                "has_nps": False,
+            },
+        )
+        assert response.status_code == 200, f"{income}: {response.text[:200]}"
+        actions = response.json()["actions"]
+        nps = next(a for a in actions if "Employer NPS" in a["name"])
+        assert nps["amount"] is None, (
+            "an unknown basic salary must read as unknown, not as zero — zero "
+            "says 'you can claim nothing', which is a different fact"
+        )
+        assert nps["note"], "and it has to say why"
+
+
 def test_the_route_survives_a_taxpayer_who_owes_nothing():
     """The case a contract written from one example gets wrong.
 

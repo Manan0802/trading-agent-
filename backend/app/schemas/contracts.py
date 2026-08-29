@@ -57,7 +57,12 @@ class TaxActionOut(BaseModel):
 
     name: str
     section: str
-    amount: float
+    # None, not 0. The employer-NPS action is a percentage of BASIC salary, and
+    # somebody who did not tell us their basic has no amount here — which is a
+    # different fact from "you can claim nothing", and it is the one the note
+    # explains. Declaring this required 500'd the endpoint for every caller who
+    # omitted `basic_salary`, which is the default on the app's own form.
+    amount: float | None
     tax_saved: float
     applicable: bool
     note: str
