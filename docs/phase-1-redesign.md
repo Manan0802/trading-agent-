@@ -81,7 +81,7 @@ irrecoverable look-through store **has no backup** until slice 2.3 writes one
 
 **Is it ready to build?** Yes, in the sense that is testable: every step in §7
 names what to build, where it goes, and a criterion that can fail. **No, in the
-sense that cannot be tested from a document** — **one hundred forty-seven review passes**
+sense that cannot be tested from a document** — **one hundred forty-eight review passes**
 have each found something — and pass 89 found that this sentence had itself gone
 stale. It said *thirty-six*, and that *"the last four found work already done
 rather than work missing"*. That was true when it was written and is not now:
@@ -849,23 +849,36 @@ that actually applied only +0.34, and the median fund had moved six places out
 of twenty-four.** Cost is stable *as a number* — the median TER moved 0.1-0.3pp
 — but **not stable as a rank**, and rank is what the quartile method uses.
 
-🔴 **Pass 150 ran both ways on the same funds, and the sign flips.** Twenty-one
-of the cached funds have **both** a TER history and enough local NAV. Same six
-decision dates, same three-year hold, same quartile split — the only thing that
-changes is which TER does the ranking:
+🔴 **Pass 150 ran both ways and reported a sign flip. Pass 152 found that run
+was confounded, and the corrected answer is more useful.**
+
+Pass 150 pooled every fund into one ranking. **Ranked by cost across categories,
+the cheapest quartile is liquid and overnight funds at 0.16% TER returning 6-7%,
+and the dearest is small and mid cap equity.** It was measuring debt against
+equity and calling it cost. A larger pooled run on pass 152 made the confound
+obvious — cheap **+7.5%**, dear **+11.4%**, cheap losing **0 of 6** — because
+those are asset-class returns, not cost effects. **§1.1 ranks inside a category,
+where every fund shares an asset class**, and the test has to do the same.
+
+**Re-run within category, on 263 AMFI requests covering ten large houses across
+six decision dates:**
 
 ```
-ranking signal                      cheap − dear      cheap won
-today's TER      (as §1.1 does)        +4.2 %           6 of 6
-the TER filed that day                 −2.7 %           2 of 6
+ranking signal                        cheap − dear     cheap won
+today's TER      (as §1.1 does)          +12.0 pp        6 of 6
+the TER filed that month                  +3.6 pp        2 of 4
 ```
 
-⚠️ **This is not a refutation and must not be read as one.** **n = 21 funds,
-~16 per window, quartiles of four, six overlapping windows** — against §1.1's 52
-category-windows across ten categories. Four funds' mean forward return is a very
-noisy statistic, the cache is not a random sample of anything, and the slug-to-
-scheme-code match that built this set is my own and matched 21 of 39. **A sign
-flip on this sample is weak evidence about the true effect.**
+**So the effect survives the lookahead, and the lookahead roughly triples it.**
+Direction holds — cost still predicts when ranked on what was actually filed —
+but the magnitude on the same funds falls from +12.0pp to +3.6pp, and the win
+rate from 100% to 50%.
+
+⚠️ **Sample: 6 and 4 category-windows, one and two categories, median ten funds
+each.** That is far too thin to put a number on §1.1's own +2.1pp, and the two
+are not comparable — different houses, different category coverage. **What it
+establishes is the shape: the honest measurement is smaller than the one in the
+document, and it is still positive.**
 
 **What it does establish is the thing that matters:** the lookahead is **not
 harmless**. The script assumes ranking on today's filing changes nothing; here it
@@ -6345,6 +6358,7 @@ pass 148b  the guard caught me making pass 129's    -   §1.8 inserted before §
 pass 149   testing §1.1's lookahead assumption      1   cost is stable as a number, not as a rank
 pass 150   running it both ways on 21 funds         1   the sign flips; n is far too small to settle
 pass 151   a portfolio, invented on instruction     -   closes the last thing blocked on Manan
+pass 152   the cost test, within category           2   my own pass-150 run was confounded
 ```
 
 **Three passes running, the same failure in a different word.** Pass 29:
