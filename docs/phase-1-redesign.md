@@ -69,7 +69,7 @@ hand-typed transactions that nothing currently checks (§11.7).
 engineering, one product/design, one build-readiness, and one checking the
 document against the filesystem — for **44 findings**. The three that mattered
 most were each **my own largest claim being wrong** (§17.6, §1.1, §1.3).
-1,624 tests green; the exit-signal gate passes with a verified instrument.
+1,625 tests green; the exit-signal gate passes with a verified instrument.
 
 **`grounding.py`'s four known holes were closed on 2026-08-28** (§17.6), so
 nothing written *for this plan* carries a recorded unfixed defect. Three things
@@ -2859,7 +2859,7 @@ around it.
 ```
 the ENTIRE app so far    158 commits · 20 active days · 56 calendar days
                          49 endpoints · 92 schemas · 7 migrations
-                         1,624 tests · a 5.2M-row NAV store · 49 .tsx files
+                         1,625 tests · a 5.2M-row NAV store · 49 .tsx files
                          median 2,758 lines changed per active day
 
 this plan estimated      31 sessions  =  155% of all of that

@@ -258,6 +258,14 @@ export function Decide() {
   const worthSomething = data?.levers.filter((l) => l.lifetime_value > 0) ?? []
   const worthNothing = data?.levers.filter((l) => l.lifetime_value <= 0) ?? []
 
+  // The server sends the range it will actually honour, because it clamps what
+  // it is given -- `assumed_return` comes back echoed for exactly that reason.
+  // This slider used to hardcode 4 and 16. They matched, and nothing kept them
+  // matching: move RETURN_BOUNDS and the slider would go on offering the old
+  // range while the backend quietly used a different number, which is the one
+  // failure `return_bounds` exists to prevent.
+  const [lo, hi] = data?.return_bounds ?? [0.04, 0.16]
+
   return (
     <div className="flex flex-col gap-6">
       {/* Outside every loading and error branch: Panel emits an h2, so a page
@@ -282,8 +290,8 @@ export function Decide() {
             <input
               id="decide-rate"
               type="range"
-              min={4}
-              max={16}
+              min={Math.round(lo * 100)}
+              max={Math.round(hi * 100)}
               step={1}
               value={Math.round(rate * 100)}
               onChange={(e) => setRate(Number(e.target.value) / 100)}
