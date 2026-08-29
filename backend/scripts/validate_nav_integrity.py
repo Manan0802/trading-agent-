@@ -234,15 +234,46 @@ def invariants(session, navstore, today: date, mutual_fund=None, offline: bool =
     zero = int(session.execute(text("SELECT COUNT(*) FROM nav_history WHERE nav <= 0")).scalar())
     check("no stored NAV is zero or negative", zero == 0, f"{zero} rows")
 
-    future = session.execute(
+    # Tomorrow is legitimate for exactly two kinds of fund, and for nobody else.
+    #
+    # SEBI requires LIQUID and OVERNIGHT schemes to declare a NAV for every
+    # CALENDAR day, including weekends and holidays, because they accrue
+    # interest on those days. AMFI publishes the next day's figure on the
+    # previous evening, so an overnight fund carrying tomorrow's date this
+    # afternoon is the feed working correctly.
+    #
+    # This check used to reject all of it. Measured on 2026-08-29: 15 rows dated
+    # 2026-08-30, and every single one a Liquid or Overnight fund. Flagging
+    # correct data is not a harmless false alarm — it is how a real corruption
+    # gets skipped past as "that one again".
+    #
+    # Still bounded: ONE day, and only those two categories. A month ahead, or
+    # an equity fund tomorrow, is a broken feed either way.
+    from app.services.advisor.fund_catalogue import all_funds
+
+    daily_accrual = {
+        f.code
+        for f in all_funds()
+        if "liquid fund" in f.category.lower() or "overnight fund" in f.category.lower()
+    }
+    tomorrow = today + timedelta(days=1)
+    rows = session.execute(
         text("SELECT scheme_code, nav_date FROM nav_history WHERE nav_date > :t ORDER BY nav_date DESC"),
         {"t": today.isoformat()},
     ).all()
+    future = [
+        r
+        for r in rows
+        if not (str(r[0]) in daily_accrual and str(r[1])[:10] <= tomorrow.isoformat())
+    ]
+    allowed = len(rows) - len(future)
     check(
-        "no NAV is dated in the future",
+        "no NAV is dated further ahead than a liquid fund's next calendar day",
         not future,
         f"{len(future)} rows, worst {future[0][0]} on {future[0][1]}" if future else "",
     )
+    if allowed:
+        print(f"     ({allowed} liquid/overnight rows dated tomorrow, which is correct)")
 
     # The ledger is derived from nav_history by `record_source`, so it cannot
     # disagree with it unless something wrote one without the other.

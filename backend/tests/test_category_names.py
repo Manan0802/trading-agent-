@@ -22,7 +22,7 @@ reads like SEBI's *Ultra Short Duration Fund*; all 23 funds carrying it are
 *Low Duration*. The guess was in this repo before the measurement was taken.
 
 Result: live funds reachable through browse went 1,282 -> 1,714, and the ones
-outside SEBI's taxonomy went 428 -> 12.
+outside SEBI's taxonomy went 428 -> 26, most of the remainder being ETFs.
 """
 
 import json
@@ -55,6 +55,21 @@ UNFOLDED_ON_PURPOSE = {
     "Life Cycle Funds - Life Cycle Fund with Maturity of 10 Years",
     "Life Cycle Funds - Life Cycle Fund with Maturity of 15 Years",
     "Children’s Fund - Childrens' Fund",
+    # Exchange-traded funds. A different PRODUCT, not a spelling: bought on an
+    # exchange through a demat account rather than from the AMC, so they are not
+    # in the buyable universe this app ranks. AMFI also splits them by asset
+    # class, and SEBI has one index-fund category — folding them would rank a
+    # gold ETF against a Nifty tracker on cost, which is the confound §2.3 built
+    # the active/passive split to avoid.
+    "Exchange Traded Funds (ETFs) - Equity ETF",
+    "Exchange Traded Funds (ETFs) - Debt ETF",
+    "Exchange Traded Funds (ETFs) - Gold ETF",
+    "Exchange Traded Funds (ETFs) - Silver ETF",
+    "Exchange Traded Funds (ETFs) - Other ETF",
+    # AMFI's own contradiction: a sectoral fund filed under debt. There is no
+    # `Debt Scheme - Sectoral/ Thematic`, and the fold refuses to invent one —
+    # which is the safety rule working rather than a gap.
+    "Income/Debt Oriented Schemes - Sectoral Fund",
     # Genuinely their own buckets, not variants of anything.
     "IDF",
     "Income",
@@ -159,7 +174,10 @@ def test_no_new_variant_has_appeared():
 
 
 def test_the_residual_loss_is_the_size_it_should_be():
-    """12 open-ended live funds remain unbrowsable, every one of them on purpose.
+    """26 open-ended live funds remain unbrowsable, every one of them on purpose.
+
+    Was 12. A NAV refresh brought more funds into the "live" window, most of
+    them exchange-traded — a different product, not a spelling.
 
     GREEN HERE MEANS "the decided state, unchanged" — not "no defect". If this
     moves, either a fold started working or a new label appeared, and both are
@@ -173,8 +191,8 @@ def test_the_residual_loss_is_the_size_it_should_be():
         and not _is_sebi(folded[code][0])
         and not _SERIES.search(folded[code][1])
     ]
-    assert len(lost) == 12, (
-        f"{len(lost)} open-ended live funds outside SEBI's taxonomy, was 12"
+    assert len(lost) == 26, (
+        f"{len(lost)} open-ended live funds outside SEBI's taxonomy, was 26"
     )
 
 
