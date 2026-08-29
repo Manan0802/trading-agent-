@@ -452,6 +452,23 @@ export type FundAnalysisData = {
    * a broader one to fill the gap.
    */
   base_rate: BaseRate | null
+  /**
+   * What the fund actually holds, from the AMC's own monthly disclosure.
+   *
+   * `covered` is false for the ~71% of funds whose AMC has no verified source,
+   * and that is a different fact from a fund holding nothing. The panel must
+   * say which — an empty holdings list rendered as "no holdings" would be a
+   * claim about the fund rather than about us.
+   */
+  holdings: {
+    covered: boolean
+    as_of: string | null
+    total_positions: number
+    top: { isin: string | null; name: string; industry: string | null; weight: number }[]
+    other_weight: number
+    by_industry: [string, number][]
+  }
+
   /** The whole ranked row, so the page needs no second request. */
   fund: ScreenedFund
 }

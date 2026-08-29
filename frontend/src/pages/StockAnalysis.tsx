@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTrailLeaf } from '@/components/Trail'
 import { Link, useParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
@@ -514,6 +515,9 @@ export function StockAnalysis() {
     placeholderData: keepPreviousData,
     retry: false,
   })
+
+  // So the trail's last crumb reads "HDFC Bank" and not "HDFCBANK".
+  useTrailLeaf(data?.name)
 
   const status = isError ? statusOf(error) : null
 

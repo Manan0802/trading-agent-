@@ -69,7 +69,7 @@ hand-typed transactions that nothing currently checks (§11.7).
 engineering, one product/design, one build-readiness, and one checking the
 document against the filesystem — for **44 findings**. The three that mattered
 most were each **my own largest claim being wrong** (§17.6, §1.1, §1.3).
-1,880 tests green; the exit-signal gate passes with a verified instrument.
+1,893 tests green; the exit-signal gate passes with a verified instrument.
 
 **`grounding.py`'s four known holes were closed on 2026-08-28** (§17.6), so
 nothing written *for this plan* carries a recorded unfixed defect. Three things
@@ -2817,7 +2817,7 @@ or does it go?**
 
 | | | sessions |
 |---|---|---|
-| **4.1** | Navigation shell — sidebar, trail, `⌘K`, real URLs **Acceptance:** every surface is reachable from every other without the browser back button; **deep links resolve on a cold load**; and browser back does what it says. The `/screener/fund/:schemeCode` → `/fund/:code` move keeps the old path working | 2 |
+| **4.1** | ✅ **DONE 2026-08-29.** Navigation, deep links and back already worked; the two absent pieces are built. **The trail** derives from the route, and the middle hop travels in **router state** because it cannot come from the URL — `/screener/stock/HDFCBANK` says nothing about which fund you were looking at, and reconstructing it from history is wrong the moment somebody opens the link directly. A deep link therefore gets a SHORTER trail rather than an invented one, and a top-level page gets none at all (one crumb is not a trail, it is a stray word above the heading). The last crumb is a NAME, not `122639`, via a small context the detail page sets and clears on unmount. **⌘K** is fed the same `NAV` array as the top bar, so the two cannot drift — a palette that reaches five of six destinations is worse than none, because the missing one is the one somebody hunts for. Ctrl+K as well as ⌘K, Escape closes, arrows and Enter work, `role="listbox"` with `aria-selected`. 🔴 **The two-hop case had no route to test:** `FundAnalysisOut` carries `holdings` and the fund page never rendered them, so there was no way to reach a company through a fund. A **What it owns** panel now does, each company link carrying the fund forward — and it says *"this fund's AMC does not publish a monthly portfolio we can read"* rather than rendering an empty list as "holds nothing", which would be a claim about the fund instead of about us. | 2 |
 | **4.2** | `Find` — virtualised, faceted, compare tray, **overlap against what he already owns** **Acceptance:** 1,686 rows scroll without dropping frames on Manan's own machine; and overlap against his holdings shows **`n/a` when unmeasured, never `0%`** — §14, because 0% reads as perfectly diversified, the opposite of "we could not tell" | 4 |
 | **4.3** | `Today` and `Why` **Acceptance:** **every figure on `Today` appears in `Why` with its source named.** That is §14's coverage rule applied to the app's own front page | 2 |
 | **4.4** | ✅ **DONE 2026-08-29 — all eight built, and the pie is deleted.** `components/charts/`: dot grid, bullet, underwater, slope, fan, rebased line, sorted stacked bar, sparkline. **Every one routes through a shared `ChartFrame` that renders loading and empty as themselves** — the two states §13.5 says were missing from every chart in this app, where the result is a blank rectangle indistinguishable from *"this fund had no drawdown"*, *"we could not fetch it"* and *"the component threw"*. Each empty state names WHAT is missing rather than saying "no data". The two helpers `lib/chart.ts` lacked are written: `rebase` (to the first date BOTH series have — rebasing each to its own first point silently compares different periods and looks entirely normal) and `underwater`. **`AllocationPie.tsx` is deleted, not deprecated**, and `GoalDetail` now shows the mix as one sorted bar with the three notes in prose beneath, where they can be read without hovering. The sparkline is a single `<path>` in plain SVG because §3.2 puts one in every `Find` row and a `ResponsiveContainer` per row is a `ResizeObserver` per row. ⚠️ **The 28 tests are STRUCTURAL and say so** — there is no React test runner here and adding one is not this slice. They catch a device that stops routing through the frame; `scripts/a11y.mjs` walks the live app for what they cannot. | 3 |
@@ -2859,7 +2859,7 @@ around it.
 ```
 the ENTIRE app so far    158 commits · 20 active days · 56 calendar days
                          51 endpoints · 96 schemas · 7 migrations
-                         1,880 tests · a 5.2M-row NAV store · 58 .tsx files
+                         1,893 tests · a 5.2M-row NAV store · 60 .tsx files
                          median 2,758 lines changed per active day
 
 this plan estimated      31 sessions  =  155% of all of that

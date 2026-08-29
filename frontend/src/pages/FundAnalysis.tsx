@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTrailLeaf } from '@/components/Trail'
 import { Link, useParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
@@ -628,6 +629,58 @@ function detailOf(error: unknown): string | null {
  * is on the rate limiter's heavy tier at 20 a minute — six range buttons is six
  * requests, and nothing here prefetches.
  */
+
+/**
+ * What this fund actually owns, and the route from a fund to a company.
+ *
+ * Two things it must not do. It must not render an empty list as "holds
+ * nothing": seven AMCs have a verified monthly disclosure, so for most funds the
+ * honest answer is "we could not read it", which is a fact about US. And it must
+ * not lose where you came from — each company link carries the fund forward, so
+ * the trail on the company page names both hops instead of stranding you one
+ * browser-back from a fund you have to remember the name of.
+ */
+function HoldingsPanel({ data }: { data: FundAnalysisData }) {
+  const holdings = data.holdings
+  const via = { label: data.name, to: `/screener/fund/${data.scheme_code}` }
+
+  return (
+    <Panel title="What it owns">
+      {!holdings?.covered ? (
+        <p className="text-sm text-muted-foreground">
+          This fund&rsquo;s AMC does not publish a monthly portfolio we can read,
+          so we cannot show what is inside it. That is a gap on our side, not a
+          statement about the fund.
+        </p>
+      ) : (
+        <>
+          <p className="text-xs text-muted-foreground">
+            {holdings.total_positions} positions, as disclosed on{' '}
+            {holdings.as_of ?? 'an unstated date'}. The largest are below;
+            everything else adds up to {holdings.other_weight.toFixed(1)}%.
+          </p>
+          <ul className="mt-3 divide-y">
+            {holdings.top.map((h) => (
+              <li key={`${h.isin ?? h.name}`} className="flex items-baseline justify-between gap-3 py-1.5">
+                <Link
+                  to={`/screener/stock/${encodeURIComponent(h.name)}`}
+                  state={{ via }}
+                  className="truncate text-sm underline-offset-2 hover:underline"
+                >
+                  {h.name}
+                </Link>
+                <span className="num shrink-0 text-sm text-muted-foreground">
+                  {h.weight.toFixed(2)}%
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Panel>
+  )
+}
+
 export function FundAnalysis() {
   const { schemeCode = '' } = useParams()
   const [range, setRange] = useState<RangeKey>('1y')
@@ -646,6 +699,12 @@ export function FundAnalysis() {
     retry: (attempt, error) => statusOf(error) === 429 && attempt < 2,
     retryDelay: 4000,
   })
+
+  // The trail lives in the layout, but only this page knows that 122639 is
+  // "Parag Parikh Flexi Cap Fund". Without this the last crumb is a scheme
+  // code — the identifier the app uses internally, and not a thing a person
+  // recognises as the fund they just clicked.
+  useTrailLeaf(data?.name)
 
   const status = isError ? statusOf(error) : null
 
@@ -743,6 +802,7 @@ export function FundAnalysis() {
             <RollingPanel data={data} />
           </div>
           <ReasonsPanel data={data} />
+          <HoldingsPanel data={data} />
           <FiguresPanel data={data} />
         </>
       )}

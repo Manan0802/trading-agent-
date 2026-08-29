@@ -5,7 +5,9 @@ import { Login } from '@/pages/Login'
 import { AuthCallback } from '@/pages/AuthCallback'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { CommandPalette } from '@/components/CommandPalette'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { Trail, TrailProvider } from '@/components/Trail'
 import { WakingNotice } from '@/components/WakingNotice'
 import { clearToken, isAuthenticated } from '@/lib/auth'
 import { cn } from '@/lib/utils'
@@ -50,19 +52,23 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// The six real destinations. One list, so the top nav and ⌘K cannot drift
+// apart -- a palette that reaches five of six is worse than none, because the
+// missing one is the one somebody will hunt for.
 const NAV = [
-  { to: '/portfolio', label: 'Portfolio' },
-  { to: '/research', label: 'Research' },
-  { to: '/decide', label: 'Decide' },
-  { to: '/screener', label: 'Screener' },
-  { to: '/goals', label: 'Goals' },
-  { to: '/profile', label: 'You' },
+  { to: '/portfolio', label: 'Portfolio', hint: 'what you own' },
+  { to: '/research', label: 'Research', hint: 'what has been shown to work' },
+  { to: '/decide', label: 'Decide', hint: 'the levers worth pulling' },
+  { to: '/screener', label: 'Screener', hint: 'find a fund' },
+  { to: '/goals', label: 'Goals', hint: 'what you are saving for' },
+  { to: '/profile', label: 'You', hint: 'tax regime, settings' },
 ]
 
 function Layout({ children }: { children: React.ReactNode }) {
   const signedIn = isAuthenticated()
 
   return (
+    <TrailProvider>
     <div className="min-h-svh bg-background text-foreground">
       {/* Two rows on a phone, one on a laptop. Everything used to sit on a
           single row, which pushed 555px of header through a 390px screen and
@@ -124,9 +130,14 @@ function Layout({ children }: { children: React.ReactNode }) {
         {/* Above the page, not inside it: the server is waking for every
             request on the page, not for one panel. */}
         <WakingNotice />
+        {/* Renders nothing on a top-level page: one crumb is not a trail, and a
+            stray word above the heading reads as a mistake. */}
+        {signedIn && <Trail />}
         {children}
       </main>
+      {signedIn && <CommandPalette destinations={NAV} />}
     </div>
+    </TrailProvider>
   )
 }
 
