@@ -140,6 +140,45 @@ def served_codes(con: sqlite3.Connection) -> set[str]:
     }
 
 
+# What the RUNTIME actually reads out of this file. Everything else is build
+# scratch and must not be shipped.
+#
+# An allowlist, not a blocklist, and the difference is the whole point. The trim
+# is `con.backup()` -- a whole-file snapshot -- followed by one DELETE against
+# nav_history, so any table added later rides along at full size unless somebody
+# remembers to name it here. `stock_daily` is coming and is estimated at ~9.3M
+# rows; a blocklist ships it the day it lands and nobody finds out until the
+# free host runs out of disk. With an allowlist a new table is excluded by
+# default, and adding it to the published copy is a deliberate line of code.
+_SERVED_TABLES = frozenset(
+    {
+        "nav_history",
+        "nav_source",
+        "screener_run",
+        "screener_score",
+        "screener_input",
+        "screener_unscorable",
+    }
+)
+
+
+def _drop_unserved_tables(dst: sqlite3.Connection) -> list[str]:
+    """Remove every table the served app does not read. Returns what went."""
+    present = {
+        row[0]
+        for row in dst.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%'"
+        )
+    }
+    dropped = sorted(present - _SERVED_TABLES)
+    for name in dropped:
+        dst.execute(f'DROP TABLE IF EXISTS "{name}"')
+    if dropped:
+        dst.commit()
+    return dropped
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--src", default=DEFAULT_SRC)
@@ -200,6 +239,9 @@ def main() -> int:
     dst = sqlite3.connect(out)
     con.backup(dst)
     dst.execute("PRAGMA journal_mode=DELETE")
+    dropped = _drop_unserved_tables(dst)
+    if dropped:
+        print(f"dropped        : {', '.join(dropped)}  (not served at runtime)")
     placeholders = ",".join("?" * len(keep))
     dst.execute(
         f"DELETE FROM nav_history WHERE nav_date < ? OR scheme_code NOT IN ({placeholders})",
