@@ -34,8 +34,18 @@ OUT = Path(__file__).resolve().parent.parent / "app" / "data" / "fund_catalogue.
 # the same portfolio with a different payout, and including them would let one
 # fund occupy several ranks.
 _DIRECT = re.compile(r"\bdirect\b", re.I)
-_GROWTH = re.compile(r"\bgrowth\b", re.I)
-_PAYOUT = re.compile(r"dividend|idcw|payout|reinvest|bonus", re.I)
+
+# "Cumulative" is what several houses call the growth option -- ICICI and Tata
+# both use it. Excluding it dropped `ICICI Prudential Nifty 50 Index Fund -
+# Direct Plan - Cumulative`, which is a growth plan by any other name.
+_GROWTH = re.compile(r"\b(growth|cumulative)\b", re.I)
+
+# `dividend` must NOT match "Dividend Yield". That is an equity sub-category --
+# funds that buy high-dividend-yield stocks -- not a payout option, and the
+# plain word killed the WHOLE category: Franklin, Aditya Birla, UTI, ICICI,
+# Tata and HDFC Dividend Yield funds, 11 in all, every one of them a growth
+# plan Groww sells. The lookahead is the entire fix.
+_PAYOUT = re.compile(r"dividend(?!\s+yield)|idcw|payout|reinvest|bonus", re.I)
 
 # Politeness: this is a free API doing us a favour, and the crawl is one-off.
 _WORKERS = 8
@@ -57,15 +67,53 @@ PAIRS_OUT = Path(__file__).resolve().parent.parent / "app" / "data" / "plan_pair
 
 
 def candidates(client: httpx.Client) -> list[dict]:
+    """Every direct-growth scheme worth a detail call.
+
+    Two ways in, and the second exists because the first is a name parser.
+
+    **By name**, which works for the vast majority. **Or by being on Groww's
+    buyable list**, which is the answer rather than a guess about it: that feed
+    is already filtered to direct plans, growth option, available for
+    investment, so a code on it IS a direct growth plan whatever mfapi called
+    it. Measured: 16 buyable funds fail the name test and are real -- five
+    Motilal Oswal index funds whose mfapi name omits the plan word entirely
+    (`Motilal Oswal BSE Low Volatility Index Fund`), and eleven whose option is
+    spelled `Cumulative`, `Defined Maturity Date Option`, or nothing at all
+    (`Tata Nifty 50 Index Fund - Direct Plan`).
+
+    Payout variants are still excluded on both paths: a dividend or IDCW row is
+    the same portfolio with a different payout and would let one fund occupy
+    several ranks.
+    """
     schemes = client.get(f"{BASE}/mf", timeout=120).json()
     _write_plan_pairs(schemes)
-    return [
-        s
-        for s in schemes
-        if _DIRECT.search(s["schemeName"])
-        and _GROWTH.search(s["schemeName"])
-        and not _PAYOUT.search(s["schemeName"])
-    ]
+
+    buyable_codes = _buyable_codes()
+    picked, by_name, by_universe = [], 0, 0
+    for scheme in schemes:
+        name = scheme["schemeName"]
+        if _PAYOUT.search(name):
+            continue
+        named = bool(_DIRECT.search(name) and _GROWTH.search(name))
+        listed = str(scheme["schemeCode"]) in buyable_codes
+        if not (named or listed):
+            continue
+        picked.append(scheme)
+        by_name += named
+        by_universe += listed and not named
+
+    print(
+        f"{len(picked)} candidates: {by_name} matched by name, "
+        f"{by_universe} by being on Groww's buyable list and not by name"
+    )
+    return picked
+
+
+def _buyable_codes() -> frozenset[str]:
+    """Groww's buyable universe, if it has been built. Empty is not an error."""
+    from app.services.advisor import buyable
+
+    return buyable.buyable_codes()
 
 
 def _write_plan_pairs(schemes: list[dict]) -> None:
@@ -141,15 +189,38 @@ def main() -> int:
         print(f"{len(pending)} direct-growth candidates", flush=True)
 
         found: list[dict] = []
+        dropped: list[str] = []
         with ThreadPoolExecutor(max_workers=_WORKERS) as pool:
-            for i, meta in enumerate(
-                pool.map(lambda s: fetch_meta(client, s["schemeCode"]), pending), 1
+            for i, (scheme, meta) in enumerate(
+                zip(
+                    pending,
+                    pool.map(lambda s: fetch_meta(client, s["schemeCode"]), pending),
+                ),
+                1,
             ):
                 if meta:
                     found.append(meta)
+                else:
+                    dropped.append(str(scheme["schemeCode"]))
                 if i % 500 == 0:
                     print(f"  {i}/{len(pending)} checked, {len(found)} kept", flush=True)
                 time.sleep(_PAUSE_SECONDS)
+
+    # A candidate that passed every name filter and then vanished is either a
+    # scheme with no category or no NAV -- fine -- or a request that failed
+    # three times. Those are indistinguishable here and were previously
+    # indistinguishable from "not a fund", which is how 47 funds including
+    # `HDFC Nifty 50 Index Fund` and `SBI Arbitrage Fund` left the catalogue
+    # with nothing recorded. Counting them is the difference between a gap and
+    # a silence.
+    if dropped:
+        buyable_dropped = sorted(_buyable_codes() & set(dropped))
+        print(
+            f"\n{len(dropped)} candidates returned no usable detail; "
+            f"{len(buyable_dropped)} of them are funds Groww sells"
+        )
+        if buyable_dropped:
+            print(f"  buyable and dropped: {' '.join(buyable_dropped[:25])}")
 
     by_category: dict[str, list[dict]] = {}
     for fund in found:
