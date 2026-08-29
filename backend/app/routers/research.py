@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.auth.fastapi_users_app import current_active_user
 from app.models import User
+from app.schemas.contracts import FactorEvidenceOut
 from app.schemas.research import (
     FundDetailOut,
     FundSearchResultOut,
@@ -283,7 +284,7 @@ def get_stock(
         raise HTTPException(404, str(exc)) from exc
 
 
-@router.get("/evidence")
+@router.get("/evidence", response_model=FactorEvidenceOut)
 def get_factor_evidence():
     """What has actually been shown to work, and what has not.
 

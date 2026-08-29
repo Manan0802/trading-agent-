@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.auth.fastapi_users_app import current_active_user
 from app.database import get_db
 from app.models import Goal, User
+from app.schemas.contracts import TaxSavingOut
 from app.schemas.goal import (
     CommitmentOut,
     GoalCreate,
@@ -69,7 +70,7 @@ def asset_allocation(req: AllocationRequest):
     return {"allocation": alloc, "products": recommended_products(alloc)}
 
 
-@router.post("/advisor/tax-saving")
+@router.post("/advisor/tax-saving", response_model=TaxSavingOut)
 def tax_saving(req: TaxRequest):
     return generate_tax_saving_plan(
         req.annual_income,
