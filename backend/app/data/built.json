@@ -15,6 +15,10 @@
   "as_of": "2026-07-21",
   "how": "inferred from the newest latest_nav_date among 4,957 entries"
  },
+ "groww_buyable.json": {
+  "as_of": "2026-08-29",
+  "how": "built"
+ },
  "plan_pairs.json": {
   "as_of": "2026-08-29",
   "how": "built"

@@ -32,6 +32,7 @@ contested magnitudes applied to our own threshold.
 
 from dataclasses import dataclass
 
+from app.services.advisor import buyable
 from app.services.advisor.fund_evidence import expense_ratios
 
 # Two filings of the same fee that differ by less than this are the same fee
@@ -54,16 +55,27 @@ _UNUSUAL_PASSIVE_PP = 1.00
 _PASSIVE_WORDS = ("index", "etf", "nifty", "sensex", "bse ", "exchange traded")
 
 
-def looks_passive(scheme_name: str = "", sub_category: str = "") -> bool:
-    """Whether this is an index tracker, on the only signal we currently have.
+def looks_passive(
+    scheme_name: str = "", sub_category: str = "", scheme_code: str = ""
+) -> bool:
+    """Whether this is an index tracker. Groww's flag first, the name only after.
 
-    ONE signal, and the plan is explicit that this is a one-signal design
-    wearing two: Groww's `st_filter` listing carries an `index` boolean, but 0
-    of the 39 cached scheme-detail payloads include it, so nothing here can read
-    it until slice 2.1 pulls that listing. Until then this is a name test, and a
-    name test is why `is_passive` is not used to rank anything -- only to pick
-    which threshold the word "unusually" is measured against.
+    Groww's `st_filter` listing carries an `index` boolean and slice 2.1 now
+    pulls it: on that pull **every one of the 1,689 buyable funds** carries the
+    flag. So for anything the user can buy this is a read, not an inference.
+
+    The name test survives only as the fallback for a code Groww does not
+    classify -- a regular plan, or a fund no longer sold. That fallback is
+    acceptable HERE and nowhere else, because all it picks is which threshold
+    the word "unusually" is measured against: getting it wrong adds or drops an
+    advisory flag, it does not move a fund in a ranking. `buyable.is_passive`
+    returns None in that case precisely so callers that DO rank cannot quietly
+    treat "unclassified" as "active".
     """
+    if scheme_code:
+        flagged = buyable.is_passive(scheme_code)
+        if flagged is not None:
+            return flagged
     haystack = f"{scheme_name} {sub_category}".lower()
     return any(word in haystack for word in _PASSIVE_WORDS)
 
@@ -122,7 +134,7 @@ def read(
         for name, value in (("amfi", amfi_direct), ("groww", groww))
         if value is not None
     )
-    passive = looks_passive(scheme_name, sub_category)
+    passive = looks_passive(scheme_name, sub_category, str(scheme_code))
 
     if not sources:
         return CostOfHolding(
