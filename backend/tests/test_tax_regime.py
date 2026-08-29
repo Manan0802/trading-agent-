@@ -1,5 +1,6 @@
 import pytest
 
+from app.services.advisor import tax_regime
 from app.services.advisor.tax_regime import (
     NEW_REGIME_REBATE_LIMIT,
     compare_regimes,
@@ -159,3 +160,76 @@ def test_the_stated_financial_year_still_covers_today():
         "Re-check the slabs, 87A rebate, standard deduction and cess against the "
         "latest Budget, then extend the docstring."
     )
+
+
+class TestSurchargeAndMarginalRelief:
+    """The largest number this app shows, and it was absent entirely.
+
+    Surcharge is levied on the TAX, not the income, and its bands are cliffs:
+    at 50,00,001 the whole bill takes 10%, not just the rupee above. Without
+    relief, earning one more rupee at 50 lakh costs about 1.4 lakh. Section
+    113's proviso caps the surcharge at the income above the threshold, and
+    that cap is what this class exists to hold.
+    """
+
+    THRESHOLDS = (5_000_000, 10_000_000, 20_000_000, 50_000_000)
+
+    @pytest.mark.parametrize("threshold", THRESHOLDS)
+    @pytest.mark.parametrize("regime", ("new", "old"))
+    def test_one_rupee_more_income_costs_at_most_one_rupee_more_tax(
+        self, threshold, regime
+    ):
+        """Measured BEFORE cess, which is where the law applies the relief.
+
+        Cess is levied on the relieved total, so the figure a person actually
+        pays rises by 1 x 1.04 = 1.04. BUILD.md's acceptance said "at most one
+        rupee" and that is only true pre-cess; building it is what surfaced the
+        difference.
+        """
+        below = tax_regime.compute_tax(threshold, regime)
+        above = tax_regime.compute_tax(threshold + 1, regime)
+        pre_cess = (above - below) / (1 + tax_regime.CESS_RATE)
+        assert 0 <= pre_cess <= 1.0001, (
+            f"{regime} regime at {threshold:,}: one more rupee of income costs "
+            f"{pre_cess:,.2f} more tax before cess. Marginal relief is missing "
+            "or wrong, and the error is in lakhs."
+        )
+
+    @pytest.mark.parametrize("threshold", THRESHOLDS)
+    @pytest.mark.parametrize("regime", ("new", "old"))
+    def test_the_bill_never_goes_down_when_income_goes_up(self, threshold, regime):
+        """Relief must not over-correct into a discount."""
+        assert tax_regime.compute_tax(threshold + 1, regime) >= tax_regime.compute_tax(
+            threshold, regime
+        )
+
+    def test_the_new_regime_surcharge_is_capped_at_25_percent(self):
+        """The 37% top band applies to the old regime only."""
+        assert tax_regime.surcharge_rate(60_000_000, "new") == 0.25
+        assert tax_regime.surcharge_rate(60_000_000, "old") == 0.37
+
+    @pytest.mark.parametrize(
+        "income,expected",
+        [(4_000_000, 0.00), (6_000_000, 0.10), (15_000_000, 0.15), (30_000_000, 0.25)],
+    )
+    def test_the_bands_are_the_filed_ones(self, income, expected):
+        assert tax_regime.surcharge_rate(income, "old") == expected
+
+    def test_capital_gains_surcharge_stops_at_15_percent(self):
+        """A separate rule, and the one this app actually shows.
+
+        Gains under 111A, 112A and 112 carry surcharge at no more than 15%
+        however high total income goes. Someone with 6 crore of salary pays
+        37% on the salary tax and 15% on the gains tax -- conflating the two
+        overstates a redemption's cost by a fifth of the gains bill.
+        """
+        assert tax_regime.surcharge_rate_for_gains(60_000_000, "old") == 0.15
+        assert tax_regime.surcharge_rate_for_gains(30_000_000, "old") == 0.15
+        assert tax_regime.surcharge_rate_for_gains(6_000_000, "old") == 0.10
+        assert tax_regime.surcharge_rate_for_gains(4_000_000, "old") == 0.00
+
+    def test_below_fifty_lakh_nothing_changed(self):
+        """Surcharge starts above 50 lakh; every smaller bill must be untouched."""
+        for income in (500_000, 1_200_000, 2_400_000, 4_999_999):
+            assert tax_regime.surcharge_rate(income, "new") == 0.0
+            assert tax_regime.surcharge_rate(income, "old") == 0.0

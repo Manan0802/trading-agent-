@@ -48,6 +48,53 @@ OLD_REGIME_REBATE_CAP = 12_500
 
 CESS_RATE = 0.04
 
+# Surcharge on the TAX, not on the income, once taxable income passes a
+# threshold. Slab-wise and cliff-edged: at 50,00,001 the whole bill takes 10%,
+# not just the rupee above. That cliff is why marginal relief exists.
+#
+# The new regime caps surcharge at 25%; the old regime's top band is 37%. The
+# 15% ceiling that applies to capital gains under 111A/112A/112 is a separate
+# rule and is NOT this -- see `surcharge_rate_for_gains`.
+_SURCHARGE_BANDS: list[tuple[float, float]] = [
+    (5_000_000, 0.00),
+    (10_000_000, 0.10),
+    (20_000_000, 0.15),
+    (50_000_000, 0.25),
+    (float("inf"), 0.37),
+]
+_NEW_REGIME_MAX_SURCHARGE = 0.25
+
+# Capital gains taxed under 111A (STCG), 112A and 112 (LTCG) carry surcharge at
+# no more than 15% however high the total income goes. A person with 6 crore of
+# salary pays 37% surcharge on the salary tax and 15% on the gains tax.
+GAINS_SURCHARGE_CAP = 0.15
+
+
+def surcharge_rate(taxable: float, regime: Regime) -> float:
+    """The surcharge rate on ordinary income at this taxable income."""
+    rate = 0.0
+    for threshold, band in _SURCHARGE_BANDS:
+        if taxable > threshold:
+            continue
+        rate = band
+        break
+    else:  # pragma: no cover - the final band is unbounded
+        rate = _SURCHARGE_BANDS[-1][1]
+    if regime == "new":
+        return min(rate, _NEW_REGIME_MAX_SURCHARGE)
+    return rate
+
+
+def surcharge_rate_for_gains(taxable: float, regime: Regime) -> float:
+    """Same bands, capped at 15% -- the rule for 111A / 112A / 112 income."""
+    return min(surcharge_rate(taxable, regime), GAINS_SURCHARGE_CAP)
+
+
+def _band_floor(taxable: float) -> float | None:
+    """The threshold this income just crossed, or None below the first band."""
+    crossed = [t for t, _ in _SURCHARGE_BANDS if taxable > t and t != float("inf")]
+    return max(crossed) if crossed else None
+
 
 def _slab_tax(taxable: float, slabs: list[tuple[float, float]]) -> float:
     tax = 0.0
@@ -94,7 +141,49 @@ def compute_tax(
     if taxable <= rebate_limit:
         tax = max(0.0, tax - rebate_cap)
 
+    tax += _surcharge_with_relief(taxable, tax, regime, slabs, rebate_limit, rebate_cap)
     return tax * (1 + CESS_RATE)
+
+
+def _surcharge_with_relief(
+    taxable: float,
+    base_tax: float,
+    regime: Regime,
+    slabs: list[tuple[float, float]],
+    rebate_limit: float,
+    rebate_cap: float,
+) -> float:
+    """Surcharge, reduced so crossing a threshold never costs more than it earns.
+
+    The bands are cliffs: at 50,00,001 the whole bill takes 10% surcharge, not
+    just the rupee above it. Without relief, earning one more rupee at 50 lakh
+    costs about 1.4 lakh in tax -- so section 113's proviso caps the surcharge
+    at the income above the threshold.
+
+    Stated as a test rather than as a formula: the total tax on one rupee above
+    a threshold may exceed the total tax below it by at most one rupee. That is
+    the definition of marginal relief, and it is the thing the app must not get
+    wrong, because a wrong answer here is wrong by lakhs.
+    """
+    rate = surcharge_rate(taxable, regime)
+    if rate == 0.0:
+        return 0.0
+
+    surcharge = base_tax * rate
+    threshold = _band_floor(taxable)
+    if threshold is None:  # pragma: no cover - rate>0 implies a crossed band
+        return surcharge
+
+    # What someone exactly at the threshold pays, with no surcharge on it.
+    at_threshold = _slab_tax(threshold, slabs)
+    if threshold <= rebate_limit:
+        at_threshold = max(0.0, at_threshold - rebate_cap)
+    below_rate = surcharge_rate(threshold, regime)
+    at_threshold += at_threshold * below_rate
+
+    excess_income = taxable - threshold
+    relief = max(0.0, (base_tax + surcharge) - at_threshold - excess_income)
+    return surcharge - relief
 
 
 @dataclass(frozen=True)
