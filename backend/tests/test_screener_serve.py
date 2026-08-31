@@ -16,6 +16,15 @@ from app.services.screener import navstore, pipeline, serve, universe
 
 AS_OF = date.today()
 
+# Every seeded series ends HERE, derived from AS_OF rather than written down.
+#
+# It used to be a literal `LAST_NAV` while `AS_OF` followed the wall
+# clock. That works until the gap crosses the screener's freshness rule, and
+# then a batch of tests fails on a day nobody changed anything — reporting
+# `pool_size=0` as though the slot mapping had broken.
+LAST_NAV = AS_OF - timedelta(days=1)
+
+
 
 @pytest.fixture(autouse=True)
 def store(tmp_path, monkeypatch):
@@ -45,7 +54,7 @@ def seed_and_run(codes, rows: int = 900):
         for i, code in enumerate(codes):
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.05 + i * 3)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.05 + i * 3)
                  for d in range(rows)],
             )
             navstore.record_source(s, code, backfilled_at="x")
@@ -319,14 +328,14 @@ def test_a_recently_launched_fund_is_shown_as_new_rather_than_as_junk():
         for i, code in enumerate(codes[:25]):
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.05 + i * 3)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.05 + i * 3)
                  for d in range(900)],
             )
             navstore.record_source(s, code, backfilled_at="x")
         for i, code in enumerate(codes[25:]):          # four months old
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.04 + i)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.04 + i)
                  for d in range(120)],
             )
             navstore.record_source(s, code, backfilled_at="x")
@@ -377,7 +386,7 @@ def test_a_rolling_window_the_fund_never_lived_is_unknown_not_zero():
         for i, code in enumerate(codes[:25]):
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.05 + i * 3)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.05 + i * 3)
                  for d in range(900)],
             )
             navstore.record_source(s, code, backfilled_at="x")

@@ -88,7 +88,7 @@ def seed(n: int = 40, rows: int = 900) -> None:
         for i, code in enumerate(eligible_codes(n)):
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.05 + i * 3)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.05 + i * 3)
                  for d in range(rows)],
             )
             navstore.record_source(s, code, backfilled_at="x")
@@ -265,14 +265,14 @@ def seed_a_dominant_sub_category() -> str:
         for i, code in enumerate(winners):
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.12 + i)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.12 + i)
                  for d in range(900)],
             )
             navstore.record_source(s, code, backfilled_at="x")
         for i, code in enumerate(losers):
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.002 + i)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.002 + i)
                  for d in range(900)],
             )
             navstore.record_source(s, code, backfilled_at="x")
@@ -620,6 +620,17 @@ def test_the_stock_screen_is_on_the_heavy_rate_limit_tier():
 from app.services.screener import basket as basket_port  # noqa: E402
 from app.services.screener import basket_slots  # noqa: E402
 
+AS_OF = date.today()
+
+# Every seeded series ends HERE, derived from AS_OF rather than written down.
+#
+# It used to be a literal `LAST_NAV` while `AS_OF` followed the wall
+# clock. That works until the gap crosses the screener's freshness rule, and
+# then a batch of tests fails on a day nobody changed anything — reporting
+# `pool_size=0` as though the slot mapping had broken.
+LAST_NAV = AS_OF - timedelta(days=1)
+
+
 
 def seed_basket_universe(rows: int = 900) -> None:
     codes: list[str] = []
@@ -630,7 +641,7 @@ def seed_basket_universe(rows: int = 900) -> None:
         for i, code in enumerate(codes):
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.04 + i * 0.7)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.04 + i * 0.7)
                  for d in range(rows)],
             )
             navstore.record_source(s, code, backfilled_at="x")

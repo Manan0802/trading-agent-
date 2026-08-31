@@ -32,6 +32,17 @@ import pytest
 from app.services.screener import metrics as port
 from app.services.screener import reference
 
+AS_OF = date.today()
+
+# Every seeded series ends HERE, derived from AS_OF rather than written down.
+#
+# It used to be a literal `LAST_NAV` while `AS_OF` followed the wall
+# clock. That works until the gap crosses the screener's freshness rule, and
+# then a batch of tests fails on a day nobody changed anything — reporting
+# `pool_size=0` as though the slot mapping had broken.
+LAST_NAV = AS_OF - timedelta(days=1)
+
+
 PERFORMANCE = "services/performance.py"
 HELPERS = "utils/helpers.py"
 
@@ -274,7 +285,7 @@ def test_a_single_nav_is_unmeasurable_but_not_a_crash():
     returns_1y and every rolling field -- so a caller reading one gets a
     KeyError. This is the module's one deliberate divergence: a complete record
     of zeros, because reproducing a crash is not fidelity."""
-    m = port.compute([(date(2026, 8, 19), 10.0)], AS_OF)
+    m = port.compute([(LAST_NAV, 10.0)], AS_OF)
     assert m.nav_rows == 1 and m.returns_1y == 0.0 and m.rolling_1y == 0.0
     assert m.momentum is None and m.drawdown is None
 

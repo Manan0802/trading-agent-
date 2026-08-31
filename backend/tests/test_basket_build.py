@@ -17,6 +17,17 @@ from app.services.screener import inputs as inputs_mod
 
 AS_OF = date.today()
 
+# Every seeded series ends HERE, and the constant is derived from AS_OF rather
+# than written down.
+#
+# It used to be a literal `LAST_NAV` while `AS_OF` followed the wall
+# clock. That works until the gap between them crosses the screener's freshness
+# rule — and then ten tests in this file fail on a day nobody changed anything,
+# reporting `pool_size=0` as though the slot mapping had broken. It cost a real
+# investigation: the catalogue had been rebuilt the same week, so the obvious
+# suspect was the category fold, and it was not.
+LAST_NAV = AS_OF - timedelta(days=1)
+
 
 @pytest.fixture(autouse=True)
 def store(tmp_path, monkeypatch):
@@ -37,7 +48,7 @@ def seed_every_slot(rows: int = 900) -> list[str]:
         for i, code in enumerate(codes):
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.04 + i * 0.7)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.04 + i * 0.7)
                  for d in range(rows)],
             )
             navstore.record_source(s, code, backfilled_at="x")
@@ -178,7 +189,7 @@ def test_a_slot_with_no_scored_fund_says_which_and_why():
         for i, code in enumerate(codes):
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.04 + i)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.04 + i)
                  for d in range(900)],
             )
             navstore.record_source(s, code, backfilled_at="x")
@@ -208,7 +219,7 @@ def test_a_basket_that_cannot_reach_two_slots_fails_rather_than_pretending():
         for i, code in enumerate(codes):
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.04 + i)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.04 + i)
                  for d in range(900)],
             )
             navstore.record_source(s, code, backfilled_at="x")
@@ -285,7 +296,7 @@ def seed_differentiated(rows: int = 900) -> None:
             navs = []
             level = 100.0
             for d in range(rows):
-                day = date(2026, 8, 19) - timedelta(days=rows - 1 - d)
+                day = LAST_NAV - timedelta(days=rows - 1 - d)
                 kick = 0.0
                 if d > rows - 15:
                     kick = 0.004 if i % 3 == 0 else (-0.003 if i % 3 == 1 else 0.0)
@@ -384,20 +395,20 @@ def test_a_fund_that_fails_the_pool_rule_is_not_picked():
                 # the eligibility sabotage had nothing to walk past.
                 navstore.insert_navs(
                     s, code,
-                    [(date(2026, 8, 19) - timedelta(days=7 * d), 100.0 * (1.004 ** (200 - d)))
+                    [(LAST_NAV - timedelta(days=7 * d), 100.0 * (1.004 ** (200 - d)))
                      for d in range(200)],
                 )
             else:
                 navstore.insert_navs(
                     s, code,
-                    [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.04 + i * 0.5)
+                    [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.04 + i * 0.5)
                      for d in range(900)],
                 )
             navstore.record_source(s, code, backfilled_at="x")
         for other in basket_slots.codes_for_slot("Commodity::Gold")[:12]:
             navstore.insert_navs(
                 s, other,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.03)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.03)
                  for d in range(900)],
             )
             navstore.record_source(s, other, backfilled_at="x")
@@ -452,13 +463,13 @@ def test_the_short_fund_would_have_won_its_slot_if_the_rule_were_skipped():
             if code == short_code:
                 navstore.insert_navs(
                     s, code,
-                    [(date(2026, 8, 19) - timedelta(days=7 * d), 100.0 * (1.004 ** (200 - d)))
+                    [(LAST_NAV - timedelta(days=7 * d), 100.0 * (1.004 ** (200 - d)))
                      for d in range(200)],
                 )
             else:
                 navstore.insert_navs(
                     s, code,
-                    [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.04 + i * 0.5)
+                    [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.04 + i * 0.5)
                      for d in range(900)],
                 )
             navstore.record_source(s, code, backfilled_at="x")
@@ -490,7 +501,7 @@ def test_a_fund_whose_history_does_not_overlap_is_dropped_not_propagated():
         for i, code in enumerate(good):
             navstore.insert_navs(
                 s, code,
-                [(date(2026, 8, 19) - timedelta(days=d), 100.0 + d * 0.04 + i)
+                [(LAST_NAV - timedelta(days=d), 100.0 + d * 0.04 + i)
                  for d in range(900)],
             )
             navstore.record_source(s, code, backfilled_at="x")

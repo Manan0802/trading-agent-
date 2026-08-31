@@ -758,6 +758,34 @@ def get_announcements(
     )
 
 
+
+def _valued_fund_names(holdings) -> list[tuple[str, float]]:
+    """`[(fund name, what it is worth today)]` for every priced fund holding.
+
+    `Holding` carries no quantity or price — it is a name, a code and a list of
+    transactions, and the value comes from `value_portfolio`, which is what
+    every other surface in this file already uses. A first version of the
+    look-through multiplied `holding.quantity * holding.avg_price`, which are
+    fields that do not exist: it 500'd for any user who actually held something,
+    and passed every test because the tests called the ENGINE with tuples
+    instead of the ROUTE with a row.
+
+    The name is the AMFI one where we have it. The holdings store is keyed on
+    the scheme's real name, so the label somebody typed does not find it.
+    """
+    summary = value_portfolio(
+        [_to_input(h) for h in holdings], get_current_price, date.today()
+    )
+    values = {s.holding_id: (s.current_value or s.invested) for s in summary.holdings}
+    out: list[tuple[str, float]] = []
+    for holding in holdings:
+        value = values.get(holding.id) or 0.0
+        if value <= 0:
+            continue
+        name = identify(holding.identifier, holding.name).official_name or holding.name
+        out.append((name, float(value)))
+    return out
+
 @router.get("/look-through", response_model=LookThroughOut)
 def get_look_through(
     db: Session = Depends(get_db),
@@ -782,13 +810,7 @@ def get_look_through(
         if h.asset_type == "MF"
     ]
 
-    priced: list[tuple[str, float]] = []
-    for holding in holdings:
-        name = identify(holding.identifier, holding.name).official_name or holding.name
-        value = float(holding.quantity or 0) * float(holding.avg_price or 0)
-        if value > 0:
-            priced.append((name, value))
-
+    priced = _valued_fund_names(holdings)
     result = look_through(priced)
 
     def _out(company) -> CompanyOut:
@@ -911,14 +933,7 @@ def get_company_exposure(
         for h in db.query(Holding).filter(Holding.user_id == user.id).all()
         if h.asset_type == "MF"
     ]
-    priced: list[tuple[str, float]] = []
-    for holding in holdings:
-        name = identify(holding.identifier, holding.name).official_name or holding.name
-        value = float(holding.quantity or 0) * float(holding.avg_price or 0)
-        if value > 0:
-            priced.append((name, value))
-
-    result = look_through(priced)
+    result = look_through(_valued_fund_names(holdings))
     match = next((c for c in result.companies if c.isin == isin), None)
     if match is None:
         # Not zero. "You own none of this" and "none of the funds we could open

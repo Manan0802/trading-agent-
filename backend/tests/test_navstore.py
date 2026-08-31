@@ -12,6 +12,17 @@ from sqlalchemy.exc import IntegrityError
 
 from app.services.screener import navstore
 
+AS_OF = date.today()
+
+# Every seeded series ends HERE, derived from AS_OF rather than written down.
+#
+# It used to be a literal `LAST_NAV` while `AS_OF` followed the wall
+# clock. That works until the gap crosses the screener's freshness rule, and
+# then a batch of tests fails on a day nobody changed anything — reporting
+# `pool_size=0` as though the slot mapping had broken.
+LAST_NAV = AS_OF - timedelta(days=1)
+
+
 
 @pytest.fixture(autouse=True)
 def store(tmp_path, monkeypatch):
@@ -182,7 +193,7 @@ def test_the_live_count_is_relative_to_as_of_not_to_the_whole_catalogue():
     against 4,957 would be red every night."""
     as_of = date(2026, 8, 20)
     with navstore.session() as s:
-        navstore.insert_navs(s, "LIVE", [(date(2026, 8, 19), 10.0)])
+        navstore.insert_navs(s, "LIVE", [(LAST_NAV, 10.0)])
         navstore.record_source(s, "LIVE")
         navstore.insert_navs(s, "DEAD", [(date(2019, 3, 3), 10.0)])
         navstore.record_source(s, "DEAD")
