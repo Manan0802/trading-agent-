@@ -48,6 +48,28 @@ function RouteFallback() {
   )
 }
 
+/** A URL that matches nothing. Says so, and offers the way back. */
+function NotFound() {
+  const signedIn = isAuthenticated()
+  return (
+    <div className="flex flex-col items-start gap-4 py-16">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        404
+      </p>
+      <h1 className="font-heading text-3xl font-semibold tracking-[-0.02em] sm:text-4xl">
+        There is no page at this address
+      </h1>
+      <p className="max-w-lg text-[15px] text-muted-foreground">
+        Check the spelling, or head back to{' '}
+        {signedIn ? 'your portfolio' : 'the home page'}.
+      </p>
+      <Link to={signedIn ? '/portfolio' : '/'} className={buttonVariants()}>
+        {signedIn ? 'Go to portfolio' : 'Go home'}
+      </Link>
+    </div>
+  )
+}
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />
@@ -318,6 +340,11 @@ export default function App() {
                 </RequireAuth>
               }
             />
+            {/* Anything else. Without this a typo in the address bar rendered
+                the header over an empty page -- no error, no message, nothing
+                to click. A blank screen is indistinguishable from a crash, and
+                the person looking at it has no way to tell which it is. */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
           </Suspense>
         </Layout>

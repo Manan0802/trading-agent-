@@ -2,14 +2,23 @@ import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   Coins,
+  FlaskConical,
   Layers2,
+  ListFilter,
+  Percent,
   Receipt,
   ScanSearch,
   ShieldQuestion,
   Sparkles,
+  Table2,
+  Target,
+  Wallet,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { InView } from '@/components/ui/in-view'
+import { useCountUp } from '@/lib/count-up'
+import { formatInr } from '@/lib/format'
+import { useTilt } from '@/lib/use-tilt'
 import { cn } from '@/lib/utils'
 
 /**
@@ -148,6 +157,106 @@ const HonestyVisual = (
   </div>
 )
 
+/**
+ * Every destination in the product, at the size its idea deserves.
+ *
+ * A row of equal cards says every feature matters equally, which is never true
+ * and is the shape that makes a page read as generated. The spans here are the
+ * ranking: what the portfolio page answers is bigger than the tax-regime
+ * screen, and the grid says so before a word is read.
+ */
+const FEATURES = [
+  {
+    icon: Wallet,
+    title: 'Your portfolio, answered',
+    body: 'Real money-weighted return against the same money in the Nifty 50, on the same dates.',
+    stat: 'XIRR vs index',
+    tone: 'text-v-cyan-ink',
+    rule: 'bg-v-cyan',
+    tint: 'bg-v-cyan-soft',
+    span: 'lg:col-span-3',
+  },
+  {
+    icon: Coins,
+    title: 'Every decision we can price',
+    body: 'Biggest first, in rupees a year. The ones worth nothing are shown as nothing rather than hidden.',
+    stat: 'Ranked in ₹/yr',
+    tone: 'text-v-emerald-ink',
+    rule: 'bg-v-emerald',
+    tint: 'bg-v-emerald-soft',
+    span: 'lg:col-span-3',
+  },
+  {
+    icon: ListFilter,
+    title: 'Screener',
+    body: 'Funds and stocks scored out of 100, with a basket builder that respects your caps.',
+    stat: 'Funds + stocks',
+    tone: 'text-v-violet-ink',
+    rule: 'bg-v-violet',
+    tint: 'bg-v-violet-soft',
+    span: 'lg:col-span-2',
+  },
+  {
+    icon: Target,
+    title: 'Goals',
+    body: 'What you are saving for, and whether the targets actually fit together.',
+    stat: 'Do they add up?',
+    tone: 'text-v-amber-ink',
+    rule: 'bg-v-amber',
+    tint: 'bg-v-amber-soft',
+    span: 'lg:col-span-2',
+  },
+  {
+    icon: Percent,
+    title: 'Your tax regime',
+    body: 'The single largest thing we can measure for you. Leave a field blank and we simply do not use it.',
+    stat: 'Slabs, not forecasts',
+    tone: 'text-v-rose-ink',
+    rule: 'bg-v-rose',
+    tint: 'bg-v-rose-soft',
+    span: 'lg:col-span-2',
+  },
+  {
+    icon: Table2,
+    title: 'Holdings',
+    body: 'Units, cost and XIRR per position — and a warning when a name and its scheme code disagree.',
+    stat: 'Per position',
+    tone: 'text-v-indigo-ink',
+    rule: 'bg-v-indigo',
+    tint: 'bg-v-indigo-soft',
+    span: 'lg:col-span-3',
+  },
+  {
+    icon: FlaskConical,
+    title: 'Research',
+    body: 'Fund scores worked out from public NAV history. Not a licensed rating, and never a recommendation to buy.',
+    stat: 'From public NAVs',
+    tone: 'text-v-cyan-ink',
+    rule: 'bg-v-cyan',
+    tint: 'bg-v-cyan-soft',
+    span: 'lg:col-span-3',
+  },
+]
+
+/** What actually happens, in the order it happens. */
+const STEPS = [
+  {
+    n: '01',
+    title: 'Tell us what you earn',
+    body: 'Two fields. Which tax regime costs you less is a slab calculation, not a forecast.',
+  },
+  {
+    n: '02',
+    title: 'Add what you already own',
+    body: 'A scheme code or a ticker. No broker login, and nothing is ever placed on your behalf.',
+  },
+  {
+    n: '03',
+    title: 'Read what it costs you',
+    body: 'One number a year, the fund to buy instead, and the tax the switch would trigger.',
+  },
+]
+
 const SECTIONS = [
   {
     icon: ScanSearch,
@@ -179,6 +288,11 @@ const SECTIONS = [
 ]
 
 export function Landing() {
+  // The stage, not the card: the pointer has to be tracked across the whole
+  // area the stack occupies, including the gaps between the three cards.
+  const stage = useTilt<HTMLDivElement>()
+  const value = useCountUp(152311, 1100)
+
   return (
     <div className="flex flex-col gap-20 pb-24 sm:gap-28">
       {/* ---------------------------------------------------------- hero
@@ -188,24 +302,45 @@ export function Landing() {
       <section className="relative -mt-4 grid items-center gap-12 pt-6 lg:min-h-[64dvh] lg:grid-cols-[1.05fr_1fr] lg:gap-8 lg:pt-10">
         {/* Fixed and pointer-events-none: it never repaints while scrolling. */}
         <div
-          className="field pointer-events-none absolute inset-x-0 -top-24 bottom-0 -z-10 text-foreground opacity-70"
+          className="field pointer-events-none absolute inset-x-0 -top-24 bottom-0 -z-10 text-foreground opacity-70 dark:opacity-100"
           aria-hidden
         />
+        {/* The aurora. Two blobs on separate layers drifting on different
+            periods, so the field never visibly repeats. Both are sized in vw
+            and capped in rem: at a fixed 64rem this was 1024px of decoration
+            on a 390px screen and made every page on the phone scroll
+            sideways. */}
         <div
-          // Sized in vw first, capped in rem. At a fixed 64rem this was 1024px
-          // of decoration on a 390px screen and pushed every page on the phone
-          // sideways by 317px -- a background wash that made the content scroll.
-          className="pointer-events-none absolute -top-32 left-1/2 -z-10 h-[34rem] w-[92vw] max-w-[64rem] -translate-x-1/2 opacity-[0.16] blur-3xl"
-          style={{
-            background:
-              'radial-gradient(45% 55% at 30% 40%, var(--v-cyan) 0%, transparent 70%), radial-gradient(45% 55% at 70% 30%, var(--v-indigo) 0%, transparent 70%)',
-          }}
+          className="pointer-events-none absolute -top-40 left-1/2 -z-10 h-[36rem] w-[92vw] max-w-[62rem] -translate-x-1/2 overflow-hidden"
           aria-hidden
-        />
+        >
+          <div
+            className="aurora-a absolute inset-0 opacity-[0.20] blur-3xl dark:opacity-[0.42]"
+            style={{
+              background:
+                'radial-gradient(42% 52% at 28% 42%, var(--v-cyan) 0%, transparent 70%)',
+            }}
+          />
+          <div
+            className="aurora-b absolute inset-0 opacity-[0.18] blur-3xl dark:opacity-[0.38]"
+            style={{
+              background:
+                'radial-gradient(46% 54% at 72% 34%, var(--v-indigo) 0%, transparent 70%)',
+            }}
+          />
+          <div
+            className="aurora-a absolute inset-0 opacity-[0.12] blur-3xl dark:opacity-[0.30]"
+            style={{
+              animationDirection: 'reverse',
+              background:
+                'radial-gradient(38% 46% at 55% 62%, var(--v-violet) 0%, transparent 72%)',
+            }}
+          />
+        </div>
 
         <div className="flex flex-col items-start gap-6">
           <span className="rise inline-flex items-center gap-2 rounded-full border border-v-cyan/30 bg-v-cyan-soft/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-v-cyan-ink">
-            <Sparkles className="size-3.5" aria-hidden />
+            <Sparkles className="breathe size-3.5" aria-hidden />
             Built on what is measurable
           </span>
 
@@ -259,15 +394,18 @@ export function Landing() {
 
         {/* The product, tilted. Three real surfaces from the dashboard rather
             than a stock screenshot or an invented chart. */}
-        <div className="stage-3d rise rise-3 hidden lg:block" aria-hidden>
+        <div className="stage-3d rise rise-3 hidden lg:block" ref={stage} aria-hidden>
           <div className="float-slow">
           <div className="tilt-3d relative mx-auto min-h-[23rem] w-full max-w-md">
             <div className="rounded-2xl border bg-card p-6 shadow-2xl shadow-foreground/10">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Portfolio value
               </p>
+              {/* Counts on arrival. A figure that lands reads as stored; one
+                  that counts reads as just worked out, which is what the
+                  product does. */}
               <p className="num num-display mt-2 text-5xl font-semibold leading-none">
-                &#8377;1,52,311
+                {formatInr(Math.round(value))}
               </p>
               <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-gain/12 px-2.5 py-1 text-sm font-medium text-gain">
                 <span className="num">+&#8377;66,218</span>
@@ -329,7 +467,7 @@ export function Landing() {
         {PROOF.map((p, i) => (
           <div
             key={p.figure}
-            className="lift flex flex-col gap-2 rounded-2xl border bg-card p-6"
+            className="lift edge-glow flex flex-col gap-2 rounded-2xl border bg-card p-6"
             style={{ transitionDelay: `${i * 0.06}s` }}
           >
             <p className="flex items-baseline gap-2">
@@ -340,6 +478,54 @@ export function Landing() {
           </div>
         ))}
       </InView>
+
+      {/* ------------------------------------------------ everything
+          The whole product on one screen, sized by weight rather than laid
+          out as seven identical tiles. */}
+      <section className="flex flex-col gap-6">
+        <InView className="flex flex-col gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Everything it does
+          </p>
+          <h2 className="font-heading max-w-2xl text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-4xl">
+            Eight screens. None of them guess.
+          </h2>
+        </InView>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          {FEATURES.map((f, i) => {
+            const Icon = f.icon
+            return (
+              <InView key={f.title} delay={(i % 3) * 0.06} className={f.span}>
+                <div className="lift edge-glow sheen-on-hover relative flex h-full flex-col gap-2 rounded-2xl border bg-card p-5">
+                  <div
+                    className={cn('pointer-events-none absolute inset-0 opacity-60', f.tint)}
+                    aria-hidden
+                  />
+                  <div className={cn('absolute inset-x-0 top-0 h-1', f.rule)} aria-hidden />
+                  <div className="relative flex items-center gap-2.5">
+                    <span className={cn('shrink-0', f.tone)}>
+                      <Icon className="size-[18px]" aria-hidden />
+                    </span>
+                    <h3 className="text-[15px] font-semibold leading-snug">{f.title}</h3>
+                  </div>
+                  <p className="relative text-sm leading-relaxed text-muted-foreground">
+                    {f.body}
+                  </p>
+                  <p
+                    className={cn(
+                      'relative mt-auto pt-1 text-[11px] font-semibold uppercase tracking-wider',
+                      f.tone,
+                    )}
+                  >
+                    {f.stat}
+                  </p>
+                </div>
+              </InView>
+            )
+          })}
+        </div>
+      </section>
 
       {/* ------------------------------------------------- what it does
           Alternating sides. Three equal cards in a row is the shape every
@@ -394,6 +580,29 @@ export function Landing() {
         })}
       </div>
 
+      {/* --------------------------------------------------------- steps */}
+      <section className="flex flex-col gap-6">
+        <InView className="flex flex-col gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            How it works
+          </p>
+          <h2 className="font-heading text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-4xl">
+            Two fields to the first real answer.
+          </h2>
+        </InView>
+        <div className="grid gap-3 md:grid-cols-3">
+          {STEPS.map((step, i) => (
+            <InView key={step.n} delay={i * 0.08}>
+              <div className="lift edge-glow flex h-full flex-col gap-2 rounded-2xl border bg-card p-6">
+                <span className="num text-sm font-semibold text-v-cyan-ink">{step.n}</span>
+                <h3 className="text-lg font-semibold leading-snug">{step.title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">{step.body}</p>
+              </div>
+            </InView>
+          ))}
+        </div>
+      </section>
+
       {/* --------------------------------------------------------- close */}
       <InView as="section" className="relative overflow-hidden rounded-3xl border bg-card p-10 text-center sm:p-16">
         <div
@@ -421,6 +630,35 @@ export function Landing() {
           </Link>
         </div>
       </InView>
+
+      {/* ------------------------------------------------------- footer
+          The one disclaimer that has to be on the marketing page rather than
+          behind a link: this is not advice and it cannot place an order. */}
+      <footer className="flex flex-col gap-6 border-t pt-8">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="mr-3 text-sm font-semibold tracking-tight">NexTrade</span>
+          {[
+            ['Why the numbers are trustworthy', '/why'],
+            ['Sign in', '/login'],
+          ].map(([label, to]) => (
+            <Link
+              key={to}
+              to={to}
+              // 44px tall, via padding on the anchor itself. A footer link is
+              // still a link: at the text's own 20px these were the two
+              // smallest tap targets on the site.
+              className="-mx-2 inline-flex min-h-11 items-center rounded-md px-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+        <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
+          NexTrade is not a SEBI-registered investment adviser and nothing here is
+          personalised investment advice. Fund scores are worked out from public NAV
+          history and are not a licensed rating. The app never places an order.
+        </p>
+      </footer>
     </div>
   )
 }

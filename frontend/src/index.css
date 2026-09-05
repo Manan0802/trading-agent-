@@ -340,6 +340,27 @@
   50%      { transform: translate3d(0, -14px, 0); }
 }
 
+/* The aurora. Two blobs on their own compositor layers, moving only through
+   transform and opacity -- never width, filter or background-position, each of
+   which repaints a blurred surface the size of the screen on every frame. */
+@keyframes drift-a {
+  0%, 100% { transform: translate3d(-6%, -4%, 0) scale(1); }
+  50%      { transform: translate3d(8%, 6%, 0) scale(1.18); }
+}
+@keyframes drift-b {
+  0%, 100% { transform: translate3d(7%, 5%, 0) scale(1.12); }
+  50%      { transform: translate3d(-8%, -6%, 0) scale(0.95); }
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+/* A highlight crossing a card once on hover. */
+@keyframes sweep {
+  from { transform: translateX(-120%) skewX(-12deg); }
+  to   { transform: translateX(320%) skewX(-12deg); }
+}
+
 @layer utilities {
   /* The scroll reveal. `in-view` is added by an IntersectionObserver; the
      transition runs from the offset state to none. No scroll listener and no
@@ -364,14 +385,59 @@
   /* A perspective stage. The tilt is on the child so the container can still
      be a normal grid cell. */
   .stage-3d { perspective: 1500px; perspective-origin: 55% 40%; }
+  /* The angles are custom properties so a pointer handler can set them without
+     re-rendering React. The defaults ARE the resting pose, so the stack is
+     correctly tilted before any script runs and on every device without a
+     mouse. */
   .tilt-3d {
-    transform: rotateY(-16deg) rotateX(8deg) rotateZ(1.5deg);
+    transform: rotateY(var(--ry, -16deg)) rotateX(var(--rx, 8deg)) rotateZ(1.5deg);
     transform-style: preserve-3d;
-    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   }
-  .stage-3d:hover .tilt-3d {
-    transform: rotateY(-8deg) rotateX(3deg) rotateZ(0.5deg);
+  /* While the pointer is over the stage the angles change every frame, so the
+     easing has to get out of the way or the card lags the cursor. */
+  .stage-3d[data-tracking='1'] .tilt-3d { transition: transform 0.12s linear; }
+
+  .aurora-a { animation: drift-a 19s ease-in-out infinite; }
+  .aurora-b { animation: drift-b 23s ease-in-out infinite; }
+  .breathe { animation: breathe 3.4s ease-in-out infinite; }
+
+  /* A gradient hairline that only exists on hover. Drawn as a masked border
+     rather than a wrapper div, so it costs no extra element per card. */
+  .edge-glow {
+    position: relative;
+    isolation: isolate;
   }
+  .edge-glow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(130deg, var(--v-cyan), var(--v-indigo), var(--v-violet));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+  .edge-glow:hover::after { opacity: 0.85; }
+
+  /* The sweep lives in an overflow-hidden parent and is purely decorative. */
+  .sheen-on-hover { position: relative; overflow: hidden; }
+  .sheen-on-hover::before {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inline-size: 45%;
+    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--foreground) 7%, transparent), transparent);
+    transform: translateX(-120%) skewX(-12deg);
+    pointer-events: none;
+  }
+  .sheen-on-hover:hover::before { animation: sweep 0.9s ease-out; }
   /* On its OWN element, never on the tilted one. `transform` is a single
      property: an animation that sets it replaces the rotation outright rather
      than adding to it, which flattened the whole stack to 2D and cost nothing
