@@ -199,6 +199,25 @@ for (const theme of ['dark', 'light']) {
   }
   await ctx.close()
 }
+
+// Signed out, in its own context. The landing page renders only when there is
+// no token, so adding `/` to the list above would have checked a redirect to
+// the dashboard and reported the landing page as passing without ever loading
+// it -- the same blindness the one-holding screenshot fixture had.
+for (const theme of ['dark', 'light']) {
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: theme })
+  await ctx.addInitScript((t) => localStorage.setItem('nextrade-theme', t), theme)
+  const p = await ctx.newPage()
+  await p.goto(`${APP}/`, { waitUntil: 'networkidle' })
+  await p.waitForTimeout(2500)
+  const problems = await p.evaluate(audit)
+  if (problems.length) {
+    bad++
+    console.log(`\n${theme}/landing:`)
+    ;[...new Set(problems)].slice(0, 5).forEach((x) => console.log('   ' + x))
+  }
+  await ctx.close()
+}
 await b.close()
 console.log(bad ? `\n${bad} page-theme combos with problems` : '\nevery page is usable without a mouse or sight')
 process.exit(bad ? 1 : 0)

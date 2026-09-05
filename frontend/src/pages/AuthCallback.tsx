@@ -10,7 +10,7 @@ export function AuthCallback() {
     const token = params.get('token')
     if (token) {
       setToken(token)
-      navigate('/goals/new', { replace: true })
+      navigate('/portfolio', { replace: true })
     } else {
       navigate('/login', { replace: true })
     }

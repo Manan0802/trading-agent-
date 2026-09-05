@@ -152,6 +152,18 @@ for (const theme of ['light', 'dark']) {
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
     page.on('pageerror', (e) => errors.push(String(e)))
     await page.goto(`${APP}${path}`, { waitUntil: 'networkidle' })
+    // Scroll the whole page and come back. Anything revealed by an
+    // IntersectionObserver has never intersected in a fresh tab, so a
+    // fullPage screenshot of it is a picture of empty bands -- the capture
+    // reaches past the viewport, the observer does not.
+    await page.evaluate(async () => {
+      const step = window.innerHeight * 0.8
+      for (let y = 0; y < document.body.scrollHeight; y += step) {
+        window.scrollTo(0, y)
+        await new Promise((r) => setTimeout(r, 60))
+      }
+      window.scrollTo(0, 0)
+    })
     // Three seconds, not one: most of these pages read a rate-limited "heavy"
     // endpoint, the limit is 20 a minute per user, and one account shoots every
     // page in both themes. At 1.2s the run fitted two dozen heavy calls into
@@ -166,5 +178,40 @@ for (const theme of ['light', 'dark']) {
   await context.close()
 }
 
+// Signed out, in its own context. `/` renders the landing page only when
+// there is no token, so shooting it in the authenticated pass above would
+// silently capture a redirect to the dashboard.
+for (const theme of ['light', 'dark']) {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    deviceScaleFactor: 2,
+    colorScheme: theme,
+  })
+  await context.addInitScript((t) => localStorage.setItem('nextrade-theme', t), theme)
+  const page = await context.newPage()
+  const errors = []
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  page.on('pageerror', (e) => errors.push(String(e)))
+  await page.goto(`${APP}/`, { waitUntil: 'networkidle' })
+  await page.evaluate(async () => {
+    const step = window.innerHeight * 0.8
+    for (let y = 0; y < document.body.scrollHeight; y += step) {
+      window.scrollTo(0, y)
+      await new Promise((r) => setTimeout(r, 60))
+    }
+    window.scrollTo(0, 0)
+  })
+  await page.waitForTimeout(1200)
+  await page.screenshot({ path: `${OUT}/landing-${theme}.png`, fullPage: true })
+  // And the hero at viewport size. Chromium's stitched fullPage capture drops
+  // the `preserve-3d` card stack -- it is on the page, correctly transformed
+  // and fully opaque (checked via getBoundingClientRect and getComputedStyle),
+  // but composites out of the expanded capture. Without this second shot the
+  // harness produces a picture of an empty hero and looks like a bug report.
+  await page.screenshot({ path: `${OUT}/landing-hero-${theme}.png` })
+  if (errors.length) console.log(`! landing-${theme}:`, errors.slice(0, 3).join(' | '))
+  await context.close()
+}
+
 await browser.close()
-console.log(`wrote ${PAGES.length * 2} screenshots to ${OUT}/`)
+console.log(`wrote ${PAGES.length * 2 + 4} screenshots to ${OUT}/`)

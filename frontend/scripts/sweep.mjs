@@ -42,5 +42,18 @@ for (const theme of ['dark','light']) {
   }
   await ctx.close()
 }
+// Signed out. `/` renders the landing page only without a token; in the loop
+// above it would have been a redirect to the dashboard, checked twice.
+for (const theme of ['dark','light']) {
+  const ctx=await b.newContext({viewport:{width:1440,height:1000},colorScheme:theme})
+  await ctx.addInitScript(t=>localStorage.setItem('nextrade-theme',t),theme)
+  const p=await ctx.newPage(); const errs=[]
+  p.on('pageerror',e=>errs.push('PAGEERROR '+String(e).slice(0,120)))
+  p.on('console',m=>m.type()==='error'&&errs.push('CONSOLE '+m.text().slice(0,120)))
+  p.on('response',r=>{ if(r.url().includes('/api/') && r.status()>=400 && r.status()!==401) errs.push(`HTTP ${r.status()} ${r.url().split('/api/v1')[1]?.slice(0,60)}`) })
+  await p.goto(`${APP}/`,{waitUntil:'networkidle'}); await p.waitForTimeout(4000)
+  if(errs.length){ bad++; console.log(`\n${theme}/landing:`); errs.slice(0,4).forEach(e=>console.log('   '+e)) }
+  await ctx.close()
+}
 await b.close()
 console.log(bad? `\n${bad} page-theme combos with errors` : '\nall pages clean in both themes')

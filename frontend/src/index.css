@@ -325,3 +325,66 @@
     transform: translateY(-1px);
   }
 }
+
+/* ------------------------------------------------------- landing surface
+   Only the marketing page uses these. The dashboard's rule -- entrances
+   only, nothing that keeps moving -- is right for a screen you read every
+   day and wrong for the one screen whose job is to be looked at once.
+
+   Everything here still switches off under the reduced-motion block above,
+   and every element is VISIBLE by default: the reveal removes an offset, it
+   does not create the content. A page that needs JavaScript to become
+   readable is a page that is blank when JavaScript is slow. */
+@keyframes float-slow {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(0, -14px, 0); }
+}
+
+@layer utilities {
+  /* The scroll reveal. `in-view` is added by an IntersectionObserver; the
+     transition runs from the offset state to none. No scroll listener and no
+     per-frame React state -- both are jank by construction. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(22px);
+    transition:
+      opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+  }
+  .reveal.in-view {
+    opacity: 1;
+    transform: none;
+  }
+  /* No observer, no JavaScript, or reduced motion: show it. */
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; }
+  }
+
+  /* A perspective stage. The tilt is on the child so the container can still
+     be a normal grid cell. */
+  .stage-3d { perspective: 1500px; perspective-origin: 55% 40%; }
+  .tilt-3d {
+    transform: rotateY(-16deg) rotateX(8deg) rotateZ(1.5deg);
+    transform-style: preserve-3d;
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .stage-3d:hover .tilt-3d {
+    transform: rotateY(-8deg) rotateX(3deg) rotateZ(0.5deg);
+  }
+  /* On its OWN element, never on the tilted one. `transform` is a single
+     property: an animation that sets it replaces the rotation outright rather
+     than adding to it, which flattened the whole stack to 2D and cost nothing
+     but the entire effect. Wrapper floats, child tilts. */
+  .float-slow { animation: float-slow 7s ease-in-out infinite; }
+
+  /* A faint ruled field behind the hero. Fixed and pointer-events-none, so it
+     never repaints on scroll. */
+  .field {
+    background-image:
+      linear-gradient(to right, color-mix(in oklch, currentColor 7%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklch, currentColor 7%, transparent) 1px, transparent 1px);
+    background-size: 68px 68px;
+    mask-image: radial-gradient(70% 60% at 50% 0%, #000 0%, transparent 78%);
+  }
+}

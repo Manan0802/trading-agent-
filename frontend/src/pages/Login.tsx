@@ -30,7 +30,12 @@ export function Login() {
     body.set('password', loginPassword)
     const { data } = await api.post('/api/v1/auth/jwt/login', body)
     setToken(data.access_token)
-    navigate('/goals/new', { replace: true })
+    // The dashboard, not a form. Signing in used to land on `/goals/new`,
+    // which asks a brand-new user to name a target amount and a date before
+    // anything has shown them what the product does. An empty `/portfolio`
+    // already renders `StartHere` -- the same onboarding, in the order the
+    // steps are actually worth money, with setting a goal as one of them.
+    navigate('/portfolio', { replace: true })
   }
 
   async function handleSubmit(e: React.FormEvent) {

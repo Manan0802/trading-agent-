@@ -107,6 +107,56 @@ for (const [deviceName, descriptor] of [['iPhone 13', devices['iPhone 13']], ['P
   }
   await ctx.close()
 }
+
+// Signed out. `/` is the landing page only without a token, so listing it
+// above would have measured a redirect to the dashboard and called the landing
+// page checked without ever loading it.
+for (const [deviceName, descriptor] of [['iPhone 13', devices['iPhone 13']], ['Pixel 7', devices['Pixel 7']]]) {
+  const ctx = await b.newContext({ ...descriptor, colorScheme: 'dark' })
+  await ctx.addInitScript(() => localStorage.setItem('nextrade-theme', 'dark'))
+  const p = await ctx.newPage()
+  await p.goto(`${APP}/`, { waitUntil: 'networkidle' })
+  await p.waitForTimeout(2500)
+  const problems = []
+  const overflow = await p.evaluate(() => {
+    const doc = document.documentElement
+    const spill = doc.scrollWidth - doc.clientWidth
+    if (spill <= 1) return null
+    const contained = (el) => {
+      for (let n = el.parentElement; n; n = n.parentElement) {
+        const ox = getComputedStyle(n).overflowX
+        if (ox === 'auto' || ox === 'scroll') return true
+      }
+      return false
+    }
+    const worst = [...document.querySelectorAll('body *')]
+      .map((el) => ({ el, r: el.getBoundingClientRect() }))
+      .filter(({ el, r }) => r.right > doc.clientWidth + 1 && r.width > 0 && !contained(el))
+      .sort((a, b) => b.r.right - a.r.right)[0]
+    return {
+      spill,
+      culprit: worst
+        ? `${worst.el.tagName.toLowerCase()}.${String(worst.el.className).split(' ').slice(0, 3).join('.')} → ${Math.round(worst.r.right)}px`
+        : 'unknown',
+    }
+  })
+  if (overflow) problems.push(`OVERFLOW ${overflow.spill}px past the viewport — ${overflow.culprit}`)
+  const small = await p.evaluate(() =>
+    [...document.querySelectorAll('button, a[href], select, input')]
+      .map((el) => ({ t: el.tagName.toLowerCase(), r: el.getBoundingClientRect(), x: (el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 24) }))
+      .filter(({ r }) => r.width > 2 && r.height > 2 && (r.height < 32 || r.width < 32))
+      .map(({ t, r, x }) => `${t}"${x}" ${Math.round(r.width)}x${Math.round(r.height)}`)
+      .slice(0, 4),
+  )
+  if (small.length) problems.push(`SMALL TAP TARGETS ${small.join(', ')}`)
+  if (problems.length) {
+    bad++
+    console.log(`\n${deviceName}/landing:`)
+    problems.slice(0, 4).forEach((x) => console.log('   ' + x))
+  }
+  await ctx.close()
+}
+
 await b.close()
 console.log(bad ? `\n${bad} page-device combos with problems` : '\nevery page fits a phone')
 process.exit(bad ? 1 : 0)

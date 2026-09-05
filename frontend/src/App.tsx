@@ -1,9 +1,9 @@
 import { Suspense, lazy } from 'react'
-import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Login } from '@/pages/Login'
 import { AuthCallback } from '@/pages/AuthCallback'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CommandPalette } from '@/components/CommandPalette'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 // before the first paint — including somebody on a phone who has not added a
 // holding yet and will see no chart at all. Login stays eager: it is the first
 // thing an unauthenticated visitor needs and there is nothing to defer.
+const Landing = lazy(() => import('@/pages/Landing').then((m) => ({ default: m.Landing })))
 const Portfolio = lazy(() => import('@/pages/Portfolio').then((m) => ({ default: m.Portfolio })))
 const Holdings = lazy(() => import('@/pages/Holdings').then((m) => ({ default: m.Holdings })))
 const Research = lazy(() => import('@/pages/Research').then((m) => ({ default: m.Research })))
@@ -161,6 +162,12 @@ function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="hidden shrink-0 items-center gap-1 sm:flex">
             <ThemeToggle />
+            {/* Signed out, this is the only action on the page's chrome. */}
+            {!signedIn && (
+              <Link to="/login" className={buttonVariants({ size: 'sm', className: 'ml-1' })}>
+                Sign in
+              </Link>
+            )}
             {signedIn && (
               <Button
                 variant="ghost"
@@ -201,7 +208,14 @@ export default function App() {
         <Layout>
           <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<Navigate to="/portfolio" replace />} />
+            {/* Signed out, `/` is the landing page. It used to redirect
+                to `/portfolio`, which bounced a visitor who had never heard
+                of this to a login form -- the product's first statement about
+                itself was a password field. */}
+            <Route
+              path="/"
+              element={isAuthenticated() ? <Navigate to="/portfolio" replace /> : <Landing />}
+            />
             <Route path="/login" element={<Login />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route
