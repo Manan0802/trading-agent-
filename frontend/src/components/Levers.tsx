@@ -1,16 +1,24 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Panel } from '@/components/ui/panel'
+import { ChevronDown, Check, Sparkles } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatInr } from '@/lib/format'
 import { fetchLevers } from '@/lib/portfolio-api'
+import { cn } from '@/lib/utils'
 
 /**
- * The decisions that are actually worth money, in rupees, biggest first.
+ * The one decision worth money, made unmissable — and the three that are worth
+ * nothing, kept but folded away.
  *
- * Fund selection sits on this list at zero rather than being left off it. We
- * measured it over sixty three-year windows and it does not work, and the zero
- * is the most useful thing on the page: it is where nearly everyone spends
- * their attention.
+ * The old version printed all four at the same size with two paragraphs each:
+ * roughly 300 words, three of them saying "this is worth ₹0". Every word was
+ * true and nobody read any of it, so the one action that IS worth something sat
+ * in the middle of a wall of grey text.
+ *
+ * The zeros are not deleted. Fund selection scoring nothing is the most useful
+ * finding this app has — it is where nearly everyone spends their attention —
+ * and hiding it would make the app look like every other one. It is collapsed
+ * instead: a row you can open, with the number visible while it is shut.
  */
 export function Levers({
   className = '',
@@ -28,65 +36,131 @@ export function Levers({
     queryFn: () =>
       fetchLevers({ years_remaining: yearsRemaining, monthly_sip: monthlySip }),
   })
+  const [open, setOpen] = useState<string | null>(null)
 
-  if (isLoading) return <Skeleton className="h-40 w-full" />
+  if (isLoading) return <Skeleton className={cn('h-56 w-full rounded-xl', className)} />
   if (!data || data.levers.length === 0) return null
 
-  const worthDoing = data.levers.filter((l) => l.lifetime_value > 0)
-  const total = worthDoing.reduce((sum, l) => sum + l.lifetime_value, 0)
+  const worth = data.levers.filter((l) => l.lifetime_value > 0)
+  const nothing = data.levers.filter((l) => l.lifetime_value === 0)
+  const lead = worth[0]
 
   return (
-    <Panel className={className}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <h2 className="text-sm font-medium">Do these</h2>
-        <p className="text-xs text-muted-foreground">
-          Over the next <span className="tnum">{data.years_remaining}</span> years
-        </p>
-      </div>
+    <section className={cn('flex flex-col gap-3', className)}>
+      {lead && (
+        <article className="lift relative overflow-hidden rounded-2xl border border-v-emerald/25 bg-card p-5 sm:p-7">
+          {/* The one card on this page allowed a gradient. It is the only thing
+              here that is an instruction rather than a reading. */}
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.13]"
+            style={{
+              background:
+                'linear-gradient(115deg, var(--v-emerald) 0%, var(--v-cyan) 55%, var(--v-violet) 100%)',
+            }}
+            aria-hidden
+          />
+          <div className="relative flex flex-col gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-v-emerald/15 text-v-emerald">
+                  <Sparkles className="size-4" aria-hidden />
+                </span>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-v-emerald-ink">
+                  Do this one thing
+                </p>
+              </div>
+              <div className="text-right">
+                {/* Per YEAR leads. The lifetime figure is ~37x bigger and reads
+                    as money you are losing right now, which it is not. */}
+                <p className="num text-3xl font-semibold leading-none text-gain sm:text-4xl">
+                  {formatInr(lead.annual_value || lead.lifetime_value)}
+                  {lead.annual_value > 0 && (
+                    <span className="text-base font-normal text-muted-foreground">/yr</span>
+                  )}
+                </p>
+                {lead.annual_value > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    <span className="num">{formatInr(lead.lifetime_value)}</span> over{' '}
+                    <span className="num">{data.years_remaining}</span> years
+                  </p>
+                )}
+              </div>
+            </div>
 
-      {/* The headline is the sum, because the individual figures do not add up
-          in a reader's head and the question is always "is this worth my
-          afternoon". A list of four numbers does not answer that. */}
-      {worthDoing.length > 0 && (
-        <p className="max-w-3xl text-sm">
-          Doing {worthDoing.length === 1 ? 'this' : `these ${worthDoing.length}`}{' '}
-          {worthDoing.length === 1 ? 'one thing' : 'things'} is worth about{' '}
-          <span className="num font-medium text-gain">{formatInr(total)}</span>{' '}
-          to you. Everything below the line has been measured and is worth
-          nothing &mdash; that is not a gap in the app, it is the finding.
-        </p>
+            <h2 className="max-w-2xl text-xl font-semibold leading-snug sm:text-2xl">
+              {lead.title}
+            </h2>
+            {/* The instruction only. The reasoning behind it lives on Why. */}
+            <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
+              {lead.action}
+            </p>
+          </div>
+        </article>
       )}
 
-      <ul className="flex flex-col divide-y border-y">
-        {data.levers.map((lever) => {
-          const worthless = lever.lifetime_value === 0
-          return (
-            <li key={lever.key} className="flex flex-col gap-1.5 py-4">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-                <span className={worthless ? 'text-muted-foreground' : 'font-medium'}>
-                  {lever.title}
-                </span>
-                <span className="flex items-baseline gap-3">
-                  <span
-                    className={`num text-lg ${
-                      worthless ? 'text-muted-foreground' : 'font-medium text-gain'
-                    }`}
-                  >
-                    {formatInr(lever.lifetime_value)}
-                  </span>
+      {worth.length > 1 && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {worth.slice(1).map((lever) => (
+            <article key={lever.key} className="lift rounded-xl border bg-card p-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="text-sm font-medium">{lever.title}</h3>
+                <span className="num shrink-0 font-semibold text-gain">
+                  {formatInr(lever.annual_value || lever.lifetime_value)}
                   {lever.annual_value > 0 && (
-                    <span className="num text-xs text-muted-foreground">
-                      {formatInr(lever.annual_value)}/yr
-                    </span>
+                    <span className="text-xs font-normal text-muted-foreground">/yr</span>
                   )}
                 </span>
               </div>
-              <p className="max-w-3xl text-sm text-muted-foreground">{lever.detail}</p>
-              <p className="max-w-3xl text-sm">{lever.action}</p>
-            </li>
-          )
-        })}
-      </ul>
-    </Panel>
+              <p className="mt-1.5 text-sm leading-snug text-muted-foreground">{lever.action}</p>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {nothing.length > 0 && (
+        <div className="rounded-xl border bg-card/60">
+          <p className="border-b px-4 py-2.5 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {nothing.length} things worth nothing
+            </span>{' '}
+            &mdash; measured, not skipped. Tap to see why.
+          </p>
+          <ul>
+            {nothing.map((lever) => {
+              const isOpen = open === lever.key
+              return (
+                <li key={lever.key} className="border-b last:border-0">
+                  <button
+                    type="button"
+                    onClick={() => setOpen(isOpen ? null : lever.key)}
+                    aria-expanded={isOpen}
+                    className="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/50"
+                  >
+                    <Check className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="flex-1 text-sm text-muted-foreground">{lever.title}</span>
+                    <span className="num text-sm text-muted-foreground">₹0</span>
+                    <ChevronDown
+                      aria-hidden
+                      className={cn(
+                        'size-4 shrink-0 text-muted-foreground transition-transform',
+                        isOpen && 'rotate-180',
+                      )}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="flex flex-col gap-2 px-4 pb-4 pl-10">
+                      <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                        {lever.detail}
+                      </p>
+                      <p className="max-w-2xl text-sm leading-relaxed">{lever.action}</p>
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </section>
   )
 }

@@ -78,15 +78,25 @@ function Layout({ children }: { children: React.ReactNode }) {
           single row, which pushed 555px of header through a 390px screen and
           made every page in the app scroll sideways. */}
       <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-        <div className="mx-auto flex max-w-[100rem] flex-col px-4 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
-          <div className="flex h-14 items-center justify-between gap-4 sm:h-auto sm:justify-start sm:gap-8">
+        {/* Three zones, not two. The old header put the brand and the controls
+            hard left and every destination hard right, so eight tabs crowded
+            into the last third of a 1440px screen while half the bar sat empty.
+            The nav now takes the middle and spreads across it; the controls sit
+            where a product's controls sit, which is the far right. */}
+        <div className="mx-auto flex max-w-[100rem] flex-col gap-1 px-4 py-2 sm:h-16 sm:flex-row sm:items-center sm:gap-6 sm:py-0 sm:px-6">
+          <div className="flex h-11 shrink-0 items-center justify-between gap-4 sm:h-auto">
             <NavLink
               to={signedIn ? '/portfolio' : '/login'}
-              className="py-2 text-sm font-semibold tracking-tight"
+              // 44px of height even though the word is 23px tall. It is a link
+              // home, and the phone harness measures the anchor's own box —
+              // rewriting this header dropped the padding it used to have and
+              // every page went red on the same target.
+              className="flex min-h-11 items-center text-[15px] font-semibold tracking-tight"
             >
               NexTrade
             </NavLink>
-            <div className="flex items-center gap-1">
+            {/* Only on a phone, where the right-hand zone has nowhere to go. */}
+            <div className="flex items-center gap-1 sm:hidden">
               <ThemeToggle />
               {signedIn && (
                 <Button
@@ -102,34 +112,68 @@ function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
           </div>
+
           {signedIn && (
-            // Scrolls rather than wraps: a nav that reflows to two lines moves
-            // the page content down by a row on exactly the screens with the
-            // least of it.
-            <nav className="-mx-4 flex items-center gap-1 overflow-x-auto px-4 pb-2 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
-              {NAV.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    cn(
-                      // min-h-11 is 44px, the smallest target a thumb hits
-                      // reliably. Without it the links measured 16px tall on a
-                      // phone once the nav gained a seventh item and started
-                      // scrolling — a link you cannot tap is not navigation.
-                      'flex shrink-0 items-center rounded-md px-2.5 py-2 text-sm',
-                      'min-h-11 transition-colors',
-                      isActive
-                        ? 'bg-secondary font-medium text-foreground'
-                        : 'text-muted-foreground hover:text-foreground',
-                    )
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              ))}
+            // Scrolls rather than wraps: a nav that reflows to two lines pushes
+            // the page down by a row on exactly the screens with the least of
+            // it.
+            <nav className="-mx-4 min-w-0 flex-1 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
+              <div className="flex items-center gap-1 sm:justify-center lg:gap-2">
+                {NAV.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === '/portfolio'}
+                    className={({ isActive }) =>
+                      cn(
+                        // min-h-11 is 44px, the smallest target a thumb hits
+                        // reliably. Without it the links measured 16px tall on
+                        // a phone once the nav gained an item and began to
+                        // scroll — a link you cannot tap is not navigation.
+                        'relative flex min-h-11 shrink-0 items-center rounded-lg px-3 text-sm lg:px-4',
+                        'transition-colors duration-200',
+                        isActive
+                          ? 'font-semibold text-foreground'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {item.label}
+                        {/* An underline rather than a filled pill. Eight pills
+                            in a row is eight boxes; one rule under the live tab
+                            says the same thing and leaves the words as words. */}
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'absolute inset-x-2.5 -bottom-px h-0.5 rounded-full transition-opacity lg:inset-x-3.5',
+                            isActive ? 'bg-primary opacity-100' : 'opacity-0',
+                          )}
+                        />
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
             </nav>
           )}
+
+          <div className="hidden shrink-0 items-center gap-1 sm:flex">
+            <ThemeToggle />
+            {signedIn && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  clearToken()
+                  window.location.href = '/login'
+                }}
+              >
+                Sign out
+              </Button>
+            )}
+          </div>
         </div>
       </header>
       {/* Wider than a reading column: a dashboard's job is to put several

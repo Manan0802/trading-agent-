@@ -41,6 +41,24 @@
     --color-chart-3: var(--chart-3);
     --color-chart-2: var(--chart-2);
     --color-chart-1: var(--chart-1);
+    --color-v-violet: var(--v-violet);
+    --color-v-violet-soft: var(--v-violet-soft);
+    --color-v-cyan: var(--v-cyan);
+    --color-v-cyan-soft: var(--v-cyan-soft);
+    --color-v-amber: var(--v-amber);
+    --color-v-amber-soft: var(--v-amber-soft);
+    --color-v-emerald: var(--v-emerald);
+    --color-v-emerald-soft: var(--v-emerald-soft);
+    --color-v-rose: var(--v-rose);
+    --color-v-rose-soft: var(--v-rose-soft);
+    --color-v-indigo: var(--v-indigo);
+    --color-v-indigo-soft: var(--v-indigo-soft);
+    --color-v-emerald-ink: var(--v-emerald-ink);
+    --color-v-violet-ink: var(--v-violet-ink);
+    --color-v-cyan-ink: var(--v-cyan-ink);
+    --color-v-amber-ink: var(--v-amber-ink);
+    --color-v-rose-ink: var(--v-rose-ink);
+    --color-v-indigo-ink: var(--v-indigo-ink);
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -117,6 +135,39 @@
     --sidebar-accent-foreground: oklch(0.34 0.075 252);
     --sidebar-border: oklch(0.905 0.005 265);
     --sidebar-ring: oklch(0.50 0.115 252);
+
+    /* ---------------------------------------------------------------- vivid
+       A bright accent family for the dashboard's cards and actions.
+       Deliberately NOT used for data marks: green and red still mean gain and
+       loss and nothing else, and the sequential --chart-* ramp still owns any
+       chart showing parts of one whole. These are for SURFACES — the tint
+       behind a stat, the ring on an action, the glow on a hero — where a
+       reader is meant to tell four things apart at a glance rather than read
+       a magnitude out of a hue. */
+    --v-violet: oklch(0.58 0.208 295);
+    --v-violet-soft: oklch(0.955 0.035 295);
+    --v-cyan: oklch(0.62 0.132 220);
+    --v-cyan-soft: oklch(0.955 0.032 220);
+    --v-amber: oklch(0.68 0.165 62);
+    --v-amber-soft: oklch(0.962 0.048 75);
+    --v-emerald: oklch(0.58 0.145 158);
+    --v-emerald-soft: oklch(0.955 0.042 158);
+    --v-rose: oklch(0.60 0.205 12);
+    --v-rose-soft: oklch(0.958 0.035 12);
+    --v-indigo: oklch(0.52 0.185 272);
+    --v-indigo-soft: oklch(0.955 0.038 272);
+
+    /* Darker still, for TEXT sitting on a `-soft` tint. The mid tones above are
+       sized for a 3px rule and a 16px icon, where 3:1 is the bar; an 11px label
+       needs 4.5:1 and `--v-emerald` measured 3.95:1 against its own tint. Two
+       tokens rather than one because a colour that passes as a mark and a
+       colour that passes as small text are different colours. */
+    --v-emerald-ink: oklch(0.455 0.115 158);
+    --v-violet-ink: oklch(0.455 0.170 295);
+    --v-cyan-ink: oklch(0.455 0.098 220);
+    --v-amber-ink: oklch(0.495 0.125 62);
+    --v-rose-ink: oklch(0.475 0.165 12);
+    --v-indigo-ink: oklch(0.435 0.155 272);
 }
 
 .dark {
@@ -143,6 +194,30 @@
     /* Lifted and slightly desaturated against the dark ground: the light-mode
        green and red go muddy below 40% lightness on a dark background. */
     --gain: oklch(0.735 0.145 157);
+
+    /* Lifted for a dark ground, and the soft pair becomes a tint rather than a
+       wash: a light-mode 0.955 lightness is a white block here. */
+    --v-violet: oklch(0.72 0.175 295);
+    --v-violet-soft: oklch(0.30 0.055 295);
+    --v-cyan: oklch(0.74 0.115 220);
+    --v-cyan-soft: oklch(0.29 0.042 220);
+    --v-amber: oklch(0.80 0.140 72);
+    --v-amber-soft: oklch(0.31 0.048 72);
+    --v-emerald: oklch(0.74 0.135 158);
+    --v-emerald-soft: oklch(0.29 0.048 158);
+    --v-rose: oklch(0.72 0.170 15);
+    --v-rose-soft: oklch(0.30 0.052 15);
+    --v-indigo: oklch(0.70 0.155 272);
+    --v-indigo-soft: oklch(0.30 0.055 272);
+
+    /* On a dark ground the ink has to go the other way: lighter than the mark,
+       not darker. */
+    --v-emerald-ink: oklch(0.815 0.125 158);
+    --v-violet-ink: oklch(0.805 0.145 295);
+    --v-cyan-ink: oklch(0.825 0.100 220);
+    --v-amber-ink: oklch(0.865 0.120 72);
+    --v-rose-ink: oklch(0.805 0.145 15);
+    --v-indigo-ink: oklch(0.795 0.130 272);
     --loss: oklch(0.695 0.172 25);
 
     --border: oklch(1 0 0 / 11%);
@@ -211,5 +286,42 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------- motion
+   Entrances only, and short. A dashboard animates to say "this is new and it
+   arrived in an order"; anything that keeps moving after that is competing
+   with the numbers. All of it is switched off by the reduced-motion block
+   above, which is why the keyframes live after it rather than before. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes sheen {
+  from { background-position: 0% 50%; }
+  to   { background-position: 100% 50%; }
+}
+
+@layer utilities {
+  .rise {
+    animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  /* Staggered, so the eye is led down the page once instead of everything
+     appearing at the same instant. */
+  .rise-1 { animation-delay: 0.04s; }
+  .rise-2 { animation-delay: 0.10s; }
+  .rise-3 { animation-delay: 0.16s; }
+  .rise-4 { animation-delay: 0.22s; }
+  .rise-5 { animation-delay: 0.30s; }
+
+  /* A card that lifts under the cursor. 1px, not 4: this is a dashboard, and a
+     panel that leaps reads as a button. */
+  .lift {
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  .lift:hover {
+    transform: translateY(-1px);
   }
 }

@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { AlertTriangle } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
+  Layers,
+  Target,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react'
 import { AddHoldingDialog } from '@/components/AddHoldingDialog'
 import { Announcements } from '@/components/Announcements'
 import { CostReview } from '@/components/CostReview'
@@ -8,9 +15,11 @@ import { FundOverlap } from '@/components/FundOverlap'
 import { Levers } from '@/components/Levers'
 import { PortfolioChart } from '@/components/PortfolioChart'
 import { StartHere } from '@/components/StartHere'
-import { Metric, MetricRow } from '@/components/ui/metric'
 import { Panel } from '@/components/ui/panel'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Sparkline } from '@/components/charts'
+import { Stat } from '@/components/ui/stat'
+import { useCountUp } from '@/lib/count-up'
 import {
   formatInr,
   formatInrSigned,
@@ -40,20 +49,31 @@ function BenchmarkVerdict() {
 
   const gap = data.outperformance ?? 0
   const ahead = gap >= 0
+  const Arrow = ahead ? ArrowUpRight : ArrowDownRight
 
   return (
-    <div className="flex flex-col gap-1 border-l-2 border-primary py-1 pl-3">
-      <p className="text-sm">
-        Your funds are{' '}
-        <span className={`tnum font-medium ${gainClass(gap)}`}>
-          {Math.abs(gap * 100).toFixed(1)}pp {ahead ? 'ahead of' : 'behind'}
+    <div
+      className={`lift flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border p-4 sm:px-5 ${
+        ahead ? 'border-gain/25 bg-gain/[0.06]' : 'border-loss/25 bg-loss/[0.06]'
+      }`}
+    >
+      <span
+        className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
+          ahead ? 'bg-gain/15 text-gain' : 'bg-loss/15 text-loss'
+        }`}
+      >
+        <Arrow className="size-5" aria-hidden />
+      </span>
+      <p className="flex-1 text-[15px]">
+        <span className={`num text-lg font-semibold ${gainClass(gap)}`}>
+          {Math.abs(gap * 100).toFixed(1)}pp
         </span>{' '}
-        the Nifty 50 on the same money and the same dates.
+        {ahead ? 'ahead of' : 'behind'} the Nifty 50, on the same money and the same
+        dates.
       </p>
       <p className="tnum text-xs text-muted-foreground">
-        {formatInr(data.portfolio_value)} against {formatInr(data.benchmark_value)} in
-        the index &middot; XIRR {formatPercent(data.portfolio_xirr)} against{' '}
-        {formatPercent(data.benchmark_xirr)}
+        {formatInr(data.portfolio_value)} vs {formatInr(data.benchmark_value)} &middot;
+        XIRR {formatPercent(data.portfolio_xirr)} vs {formatPercent(data.benchmark_xirr)}
       </p>
     </div>
   )
@@ -61,11 +81,15 @@ function BenchmarkVerdict() {
 
 function LoadingState() {
   return (
-    <div className="flex flex-col gap-8">
-      <Skeleton className="h-20 w-72" />
-      <Skeleton className="h-28 w-full" />
-      <Skeleton className="h-72 w-full" />
-      <Skeleton className="h-40 w-full" />
+    <div className="flex flex-col gap-6">
+      <Skeleton className="h-28 w-full rounded-2xl" />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-28 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-56 w-full rounded-2xl" />
+      <Skeleton className="h-72 w-full rounded-2xl" />
     </div>
   )
 }
@@ -121,107 +145,166 @@ export function Portfolio() {
     )
   }
 
+  const up = (data.total_unrealised_gain ?? 0) >= 0
+
   return (
-    /*
-     * Dashboard order is by how often it is read, not by how the app is built.
-     * What you own and how it is doing come first; the analyses that change
-     * slowly sit below. The chart and the holdings share a row on wide screens
-     * because they answer the same question — how is this going — and reading
-     * one usually means glancing at the other.
-     */
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-start justify-between gap-6">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Portfolio value
-          </h1>
-          <p className="num num-display text-4xl font-semibold leading-none sm:text-5xl">
-            {formatInr(data.total_current_value)}
-          </p>
-          <p className={`tnum text-sm ${gainClass(data.total_unrealised_gain)}`}>
-            {formatInrSigned(data.total_unrealised_gain)} (
-            {formatPercent(data.absolute_return)}) unrealised
-          </p>
+      {/* THE HERO. One number, at a size nothing else on the page competes
+          with, on a tinted slab so it reads as the page's subject rather than
+          the first row of a list. */}
+      <header className="rise relative overflow-hidden rounded-2xl border bg-card p-6 sm:p-8">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.10]"
+          style={{
+            background:
+              'radial-gradient(120% 140% at 0% 0%, var(--v-indigo) 0%, transparent 55%), radial-gradient(100% 120% at 100% 0%, var(--v-cyan) 0%, transparent 50%)',
+          }}
+          aria-hidden
+        />
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
+          <div className="flex flex-col gap-2">
+            {/* An h1, not a styled <p>. The page had no first-level heading at
+                all after the redesign, so a screen reader opened on an h2 and
+                the accessibility walk said so — the label looks like a caption
+                and is the page's title. */}
+            <h1 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Portfolio value
+            </h1>
+            <HeroValue amount={data.total_current_value} />
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-medium ${
+                  up ? 'bg-gain/12 text-gain' : 'bg-loss/12 text-loss'
+                }`}
+              >
+                {up ? (
+                  <ArrowUpRight className="size-3.5" aria-hidden />
+                ) : (
+                  <ArrowDownRight className="size-3.5" aria-hidden />
+                )}
+                <span className="num">{formatInrSigned(data.total_unrealised_gain)}</span>
+                <span className="num opacity-75">
+                  ({formatPercent(data.absolute_return)})
+                </span>
+              </span>
+              <span className="text-sm text-muted-foreground">unrealised</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-4">
+            <AddHoldingDialog />
+            {/* The shape of the number above it. No axes and no tooltip — a
+                sparkline that needs a label is a chart, and there is a full one
+                further down the page. */}
+            {history && history.points.length > 1 && (
+              <Sparkline
+                values={history.points.map((h) => h.portfolio_value)}
+                width={180}
+                height={44}
+                label="How your portfolio value has moved"
+              />
+            )}
+          </div>
         </div>
-        <AddHoldingDialog />
       </header>
 
-      <Panel>
-        <MetricRow>
-          <Metric label="Invested" value={formatInr(data.total_invested)} size="sm" />
-          <Metric
-            label="XIRR"
-            value={formatPercent(data.xirr)}
-            valueClassName={gainClass(data.xirr)}
-            hint="Annualised and money-weighted, so it accounts for when you invested."
-            size="sm"
-          />
-          <Metric
-            label="Realised gain"
-            value={formatInrSigned(data.total_realised_gain)}
-            valueClassName={gainClass(data.total_realised_gain)}
-            hint="Already booked by selling."
-            size="sm"
-          />
-          <Metric label="Holdings" value={String(data.holdings.length)} size="sm" />
-        </MetricRow>
-      </Panel>
+      {/* Four cards, four colours. The row of hairline-separated figures this
+          replaces was correct and unreadable: same size, same weight, same
+          colour, so the eye had nowhere to land and read all four or none. */}
+      <div className="rise rise-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat
+          label="Invested"
+          tone="indigo"
+          icon={<Wallet className="size-4" aria-hidden />}
+          value={formatInr(data.total_invested)}
+        />
+        <Stat
+          label="XIRR"
+          tone="violet"
+          icon={<TrendingUp className="size-4" aria-hidden />}
+          value={formatPercent(data.xirr)}
+          valueClassName={gainClass(data.xirr)}
+          hint="Money-weighted, so when you invested counts."
+        />
+        <Stat
+          label="Realised gain"
+          tone="amber"
+          icon={<Target className="size-4" aria-hidden />}
+          value={formatInrSigned(data.total_realised_gain)}
+          valueClassName={gainClass(data.total_realised_gain)}
+          hint="Already booked by selling."
+        />
+        <Stat
+          label="Holdings"
+          tone="cyan"
+          icon={<Layers className="size-4" aria-hidden />}
+          value={String(data.holdings.length)}
+          hint={data.holdings.length === 1 ? '1 position' : `${data.holdings.length} positions`}
+        />
+      </div>
 
-      {/* Actions first. The chart says how it has gone; this says what to do,
-          and a page that opens with a chart invites reading rather than acting. */}
-      <Levers />
+      {/* Actions before history. The chart says how it went; this says what to
+          do, and a page that opens on a chart invites reading rather than
+          acting. */}
+      <div className="rise rise-2">
+        <Levers />
+      </div>
 
-      <BenchmarkVerdict />
+      <div className="rise rise-3">
+        <BenchmarkVerdict />
+      </div>
 
       {history && (
-        <Panel>
-          <PortfolioChart
-            points={history.points}
-            excluded={history.excluded}
-            excludedValue={history.excluded_value}
-          />
-        </Panel>
+        <div className="rise rise-4">
+          {/* No Panel title: PortfolioChart prints its own heading, and two
+              "Value over time" lines stacked reads as a rendering fault. */}
+          <Panel>
+            <PortfolioChart
+              points={history.points}
+              excluded={history.excluded}
+              excludedValue={history.excluded_value}
+            />
+          </Panel>
+        </div>
       )}
 
       {data.has_pricing_errors && (
-        <p className="flex items-start gap-2 text-sm text-muted-foreground">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+        <p className="flex items-start gap-2 rounded-xl border border-v-amber/30 bg-v-amber-soft/60 p-4 text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-v-amber" aria-hidden />
           <span>
-            <span className="tnum">{formatInr(data.unpriced_invested)}</span> could not
-            be priced right now and is left out of the totals above, so the return
-            figures stay honest rather than inventing a paper loss.
+            <span className="tnum font-medium">{formatInr(data.unpriced_invested)}</span>{' '}
+            could not be priced right now and is left out of the totals above, so the
+            return figures stay honest rather than inventing a paper loss.
           </span>
         </p>
       )}
 
-      {/* The list lives on its own page now. This page answers "how am I doing";
-          the table answers "what exactly do I hold", and they are different
-          questions asked at different moments. The link is here rather than
-          only in the nav because this is where somebody wonders. */}
-      <Panel
-        title="Holdings"
-        aside={`${data.holdings.length} ${data.holdings.length === 1 ? 'position' : 'positions'}`}
-      >
-        <Link
-          to="/portfolio/holdings"
-          className="inline-flex min-h-11 items-center text-sm underline underline-offset-4"
-        >
-          See every holding, with units, cost and XIRR
-        </Link>
-      </Panel>
-
-      {/* Below the fold on purpose: these change monthly at most, and putting
-          them above the holdings pushed the table people actually read off the
-          first screen. */}
-      {/* Each of these renders nothing when it has nothing to say, and each
-          owns its own surface — wrapping them here left empty bordered boxes on
-          a portfolio with one holding, which reads as "something failed". */}
-      <div className="grid items-start gap-6 xl:grid-cols-2">
+      {/* No "go to Holdings" panel here. It was a bordered box containing one
+          link to a destination already in the nav — a whole surface spent
+          saying what the nav says for free. */}
+      <div className="rise rise-5 grid items-start gap-4 xl:grid-cols-2">
         <CostReview />
         <FundOverlap />
       </div>
 
       <Announcements />
     </div>
+  )
+}
+
+/**
+ * The portfolio value, counted up once on arrival.
+ *
+ * Its own component because a hook cannot sit behind the early returns above —
+ * and it earns the ceremony: it is the first thing anybody looks at, and a
+ * figure that lands reads as stored while one that counts reads as just worked
+ * out, which is what it is.
+ */
+function HeroValue({ amount }: { amount: number | null | undefined }) {
+  const shown = useCountUp(amount)
+  return (
+    <p className="num num-display text-[2.75rem] font-semibold leading-none sm:text-6xl">
+      {formatInr(Math.round(shown))}
+    </p>
   )
 }

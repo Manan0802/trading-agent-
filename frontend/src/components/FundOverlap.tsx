@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { ChevronDown } from 'lucide-react'
 import { Panel } from '@/components/ui/panel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchOverlap } from '@/lib/portfolio-api'
+import { cn } from '@/lib/utils'
 
 /**
  * Whether the funds someone holds are actually different from each other.
@@ -20,6 +23,13 @@ import { fetchOverlap } from '@/lib/portfolio-api'
  * what equity does — so nothing here is coloured as a warning. The useful
  * reading is comparative, and the action is to hold fewer funds rather than
  * different ones.
+ *
+ * The four paragraphs that used to define both numbers are now behind one
+ * toggle. They were correct and nobody read them: on a three-fund portfolio the
+ * definitions ran four times longer than the figures they defined, and the panel
+ * read as an essay with a table stuck in the middle. Each pair now draws its
+ * correlation as a bar, which is the shape of the number, and the prose is
+ * there for whoever wants to argue with it.
  */
 
 /** Below this a pair is doing genuinely separate work. */
@@ -37,6 +47,7 @@ export function FundOverlap() {
     queryKey: ['overlap'],
     queryFn: fetchOverlap,
   })
+  const [explained, setExplained] = useState(false)
 
   // The oldest month across the pairs: the set is only as current as its
   // stalest side.
@@ -46,105 +57,84 @@ export function FundOverlap() {
       .filter((d): d is string => d !== null)
       .sort()[0] ?? null
 
-  if (isLoading) return <Skeleton className="h-32 w-full" />
+  if (isLoading) return <Skeleton className="h-32 w-full rounded-xl" />
   if (!data || (data.pairs.length === 0 && Object.keys(data.excluded).length === 0)) {
     return null
   }
 
   return (
-    <Panel>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <h2 className="text-sm font-medium">Are these funds actually different?</h2>
-        {data.effective_positions !== null && (
-          <p className="text-xs text-muted-foreground">
-            About <span className="tnum">{data.effective_positions.toFixed(1)}</span>{' '}
-            separate bets across <span className="tnum">{data.counted}</span> funds
-          </p>
-        )}
-      </div>
+    <Panel title="Are these funds actually different?">
+      {data.effective_positions !== null && (
+        <div className="flex items-baseline gap-2">
+          <span className="num text-3xl font-semibold text-v-violet">
+            {data.effective_positions.toFixed(1)}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            separate bets across{' '}
+            <span className="num text-foreground">{data.counted}</span> funds
+          </span>
+        </div>
+      )}
 
-      <p className="max-w-3xl text-sm">{data.summary}</p>
+      <p className="text-sm leading-relaxed">{data.summary}</p>
 
       {data.pairs.length > 0 && (
-        <ul className="flex flex-col divide-y border-y">
-          {data.pairs.map((p) => (
-            <li
-              key={`${p.a}-${p.b}`}
-              className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2.5"
-            >
-              <span className="text-sm text-muted-foreground">
-                {p.a_name} <span className="text-muted-foreground">and</span>{' '}
-                {p.b_name}
-              </span>
-              <span className="flex items-baseline gap-3">
-                <span
-                  className={`num text-sm ${
-                    p.correlation >= DUPLICATE_ABOVE ? 'font-medium' : ''
-                  }`}
-                >
-                  {p.correlation.toFixed(2)}
-                </span>
-                {/* Unmeasured says so in words. Rendering a dash as 0% would
-                    claim these funds share nothing, which we do not know. */}
-                {p.common_weight === null ? (
-                  <span className="text-xs text-muted-foreground">
-                    holdings n/a
+        <ul className="flex flex-col gap-3">
+          {data.pairs.map((p) => {
+            const duplicate = p.correlation >= DUPLICATE_ABOVE
+            return (
+              <li key={`${p.a}-${p.b}`} className="flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="truncate text-sm text-muted-foreground">
+                    {p.a_name} <span className="opacity-60">and</span> {p.b_name}
                   </span>
-                ) : (
                   <span
-                    className={`num text-xs ${
-                      p.common_weight >= SAME_STOCKS_ABOVE
-                        ? 'font-medium'
-                        : 'text-muted-foreground'
-                    }`}
-                    title={`${p.shared_securities} securities in common`}
+                    className={cn(
+                      'num shrink-0 text-sm font-semibold',
+                      duplicate ? 'text-v-rose' : 'text-v-violet',
+                    )}
                   >
-                    {p.common_weight.toFixed(0)}% same
+                    {p.correlation.toFixed(2)}
                   </span>
-                )}
-                <span className="num text-xs text-muted-foreground">
-                  {p.months}mo
-                </span>
-              </span>
-            </li>
-          ))}
+                </div>
+                {/* The bar is the number's shape. A column of "0.93 / 0.84 /
+                    0.80" makes a reader do the comparing; a row of bars has
+                    already done it. */}
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-[width] duration-700',
+                      duplicate ? 'bg-v-rose' : 'bg-v-violet',
+                    )}
+                    style={{ width: `${Math.max(0, Math.min(1, p.correlation)) * 100}%` }}
+                  />
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  {/* Unmeasured says so in words. A dash rendered as 0% would
+                      claim these funds share nothing, which we do not know. */}
+                  {p.common_weight === null ? (
+                    <span>holdings n/a</span>
+                  ) : (
+                    <span
+                      className={cn(
+                        'num',
+                        p.common_weight >= SAME_STOCKS_ABOVE && 'font-semibold text-v-rose',
+                      )}
+                      title={`${p.shared_securities} securities in common`}
+                    >
+                      {p.common_weight.toFixed(0)}% same shares
+                    </span>
+                  )}
+                  <span className="num">{p.months}mo of history</span>
+                </div>
+              </li>
+            )
+          })}
         </ul>
       )}
 
-      <p className="max-w-3xl text-sm text-muted-foreground">
-        {/* Says what the number is, so it can be argued with. */}
-        Each figure is how closely two funds&rsquo; monthly returns moved together
-        over the months they both cover. <span className="tnum">1.00</span> means
-        the same position twice; <span className="tnum">0.00</span> means they are
-        unrelated. Two equity funds sitting near{' '}
-        <span className="tnum">0.85</span> is normal and not a fault — the useful
-        comparison is against whatever else you hold.
-      </p>
-      <p className="max-w-3xl text-sm text-muted-foreground">
-        The second figure is the share of assets both funds hold in the{' '}
-        <em>same</em> securities, read from each AMC&rsquo;s own monthly
-        portfolio disclosure and matched on ISIN. Two diversified equity funds
-        sharing <span className="tnum">15&ndash;30%</span> is ordinary; both own
-        the index leaders. Above <span className="tnum">40%</span> you are
-        holding the same shares twice. Where it says{' '}
-        <em>holdings n/a</em>, that AMC does not publish a file we can read yet
-        &mdash; unknown, not zero.
-      </p>
-
-      {/* AMCs file within ten days of month end, so in the first week of a
-          month this reads the month before last. Without the date, the number
-          simply changes when the new file lands and nothing explains why. */}
-      {asOf && (
-        <p className="max-w-3xl text-xs text-muted-foreground">
-          Holdings are from each AMC&rsquo;s{' '}
-          <span className="tnum">{asOf}</span> disclosure, the latest published.
-          They file within ten days of month end, so this figure moves when the
-          next one lands.
-        </p>
-      )}
-
       {Object.entries(data.excluded).length > 0 && (
-        <p className="max-w-3xl text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Left out:{' '}
           {Object.entries(data.excluded)
             .map(([name, reason]) => `${name} — ${reason}`)
@@ -152,6 +142,52 @@ export function FundOverlap() {
           .
         </p>
       )}
+
+      <div className="border-t pt-1">
+        <button
+          type="button"
+          onClick={() => setExplained((v) => !v)}
+          aria-expanded={explained}
+          className="flex min-h-11 w-full items-center gap-2 text-left text-sm text-muted-foreground hover:text-foreground"
+        >
+          <span className="flex-1">What these two numbers mean</span>
+          <ChevronDown
+            aria-hidden
+            className={cn('size-4 shrink-0 transition-transform', explained && 'rotate-180')}
+          />
+        </button>
+        {explained && (
+          <div className="flex flex-col gap-3 pb-2 text-sm leading-relaxed text-muted-foreground">
+            <p>
+              The first figure is how closely two funds&rsquo; monthly returns moved
+              together over the months they both cover.{' '}
+              <span className="tnum">1.00</span> means the same position twice;{' '}
+              <span className="tnum">0.00</span> means unrelated. Two equity funds
+              near <span className="tnum">0.85</span> is normal, not a fault — the
+              useful comparison is against whatever else you hold.
+            </p>
+            <p>
+              The second is the share of assets both funds hold in the <em>same</em>{' '}
+              securities, read from each AMC&rsquo;s monthly disclosure and matched on
+              ISIN. Sharing <span className="tnum">15&ndash;30%</span> is ordinary —
+              both own the index leaders. Above <span className="tnum">40%</span> you
+              are holding the same shares twice. <em>holdings n/a</em> means that AMC
+              publishes no file we can read: unknown, not zero.
+            </p>
+            {/* AMCs file within ten days of month end, so in the first week of a
+                month this reads the month before last. Without the date the
+                number simply changes and nothing explains why. */}
+            {asOf && (
+              <p className="text-xs">
+                Holdings are from each AMC&rsquo;s{' '}
+                <span className="tnum">{asOf}</span> disclosure, the latest published.
+                They file within ten days of month end, so this moves when the next
+                one lands.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </Panel>
   )
 }
