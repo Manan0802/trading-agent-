@@ -35,6 +35,45 @@ import { cn } from '@/lib/utils'
 const DUPLICATE_ABOVE = 0.9
 
 /**
+ * What a correlation is, in words, plus the bar colour that goes with it.
+ *
+ * Every bar used to be violet unless it crossed 0.90, which meant 0.77 and 0.17
+ * were drawn identically -- on a panel whose entire argument is comparative.
+ * The band is a MAGNITUDE, not a verdict: two equity funds at 0.85 is what
+ * equity does, so the words say "move together" rather than "too similar", and
+ * no band is red until a pair is genuinely one position bought twice.
+ */
+function band(correlation: number): { label: string; bar: string; ink: string } {
+  if (correlation >= DUPLICATE_ABOVE)
+    return { label: 'the same position twice', bar: 'bg-v-rose', ink: 'text-v-rose' }
+  if (correlation >= 0.7)
+    return { label: 'move closely together', bar: 'bg-v-amber', ink: 'text-v-amber-ink' }
+  if (correlation >= 0.4)
+    return { label: 'partly related', bar: 'bg-v-violet', ink: 'text-v-violet-ink' }
+  return { label: 'doing separate work', bar: 'bg-v-cyan', ink: 'text-v-cyan-ink' }
+}
+
+/**
+ * "SBI Small Cap" out of "SBI Small Cap Fund - Regular Plan - Growth".
+ *
+ * A pair row prints two of these side by side. At full length they wrapped to
+ * three lines and the number they belong to ended up on a different line from
+ * the names, which is the one thing a comparison row cannot afford.
+ */
+function shortFund(name: string): string {
+  return name
+    .split(/ - |\s+Fund\b/)[0]
+    .replace(/\s+(Direct|Regular)\s+Plan.*$/i, '')
+    .trim()
+}
+
+/** "154mo" is a unit nobody speaks. */
+function historySpan(months: number): string {
+  if (months < 24) return `${months} months of history`
+  return `${Math.floor(months / 12)} years of history`
+}
+
+/**
  * Share of assets in the same securities that makes a pair the same shares
  * rather than merely the same exposure. Two diversified Indian equity funds
  * routinely share 15–30% just by both owning the index leaders.
@@ -55,6 +94,13 @@ export function FundOverlap() {
       .filter((d): d is string => d !== null)
       .sort()[0] ?? null
 
+  // The server returns pairs heaviest-correlation first, but reading the
+  // maximum is one line and does not depend on that staying true.
+  const closest = data?.pairs.reduce<(typeof data.pairs)[number] | null>(
+    (best, p) => (best === null || p.correlation > best.correlation ? p : best),
+    null,
+  )
+
   if (isLoading) return <Skeleton className="h-32 w-full rounded-xl" />
   if (!data || (data.pairs.length === 0 && Object.keys(data.excluded).length === 0)) {
     return null
@@ -69,33 +115,46 @@ export function FundOverlap() {
           </span>
           <span className="text-sm text-muted-foreground">
             separate bets across{' '}
-            <span className="num text-foreground">{data.counted}</span> funds
+            <span className="num text-foreground">{data.counted}</span>{' '}
+            {data.counted === 1 ? 'fund' : 'funds'}
           </span>
         </div>
       )}
 
-      {/* The verdict, not the working. The server's summary names both funds
-          in the closest pair and repeats the effective-bets figure printed
-          directly above it — three lines to say what the number already said. */}
-      <p className="text-sm leading-relaxed">{firstLine(data.summary)}</p>
+      {/* The closest pair, named, with the same words its bar uses.
+          This used to print the server's first sentence, which is written
+          against the 0.90 duplicate threshold -- so a portfolio whose tightest
+          pair sat at 0.77 read "Nothing here is a duplicate of anything else"
+          directly above a bar labelled "move closely together". Both were
+          correct and together they were nonsense. The full summary is still one
+          line down, where a sentence about a threshold belongs. */}
+      {closest ? (
+        <p className="text-sm leading-relaxed">
+          Closest pair: <span className="font-medium">{shortFund(closest.a_name)}</span>{' '}
+          and <span className="font-medium">{shortFund(closest.b_name)}</span> &mdash;
+          they {band(closest.correlation).label}.
+        </p>
+      ) : (
+        <p className="text-sm leading-relaxed">{firstLine(data.summary)}</p>
+      )}
 
       {data.pairs.length > 0 && (
         <ul className="flex flex-col gap-3">
           {data.pairs.map((p) => {
-            const duplicate = p.correlation >= DUPLICATE_ABOVE
+            const b = band(p.correlation)
             return (
               <li key={`${p.a}-${p.b}`} className="flex flex-col gap-1.5">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="truncate text-sm text-muted-foreground">
-                    {p.a_name} <span className="opacity-60">and</span> {p.b_name}
+                  <span className="truncate text-sm font-medium">
+                    {shortFund(p.a_name)}{' '}
+                    <span className="font-normal text-muted-foreground">and</span>{' '}
+                    {shortFund(p.b_name)}
                   </span>
-                  <span
-                    className={cn(
-                      'num shrink-0 text-sm font-semibold',
-                      duplicate ? 'text-v-rose' : 'text-v-violet',
-                    )}
-                  >
-                    {p.correlation.toFixed(2)}
+                  <span className="flex shrink-0 items-baseline gap-2">
+                    <span className={cn('text-xs', b.ink)}>{b.label}</span>
+                    <span className={cn('num text-sm font-semibold', b.ink)}>
+                      {p.correlation.toFixed(2)}
+                    </span>
                   </span>
                 </div>
                 {/* The bar is the number's shape. A column of "0.93 / 0.84 /
@@ -103,10 +162,7 @@ export function FundOverlap() {
                     already done it. */}
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className={cn(
-                      'h-full rounded-full transition-[width] duration-700',
-                      duplicate ? 'bg-v-rose' : 'bg-v-violet',
-                    )}
+                    className={cn('h-full rounded-full transition-[width] duration-700', b.bar)}
                     style={{ width: `${Math.max(0, Math.min(1, p.correlation)) * 100}%` }}
                   />
                 </div>
@@ -114,7 +170,7 @@ export function FundOverlap() {
                   {/* Unmeasured says so in words. A dash rendered as 0% would
                       claim these funds share nothing, which we do not know. */}
                   {p.common_weight === null ? (
-                    <span>holdings n/a</span>
+                    <span>same shares not published</span>
                   ) : (
                     <span
                       className={cn(
@@ -126,7 +182,7 @@ export function FundOverlap() {
                       {p.common_weight.toFixed(0)}% same shares
                     </span>
                   )}
-                  <span className="num">{p.months}mo of history</span>
+                  <span>{historySpan(p.months)}</span>
                 </div>
               </li>
             )
@@ -159,8 +215,8 @@ export function FundOverlap() {
           securities, read from each AMC&rsquo;s monthly disclosure and matched on
           ISIN. Sharing <span className="tnum">15&ndash;30%</span> is ordinary &mdash;
           both own the index leaders. Above <span className="tnum">40%</span> you are
-          holding the same shares twice. <em>holdings n/a</em> means that AMC
-          publishes no file we can read: unknown, not zero.
+          holding the same shares twice. <em>Same shares not published</em> means that
+          AMC publishes no file we can read: unknown, not zero.
         </p>
         {/* AMCs file within ten days of month end, so in the first week of a
             month this reads the month before last. Without the date the number

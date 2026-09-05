@@ -57,32 +57,54 @@ async function seed() {
     })
   ).json()
 
-  // A real SIP history so the portfolio page has XIRR to show rather than zeroes.
-  const holding = await (
-    await fetch(`${API}/api/v1/portfolio/holdings`, {
-      method: 'POST',
-      headers: auth,
-      body: JSON.stringify({
-        asset_type: 'MF',
-        identifier: '122639',
-        name: 'Parag Parikh Flexi Cap Fund Direct Growth',
-        category: 'Flexi Cap',
-      }),
-    })
-  ).json()
+  // Four holdings, not one. This used to seed a single direct-plan equity
+  // fund, and a single direct-plan equity fund is the one portfolio in which
+  // half of `/portfolio` renders nothing: no second fund means no overlap
+  // panel, no stock means no filings and no excluded-holding note on the
+  // chart, and no REGULAR plan means the cost review says "nothing to fix".
+  // Every screenshot this harness has ever written was of a page missing four
+  // of its panels -- which is precisely the state it exists to catch.
+  const FIXTURE = [
+    // The regular plan. The only reason CostReview has a number at all.
+    { identifier: '125494', name: 'SBI Small Cap Fund - Regular Plan - Growth',
+      asset_type: 'MF', category: 'Small Cap', units: 7.5, price0: 130, step: 2.6 },
+    { identifier: '122639', name: 'Parag Parikh Flexi Cap Fund - Direct Plan - Growth',
+      asset_type: 'MF', category: 'Flexi Cap', units: 25, price0: 60, step: 1.2 },
+    { identifier: '119533', name: 'Aditya Birla Sun Life Corporate Bond Fund - Growth - Direct Plan',
+      asset_type: 'MF', category: 'Corporate Bond', units: 33.33, price0: 24, step: 0.48 },
+    // A stock, so the filings panel and the chart's funds-only note both render.
+    { identifier: 'TATASTEEL.NS', name: 'Tata Steel Ltd.',
+      asset_type: 'STOCK', category: null, units: 16.67, price0: 130, step: 2.6 },
+  ]
 
-  for (let i = 0; i < 14; i += 1) {
-    const d = new Date(Date.UTC(2024, 3 + i, 5))
-    await fetch(`${API}/api/v1/portfolio/holdings/${holding.id}/transactions`, {
-      method: 'POST',
-      headers: auth,
-      body: JSON.stringify({
-        txn_type: 'BUY',
-        txn_date: d.toISOString().slice(0, 10),
-        units: 15000 / (68 + i * 1.4),
-        price: 68 + i * 1.4,
-      }),
-    })
+  // A real SIP history so the portfolio page has XIRR to show rather than zeroes.
+  for (const f of FIXTURE) {
+    const holding = await (
+      await fetch(`${API}/api/v1/portfolio/holdings`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({
+          asset_type: f.asset_type,
+          identifier: f.identifier,
+          name: f.name,
+          category: f.category,
+        }),
+      })
+    ).json()
+
+    for (let i = 0; i < 14; i += 1) {
+      const d = new Date(Date.UTC(2024, 3 + i, 5))
+      await fetch(`${API}/api/v1/portfolio/holdings/${holding.id}/transactions`, {
+        method: 'POST',
+        headers: auth,
+        body: JSON.stringify({
+          txn_type: 'BUY',
+          txn_date: d.toISOString().slice(0, 10),
+          units: f.units,
+          price: f.price0 + i * f.step,
+        }),
+      })
+    }
   }
 
   return { token, goalId: goal.id }

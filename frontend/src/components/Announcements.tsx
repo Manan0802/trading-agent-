@@ -69,11 +69,17 @@ export function Announcements() {
   return (
     <Panel title="What changed about what you own" aside="Last six months">
       <ul className="grid gap-2 lg:grid-cols-2">
-        {data.announcements.map((a) => {
+        {data.announcements.map((a, i) => {
           const tone = toneFor(a.category)
           return (
             <li
-              key={`${a.symbol}-${a.published}-${a.category}`}
+              // The index, because nothing in a filing is unique. Tata Steel
+              // files litigation updates twice on the same day under the same
+              // category, and symbol+date+category collided on exactly that --
+              // React then drops one of the two, so a real filing disappears
+              // and nothing says so. The list is read-only and never reorders,
+              // which is the case where an index key is the correct one.
+              key={`${a.symbol}-${a.published}-${a.category}-${i}`}
               className="lift flex flex-col gap-1.5 rounded-lg border bg-muted/25 p-3.5"
             >
               <div className="flex items-baseline justify-between gap-3">

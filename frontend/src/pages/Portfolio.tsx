@@ -14,6 +14,7 @@ import { Announcements } from '@/components/Announcements'
 import { CostReview } from '@/components/CostReview'
 import { FundOverlap } from '@/components/FundOverlap'
 import { Levers } from '@/components/Levers'
+import { LookThrough } from '@/components/LookThrough'
 import { PortfolioChart } from '@/components/PortfolioChart'
 import { StartHere } from '@/components/StartHere'
 import { Panel } from '@/components/ui/panel'
@@ -54,7 +55,7 @@ function BenchmarkVerdict() {
 
   return (
     <div
-      className={`lift flex h-full flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border p-4 sm:px-5 ${
+      className={`lift flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border p-4 sm:px-5 ${
         ahead ? 'border-gain/25 bg-gain/[0.06]' : 'border-loss/25 bg-loss/[0.06]'
       }`}
     >
@@ -284,13 +285,22 @@ export function Portfolio() {
           "is anything wrong?" — in one line each, and both were previously
           stranded: the benchmark alone on a full-width row, the cost panel next
           to a much taller neighbour with a column of empty page under it. */}
-      <div className="rise rise-3 grid gap-4 lg:grid-cols-2">
-        <BenchmarkVerdict />
+      {/* Full width, not half. Pairing these two put a one-line verdict beside
+          a panel that grows a card per flagged fund, so the short one sat above
+          a dead column; stretching it to match was worse still, a tall slab of
+          empty green. Neither has a neighbour now, so neither can be stranded
+          by one. */}
+      <div className="rise rise-3">
         <CostReview />
       </div>
 
       {history && (
-        <div className="rise rise-4">
+        <div className="rise rise-4 flex flex-col gap-4">
+          {/* The benchmark sentence is this chart's headline. It says in words
+              what the two lines below say in pixels -- "ahead of the Nifty 50,
+              on the same money and the same dates" -- and it spent the whole
+              redesign a section away from the drawing it describes. */}
+          <BenchmarkVerdict />
           {/* No Panel title: PortfolioChart prints its own heading, and two
               "Value over time" lines stacked reads as a rendering fault. */}
           <Panel>
@@ -317,7 +327,12 @@ export function Portfolio() {
       {/* No "go to Holdings" panel here. It was a bordered box containing one
           link to a destination already in the nav — a whole surface spent
           saying what the nav says for free. */}
-      <div className="rise rise-5">
+      {/* The two "what am I actually holding" answers, together. One counts
+          the funds as positions, the other opens them and counts the companies
+          -- and the second was computed by the API from the day it was written
+          and rendered by nothing. */}
+      <div className="rise rise-5 grid items-start gap-4 xl:grid-cols-2">
+        <LookThrough />
         <FundOverlap />
       </div>
 

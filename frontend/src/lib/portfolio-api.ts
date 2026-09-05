@@ -361,6 +361,34 @@ export async function fetchMomentum(limit = 60): Promise<MomentumRanking> {
  * perfectly diversified, which is the opposite of "we could not tell" and the
  * more attractive of the two readings.
  */
+/** One company, and every rupee reaching it through every fund that holds it. */
+export type Company = {
+  isin: string
+  name: string
+  industry: string | null
+  value: number
+  /** Against the WHOLE portfolio, including funds that could not be opened. */
+  share_pct: number
+  /** (fund name, rupees), heaviest first. Length > 1 is the whole point. */
+  via: [string, number][]
+}
+
+export type LookThrough = {
+  companies: Company[]
+  concentrated: Company[]
+  covered_value: number
+  unopened_value: number
+  /** Named, so you can see WHICH funds are missing from the picture. */
+  unopened: string[]
+  /** 0-100. Below 100 the answer is partial and the screen has to say so. */
+  covered_share: number
+  summary: string
+}
+
+export async function fetchLookThrough(): Promise<LookThrough> {
+  return (await api.get('/api/v1/portfolio/look-through')).data
+}
+
 export type AlreadyOwn = {
   scheme_code: string
   share_pct: number | null

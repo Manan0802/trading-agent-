@@ -114,7 +114,10 @@ export function Levers({
       )}
 
       {worth.length > 1 && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        // Two columns only when there are two to put in them. One secondary
+        // lever in a two-column grid is a half-width card beside half a row of
+        // nothing.
+        <div className={cn('grid gap-3', worth.length > 2 && 'sm:grid-cols-2')}>
           {worth.slice(1).map((lever) => (
             <article key={lever.key} className="lift rounded-xl border bg-card p-4">
               <div className="flex items-baseline justify-between gap-3">
