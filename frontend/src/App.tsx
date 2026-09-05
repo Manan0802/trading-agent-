@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils'
 // before the first paint — including somebody on a phone who has not added a
 // holding yet and will see no chart at all. Login stays eager: it is the first
 // thing an unauthenticated visitor needs and there is nothing to defer.
-const Today = lazy(() => import('@/pages/Today').then((m) => ({ default: m.Today })))
+const Portfolio = lazy(() => import('@/pages/Portfolio').then((m) => ({ default: m.Portfolio })))
 const Holdings = lazy(() => import('@/pages/Holdings').then((m) => ({ default: m.Holdings })))
 const Research = lazy(() => import('@/pages/Research').then((m) => ({ default: m.Research })))
 const Why = lazy(() => import('@/pages/Why').then((m) => ({ default: m.Why })))
@@ -58,7 +58,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 // apart -- a palette that reaches five of six is worse than none, because the
 // missing one is the one somebody will hunt for.
 const NAV = [
-  { to: '/portfolio', label: 'Today', hint: 'how you are doing' },
+  { to: '/portfolio', label: 'Portfolio', hint: 'how you are doing' },
   { to: '/portfolio/holdings', label: 'Holdings', hint: 'every position, with cost and XIRR' },
   { to: '/research', label: 'Research', hint: 'what has been shown to work' },
   { to: '/why', label: 'Why', hint: 'where every number comes from' },
@@ -164,7 +164,7 @@ export default function App() {
               path="/portfolio"
               element={
                 <RequireAuth>
-                  <Today />
+                  <Portfolio />
                 </RequireAuth>
               }
             />

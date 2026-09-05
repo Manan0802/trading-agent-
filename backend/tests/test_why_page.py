@@ -7,14 +7,18 @@ none of it answers the question somebody actually has — *why should I believe
 the number I am looking at* — because that question is asked about the front
 page, not about whichever page happens to hold the evidence.
 
-✅ **`Today` is built too, and the split it needed is decided.** `Today` and
-`Holdings` were one file, `Portfolio.tsx`, and splitting it is decision 2 in
-BUILD.md — a product call about which of the two keeps `/portfolio`. The call:
-**`/portfolio` keeps Today**, because `/` redirects there, so it is the app's
-front door — and a front door should answer *how am I doing* rather than open
-onto a table. Holdings lives at `/portfolio/holdings`, which is where a
-deliberate destination belongs: you go there to add a purchase or correct a unit
-count, not to glance.
+✅ **The split is built and decision 2 is made.** The summary and the holdings
+table were one file, and splitting it is decision 2 in BUILD.md — a product call
+about which of the two keeps `/portfolio`. The call: **`/portfolio` keeps the
+summary**, because `/` redirects there, so it is the app's front door, and a
+front door should answer *how am I doing* rather than open onto a table.
+`Holdings` lives at `/portfolio/holdings`, which is where a deliberate
+destination belongs: you go there to add a purchase or fix a unit count, not to
+glance.
+
+Both pages are named for what they hold. The summary was briefly called "Today",
+which names a page after WHEN you look at it rather than what is on it, and no
+other word in the app worked that way.
 """
 
 import re
@@ -138,24 +142,37 @@ class TestTheHonestyStatesSurviveTheSplit:
         page = _read("pages/Holdings.tsx")
         assert "price_error" in page
 
-    def test_the_old_single_page_is_gone_rather_than_left_behind(self):
-        """A dead copy is a place for the next edit to land unnoticed."""
-        assert not (SRC / "pages" / "Portfolio.tsx").exists()
+    def test_the_summary_page_does_not_render_the_table_again(self):
+        """The split, checked by CONTENT rather than by filename.
 
-    def test_today_and_holdings_share_one_cached_response(self):
+        An earlier version asserted `Portfolio.tsx` did not exist, which was
+        true while the summary was briefly called `Today.tsx` — and stopped
+        meaning anything the moment the file was renamed back. A filename is not
+        the property; the property is that one page holds the glance and the
+        other holds the rows.
+        """
+        summary = _read("pages/Portfolio.tsx")
+        assert "<TableBody>" not in summary, "the holdings table is back on the summary"
+        assert "HoldingRow" not in summary
+        assert "<TableBody>" in _read("pages/Holdings.tsx"), (
+            "and the table has to be SOMEWHERE — it is the whole point of the "
+            "second page"
+        )
+
+    def test_the_summary_and_holdings_share_one_cached_response(self):
         """Same query key, same fetch: moving between them costs no request."""
-        for page in ("pages/Today.tsx", "pages/Holdings.tsx"):
+        for page in ("pages/Portfolio.tsx", "pages/Holdings.tsx"):
             assert "queryKey: ['portfolio']" in _read(page), page
 
-    def test_today_links_to_the_list_where_somebody_wonders(self):
-        today = _read("pages/Today.tsx")
-        assert 'to="/portfolio/holdings"' in today
+    def test_the_summary_links_to_the_list_where_somebody_wonders(self):
+        summary = _read("pages/Portfolio.tsx")
+        assert 'to="/portfolio/holdings"' in summary
 
     def test_the_front_door_still_answers_how_am_i_doing(self):
         """`/` redirects to `/portfolio`, so whatever is there is the app's
         opening statement. It keeps the summary and the levers."""
         app = _read("App.tsx")
-        assert '<Today />' in app
-        today = _read("pages/Today.tsx")
-        assert "<Levers />" in today
-        assert "Portfolio value" in today
+        assert '<Portfolio />' in app
+        summary = _read("pages/Portfolio.tsx")
+        assert "<Levers />" in summary
+        assert "Portfolio value" in summary

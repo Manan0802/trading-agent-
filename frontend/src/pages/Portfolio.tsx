@@ -89,7 +89,7 @@ function EmptyState() {
   )
 }
 
-export function Today() {
+export function Portfolio() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['portfolio'],
     queryFn: fetchPortfolio })
@@ -194,7 +194,7 @@ export function Today() {
         </p>
       )}
 
-      {/* The list lives on its own page now. Today answers "how am I doing";
+      {/* The list lives on its own page now. This page answers "how am I doing";
           the table answers "what exactly do I hold", and they are different
           questions asked at different moments. The link is here rather than
           only in the nav because this is where somebody wonders. */}

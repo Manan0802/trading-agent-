@@ -162,7 +162,7 @@ function EmptyState() {
 /**
  * Every position, with units, cost and XIRR — the page you open to DO something.
  *
- * Split out of `Portfolio.tsx`, which rendered the summary, the levers, the
+ * Split out of the single page that rendered the summary, the levers, the
  * chart, the cost review, the overlap AND this table on one screen. They answer
  * different questions at different moments: "how am I doing" is a glance, and
  * "what exactly do I hold" is a task — you are here to add a purchase, correct
@@ -174,7 +174,7 @@ function EmptyState() {
  * destination belongs.
  */
 export function Holdings() {
-  // The same key and the same fetch as Today, so the two pages share one cached
+  // The same key and the same fetch as Portfolio, so the two pages share one cached
   // response and moving between them costs no request.
   const { data, isLoading, isError } = useQuery({
     queryKey: ['portfolio'],
