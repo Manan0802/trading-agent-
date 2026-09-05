@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import { formatInr, formatInrCompact } from '@/lib/format'
 import type { HistoryPoint } from '@/lib/portfolio-api'
+import { Reveal } from '@/components/ui/reveal'
 
 const SERIES = [
   { key: 'portfolio_value', label: 'Your portfolio' },
@@ -152,10 +153,25 @@ export function PortfolioChart({
                 isAnimationActive={false}
               />
             )}
+            {/* A wash under the value line. The chart was three grey-blue
+                strokes on a grey ground and the one line that matters had no
+                more weight than the two that qualify it. */}
+            <defs>
+              <linearGradient id="pf-value" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--v-cyan)" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="var(--v-cyan)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <Area
+              dataKey="portfolio_value"
+              stroke="none"
+              fill="url(#pf-value)"
+              isAnimationActive={false}
+            />
             <Line
               dataKey="portfolio_value"
-              stroke="var(--primary)"
-              strokeWidth={2}
+              stroke="var(--v-cyan)"
+              strokeWidth={2.5}
               dot={false}
               isAnimationActive={false}
             />
@@ -163,23 +179,25 @@ export function PortfolioChart({
         </ResponsiveContainer>
       </div>
 
-      {/* Without this the chart sat 29% below the total printed above it, with
+      {/* Without this the chart sat 29% below the total printed above it with
           nothing to explain the gap. Two plausible numbers disagreeing is worse
-          than one visible error, because neither looks wrong. */}
+          than one visible error, because neither looks wrong.
+          
+          The WHAT stays on the surface — one line, with the rupee figure — and
+          the WHY (which feed has no price history for a stock) goes behind the
+          fold. */}
       {left.length > 0 && (
-        <p className="max-w-3xl text-xs text-muted-foreground">
-          This line covers your funds only.{' '}
-          {left.map(([name]) => name).join(', ')}
-          {excludedValue > 0 && (
-            <>
-              {' '}&mdash; worth{' '}
-              <span className="tnum">{formatInr(excludedValue)}</span> today
-            </>
-          )}
-          {' '}
-          {left.length === 1 ? 'is' : 'are'} not in it, so it reads below the
-          total above. {left[0][1]}.
-        </p>
+        <Reveal
+          label={`Funds only — ${left.length === 1 ? left[0][0] : `${left.length} holdings`} not in this line${
+            excludedValue > 0 ? `, worth ${formatInr(excludedValue)}` : ''
+          }`}
+        >
+          <p>
+            {left.map(([name]) => name).join(', ')}{' '}
+            {left.length === 1 ? 'is' : 'are'} not in the line, so it reads below
+            the total above. {left[0][1]}.
+          </p>
+        </Reveal>
       )}
     </section>
   )

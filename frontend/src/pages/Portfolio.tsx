@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -53,7 +54,7 @@ function BenchmarkVerdict() {
 
   return (
     <div
-      className={`lift flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border p-4 sm:px-5 ${
+      className={`lift flex h-full flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border p-4 sm:px-5 ${
         ahead ? 'border-gain/25 bg-gain/[0.06]' : 'border-loss/25 bg-loss/[0.06]'
       }`}
     >
@@ -191,18 +192,38 @@ export function Portfolio() {
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-4">
-            <AddHoldingDialog />
-            {/* The shape of the number above it. No axes and no tooltip — a
-                sparkline that needs a label is a chart, and there is a full one
-                further down the page. */}
-            {history && history.points.length > 1 && (
+          {/* The shape of the number beside it, given the width it needs to
+              read as a shape. At 180px in the top-right corner it was a
+              squiggle in the margin, and the middle of a 1600px hero was
+              empty — so the line now spans the gap and says what it spans. */}
+          {history && history.points.length > 1 && (
+            <div className="hidden flex-1 flex-col items-center gap-1 self-center px-6 lg:flex">
               <Sparkline
                 values={history.points.map((h) => h.portfolio_value)}
-                width={180}
-                height={44}
+                width={420}
+                height={64}
                 label="How your portfolio value has moved"
               />
+              <p className="tnum text-xs text-muted-foreground">
+                {monthOf(history.points[0].date)} &rarr;{' '}
+                {monthOf(history.points[history.points.length - 1].date)}
+              </p>
+            </div>
+          )}
+
+          <div className="flex flex-col items-end gap-4">
+            <AddHoldingDialog />
+            {/* Below the laptop breakpoint the middle disappears, so the line
+                comes back here at its old size rather than vanishing. */}
+            {history && history.points.length > 1 && (
+              <div className="lg:hidden">
+                <Sparkline
+                  values={history.points.map((h) => h.portfolio_value)}
+                  width={180}
+                  height={44}
+                  label="How your portfolio value has moved"
+                />
+              </div>
             )}
           </div>
         </div>
@@ -234,13 +255,22 @@ export function Portfolio() {
           valueClassName={gainClass(data.total_realised_gain)}
           hint="Already booked by selling."
         />
-        <Stat
-          label="Holdings"
-          tone="cyan"
-          icon={<Layers className="size-4" aria-hidden />}
-          value={String(data.holdings.length)}
-          hint={data.holdings.length === 1 ? '1 position' : `${data.holdings.length} positions`}
-        />
+        {/* The one card that goes somewhere. "How many" is the only figure up
+            here that provokes "which ones?", and the answer is a whole page —
+            so the card is the way through, instead of the bordered box further
+            down that existed only to hold one link the nav already has. */}
+        <Link
+          to="/portfolio/holdings"
+          className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <Stat
+            label="Holdings"
+            tone="cyan"
+            icon={<Layers className="size-4" aria-hidden />}
+            value={String(data.holdings.length)}
+            hint="See every position &rarr;"
+          />
+        </Link>
       </div>
 
       {/* Actions before history. The chart says how it went; this says what to
@@ -250,8 +280,13 @@ export function Portfolio() {
         <Levers />
       </div>
 
-      <div className="rise rise-3">
+      {/* Two verdicts, side by side. They answer the same kind of question —
+          "is anything wrong?" — in one line each, and both were previously
+          stranded: the benchmark alone on a full-width row, the cost panel next
+          to a much taller neighbour with a column of empty page under it. */}
+      <div className="rise rise-3 grid gap-4 lg:grid-cols-2">
         <BenchmarkVerdict />
+        <CostReview />
       </div>
 
       {history && (
@@ -282,8 +317,7 @@ export function Portfolio() {
       {/* No "go to Holdings" panel here. It was a bordered box containing one
           link to a destination already in the nav — a whole surface spent
           saying what the nav says for free. */}
-      <div className="rise rise-5 grid items-start gap-4 xl:grid-cols-2">
-        <CostReview />
+      <div className="rise rise-5">
         <FundOverlap />
       </div>
 
@@ -307,4 +341,11 @@ function HeroValue({ amount }: { amount: number | null | undefined }) {
       {formatInr(Math.round(shown))}
     </p>
   )
+}
+
+/** "Apr 24" from "2024-04-30" — the sparkline's span, not a full date. */
+function monthOf(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })
 }

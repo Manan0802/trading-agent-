@@ -1,7 +1,6 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown } from 'lucide-react'
 import { Panel } from '@/components/ui/panel'
+import { Reveal } from '@/components/ui/reveal'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchOverlap } from '@/lib/portfolio-api'
 import { cn } from '@/lib/utils'
@@ -47,7 +46,6 @@ export function FundOverlap() {
     queryKey: ['overlap'],
     queryFn: fetchOverlap,
   })
-  const [explained, setExplained] = useState(false)
 
   // The oldest month across the pairs: the set is only as current as its
   // stalest side.
@@ -76,7 +74,10 @@ export function FundOverlap() {
         </div>
       )}
 
-      <p className="text-sm leading-relaxed">{data.summary}</p>
+      {/* The verdict, not the working. The server's summary names both funds
+          in the closest pair and repeats the effective-bets figure printed
+          directly above it — three lines to say what the number already said. */}
+      <p className="text-sm leading-relaxed">{firstLine(data.summary)}</p>
 
       {data.pairs.length > 0 && (
         <ul className="flex flex-col gap-3">
@@ -143,51 +144,41 @@ export function FundOverlap() {
         </p>
       )}
 
-      <div className="border-t pt-1">
-        <button
-          type="button"
-          onClick={() => setExplained((v) => !v)}
-          aria-expanded={explained}
-          className="flex min-h-11 w-full items-center gap-2 text-left text-sm text-muted-foreground hover:text-foreground"
-        >
-          <span className="flex-1">What these two numbers mean</span>
-          <ChevronDown
-            aria-hidden
-            className={cn('size-4 shrink-0 transition-transform', explained && 'rotate-180')}
-          />
-        </button>
-        {explained && (
-          <div className="flex flex-col gap-3 pb-2 text-sm leading-relaxed text-muted-foreground">
-            <p>
-              The first figure is how closely two funds&rsquo; monthly returns moved
-              together over the months they both cover.{' '}
-              <span className="tnum">1.00</span> means the same position twice;{' '}
-              <span className="tnum">0.00</span> means unrelated. Two equity funds
-              near <span className="tnum">0.85</span> is normal, not a fault — the
-              useful comparison is against whatever else you hold.
-            </p>
-            <p>
-              The second is the share of assets both funds hold in the <em>same</em>{' '}
-              securities, read from each AMC&rsquo;s monthly disclosure and matched on
-              ISIN. Sharing <span className="tnum">15&ndash;30%</span> is ordinary —
-              both own the index leaders. Above <span className="tnum">40%</span> you
-              are holding the same shares twice. <em>holdings n/a</em> means that AMC
-              publishes no file we can read: unknown, not zero.
-            </p>
-            {/* AMCs file within ten days of month end, so in the first week of a
-                month this reads the month before last. Without the date the
-                number simply changes and nothing explains why. */}
-            {asOf && (
-              <p className="text-xs">
-                Holdings are from each AMC&rsquo;s{' '}
-                <span className="tnum">{asOf}</span> disclosure, the latest published.
-                They file within ten days of month end, so this moves when the next
-                one lands.
-              </p>
-            )}
-          </div>
+      <Reveal label="What these two numbers mean">
+        <p>{data.summary}</p>
+        <p>
+          The first figure is how closely two funds&rsquo; monthly returns moved
+          together over the months they both cover.{' '}
+          <span className="tnum">1.00</span> means the same position twice;{' '}
+          <span className="tnum">0.00</span> means unrelated. Two equity funds near{' '}
+          <span className="tnum">0.85</span> is normal, not a fault &mdash; the useful
+          comparison is against whatever else you hold.
+        </p>
+        <p>
+          The second is the share of assets both funds hold in the <em>same</em>{' '}
+          securities, read from each AMC&rsquo;s monthly disclosure and matched on
+          ISIN. Sharing <span className="tnum">15&ndash;30%</span> is ordinary &mdash;
+          both own the index leaders. Above <span className="tnum">40%</span> you are
+          holding the same shares twice. <em>holdings n/a</em> means that AMC
+          publishes no file we can read: unknown, not zero.
+        </p>
+        {/* AMCs file within ten days of month end, so in the first week of a
+            month this reads the month before last. Without the date the number
+            simply changes and nothing explains why. */}
+        {asOf && (
+          <p className="text-xs">
+            Holdings are from each AMC&rsquo;s <span className="tnum">{asOf}</span>{' '}
+            disclosure, the latest published. They file within ten days of month end,
+            so this moves when the next one lands.
+          </p>
         )}
-      </div>
+      </Reveal>
     </Panel>
   )
+}
+
+/** The first sentence. The rest restates the figure printed above it. */
+function firstLine(text: string): string {
+  const match = text.match(/^.*?[.!?](?=\s|$)/)
+  return match ? match[0] : text
 }

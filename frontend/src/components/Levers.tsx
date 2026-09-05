@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, Check, Sparkles } from 'lucide-react'
+import { Reveal } from '@/components/ui/reveal'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatInr } from '@/lib/format'
 import { fetchLevers } from '@/lib/portfolio-api'
@@ -60,16 +61,31 @@ export function Levers({
             aria-hidden
           />
           <div className="relative flex flex-col gap-4">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-v-emerald/15 text-v-emerald">
-                  <Sparkles className="size-4" aria-hidden />
-                </span>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-v-emerald-ink">
-                  Do this one thing
-                </p>
+            {/* Label, headline and instruction in ONE column, with the money in
+                the other. They were stacked instead — label row, then a gap the
+                height of the money block, then the headline — which left the
+                label stranded at the top of an empty band and broke the card
+                into two unrelated halves. */}
+            <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-4">
+              <div className="flex min-w-[16rem] flex-1 flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-v-emerald/15 text-v-emerald">
+                    <Sparkles className="size-4" aria-hidden />
+                  </span>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-v-emerald-ink">
+                    Do this one thing
+                  </p>
+                </div>
+                <h2 className="max-w-2xl text-xl font-semibold leading-snug sm:text-2xl">
+                  {lead.title}
+                </h2>
+                {/* The first sentence of the instruction, and no more. What to
+                    do fits in a line; when and how it works are the next two,
+                    and nobody reads a paragraph on a card they have already
+                    decided about. */}
+                <p className="max-w-2xl text-[15px] leading-relaxed">{firstLine(lead.action)}</p>
               </div>
-              <div className="text-right">
+              <div className="shrink-0 text-right">
                 {/* Per YEAR leads. The lifetime figure is ~37x bigger and reads
                     as money you are losing right now, which it is not. */}
                 <p className="num text-3xl font-semibold leading-none text-gain sm:text-4xl">
@@ -87,13 +103,12 @@ export function Levers({
               </div>
             </div>
 
-            <h2 className="max-w-2xl text-xl font-semibold leading-snug sm:text-2xl">
-              {lead.title}
-            </h2>
-            {/* The instruction only. The reasoning behind it lives on Why. */}
-            <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-              {lead.action}
-            </p>
+            {rest(lead.action) && (
+              <Reveal label="What it involves" className="border-t-foreground/10">
+                <p>{lead.action}</p>
+                <p>{lead.detail}</p>
+              </Reveal>
+            )}
           </div>
         </article>
       )}
@@ -111,7 +126,9 @@ export function Levers({
                   )}
                 </span>
               </div>
-              <p className="mt-1.5 text-sm leading-snug text-muted-foreground">{lever.action}</p>
+              <p className="mt-1.5 text-sm leading-snug text-muted-foreground">
+                {firstLine(lever.action)}
+              </p>
             </article>
           ))}
         </div>
@@ -163,4 +180,20 @@ export function Levers({
       )}
     </section>
   )
+}
+
+/**
+ * The first sentence, which is the instruction. The rest is the caveat.
+ *
+ * Split on a full stop followed by a space, not on the first `.` — "₹1.25 lakh"
+ * is the number this app's largest lever is named after, and cutting there
+ * leaves "Use the ₹1." on the card.
+ */
+function firstLine(text: string): string {
+  const match = text.match(/^.*?[.!?](?=\s|$)/)
+  return match ? match[0] : text
+}
+
+function rest(text: string): string {
+  return text.slice(firstLine(text).length).trim()
 }
