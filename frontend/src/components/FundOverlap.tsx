@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Panel } from '@/components/ui/panel'
 import { Reveal } from '@/components/ui/reveal'
 import { Skeleton } from '@/components/ui/skeleton'
-import { fetchOverlap } from '@/lib/portfolio-api'
+import { fetchOverlap, type Overlap } from '@/lib/portfolio-api'
 import { cn } from '@/lib/utils'
 
 /**
@@ -80,6 +80,59 @@ function historySpan(months: number): string {
  */
 const SAME_STOCKS_ABOVE = 40
 
+/** Pairs on the face of the panel. The closest ones are the finding. */
+const SHOW_PAIRS = 6
+
+type Pair = Overlap['pairs'][number]
+
+function PairRow({ pair: p }: { pair: Pair }) {
+  const b = band(p.correlation)
+  return (
+    <li className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="truncate text-sm font-medium">
+          {shortFund(p.a_name)}{' '}
+          <span className="font-normal text-muted-foreground">and</span>{' '}
+          {shortFund(p.b_name)}
+        </span>
+        <span className="flex shrink-0 items-baseline gap-2">
+          <span className={cn('text-xs', b.ink)}>{b.label}</span>
+          <span className={cn('num text-sm font-semibold', b.ink)}>
+            {p.correlation.toFixed(2)}
+          </span>
+        </span>
+      </div>
+      {/* The bar is the number's shape. A column of "0.93 / 0.84 /
+          0.80" makes a reader do the comparing; a row of bars has
+          already done it. */}
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn('h-full rounded-full transition-[width] duration-700', b.bar)}
+          style={{ width: `${Math.max(0, Math.min(1, p.correlation)) * 100}%` }}
+        />
+      </div>
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        {/* Unmeasured says so in words. A dash rendered as 0% would
+            claim these funds share nothing, which we do not know. */}
+        {p.common_weight === null ? (
+          <span>same shares not published</span>
+        ) : (
+          <span
+            className={cn(
+              'num',
+              p.common_weight >= SAME_STOCKS_ABOVE && 'font-semibold text-v-rose',
+            )}
+            title={`${p.shared_securities} securities in common`}
+          >
+            {p.common_weight.toFixed(0)}% same shares
+          </span>
+        )}
+        <span>{historySpan(p.months)}</span>
+      </div>
+    </li>
+  )
+}
+
 export function FundOverlap() {
   const { data, isLoading } = useQuery({
     queryKey: ['overlap'],
@@ -100,6 +153,10 @@ export function FundOverlap() {
     (best, p) => (best === null || p.correlation > best.correlation ? p : best),
     null,
   )
+
+  const ranked = [...(data?.pairs ?? [])].sort((x, y) => y.correlation - x.correlation)
+  const shown = ranked.slice(0, SHOW_PAIRS)
+  const hidden = ranked.slice(SHOW_PAIRS)
 
   if (isLoading) return <Skeleton className="h-32 w-full rounded-xl" />
   if (!data || (data.pairs.length === 0 && Object.keys(data.excluded).length === 0)) {
@@ -140,54 +197,24 @@ export function FundOverlap() {
 
       {data.pairs.length > 0 && (
         <ul className="flex flex-col gap-3">
-          {data.pairs.map((p) => {
-            const b = band(p.correlation)
-            return (
-              <li key={`${p.a}-${p.b}`} className="flex flex-col gap-1.5">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="truncate text-sm font-medium">
-                    {shortFund(p.a_name)}{' '}
-                    <span className="font-normal text-muted-foreground">and</span>{' '}
-                    {shortFund(p.b_name)}
-                  </span>
-                  <span className="flex shrink-0 items-baseline gap-2">
-                    <span className={cn('text-xs', b.ink)}>{b.label}</span>
-                    <span className={cn('num text-sm font-semibold', b.ink)}>
-                      {p.correlation.toFixed(2)}
-                    </span>
-                  </span>
-                </div>
-                {/* The bar is the number's shape. A column of "0.93 / 0.84 /
-                    0.80" makes a reader do the comparing; a row of bars has
-                    already done it. */}
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={cn('h-full rounded-full transition-[width] duration-700', b.bar)}
-                    style={{ width: `${Math.max(0, Math.min(1, p.correlation)) * 100}%` }}
-                  />
-                </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  {/* Unmeasured says so in words. A dash rendered as 0% would
-                      claim these funds share nothing, which we do not know. */}
-                  {p.common_weight === null ? (
-                    <span>same shares not published</span>
-                  ) : (
-                    <span
-                      className={cn(
-                        'num',
-                        p.common_weight >= SAME_STOCKS_ABOVE && 'font-semibold text-v-rose',
-                      )}
-                      title={`${p.shared_securities} securities in common`}
-                    >
-                      {p.common_weight.toFixed(0)}% same shares
-                    </span>
-                  )}
-                  <span>{historySpan(p.months)}</span>
-                </div>
-              </li>
-            )
-          })}
+          {shown.map((p) => (
+            <PairRow key={`${p.a}-${p.b}`} pair={p} />
+          ))}
         </ul>
+      )}
+
+      {/* The rest, one click away. Every pair used to render, and pairs grow as
+          n(n-1)/2: 3 funds is 3 rows, 11 funds is 55 -- about 3,500px of bars
+          that pushed everything after this panel off the end of the page. The
+          closest pairs are the answer; the other 49 are the working. */}
+      {hidden.length > 0 && (
+        <Reveal label={`Show the other ${hidden.length} pairs`}>
+          <ul className="flex flex-col gap-3">
+            {hidden.map((p) => (
+              <PairRow key={`${p.a}-${p.b}`} pair={p} />
+            ))}
+          </ul>
+        </Reveal>
       )}
 
       {Object.entries(data.excluded).length > 0 && (
