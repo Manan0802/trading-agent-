@@ -51,7 +51,7 @@ from app.services.screener import plain_words
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
 from app.services.portfolio.holding_cost import cost_review
-from app.services.portfolio.freshness import stale_days, stale_holdings
+from app.services.portfolio.freshness import stale_by_kind, stale_holdings
 from app.services.portfolio.plan_identity import identify, misnamed_as
 from app.services.portfolio.fifo import TxnInput, apply_fifo
 from app.services.portfolio.valuation import HoldingInput, value_portfolio
@@ -114,7 +114,10 @@ def _stale(holdings: list[Holding]) -> dict[str, str]:
     funds = list(holdings)
     with ThreadPoolExecutor(max_workers=8) as pool:
         priced = dict(
-            pool.map(lambda h: (h.name, price_as_of(h.asset_type, h.identifier)), funds)
+            pool.map(
+                lambda h: (h.name, (h.asset_type, price_as_of(h.asset_type, h.identifier))),
+                funds,
+            )
         )
     return stale_holdings(priced, today=date.today())
 
@@ -232,11 +235,20 @@ def get_portfolio(
                     funds.values(),
                 )
             )
-        # Each price is judged against the others in this portfolio, so a
-        # market holiday cannot read as a frozen feed. See
+        # Each price is judged against the others of its own kind in this
+        # portfolio, so neither a market holiday nor a stock's same-day close
+        # can make a fund read as a frozen feed. See
         # services/portfolio/freshness.py.
-        dates = [d for _, d in resolved.values() if d is not None]
-        today = date.today()
+        behind = stale_by_kind(
+            {
+                row.holding_id: (
+                    row.asset_type,
+                    resolved.get(row.holding_id, (None, None))[1],
+                )
+                for row in out.holdings
+            },
+            today=date.today(),
+        )
         out = out.model_copy(
             update={
                 "holdings": [
@@ -244,11 +256,7 @@ def get_portfolio(
                         update={
                             "misnamed_as": resolved.get(row.holding_id, (None, None))[0],
                             "price_as_of": resolved.get(row.holding_id, (None, None))[1],
-                            "stale_days": stale_days(
-                                resolved.get(row.holding_id, (None, None))[1],
-                                peer_dates=dates,
-                                today=today,
-                            ),
+                            "stale_days": behind.get(row.holding_id),
                         }
                     )
                     for row in out.holdings

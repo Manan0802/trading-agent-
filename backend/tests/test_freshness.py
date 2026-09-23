@@ -107,3 +107,53 @@ class TestStocksAreCoveredToo:
         for bad in (0, -1, "yesterday", None):
             monkeypatch.setattr(stock, "_info_cached", lambda _, b=bad: {"regularMarketTime": b})
             assert stock.get_price_date("X.NS") is None
+
+
+class TestFundsAreNotJudgedAgainstStocks:
+    """A stock close and a fund NAV publish on different schedules.
+
+    Stocks get a close every trading day within hours. A fund's NAV is struck
+    after the market, lands overnight, and a liquid fund publishes on weekends
+    too. Compared against each other, every fund in a portfolio holding one
+    stock read as "5 days behind" on the day it was checked -- eleven warnings
+    on fourteen rows, none of them about a fund that had stopped publishing,
+    which is the only thing the warning exists to catch.
+    """
+
+    def test_every_fund_one_date_behind_a_stock_is_not_stale(self):
+        from app.services.portfolio.freshness import stale_by_kind
+
+        priced = {
+            "nifty": ("MF", days_ago(5)),
+            "flexi": ("MF", days_ago(5)),
+            "hdfcbank": ("STOCK", TODAY),
+        }
+        assert stale_by_kind(priced, today=TODAY) == {}
+
+    def test_a_frozen_fund_is_still_caught_among_funds(self):
+        from app.services.portfolio.freshness import stale_by_kind
+
+        priced = {
+            "live": ("MF", days_ago(1)),
+            "wound_up": ("MF", days_ago(30)),
+            "hdfcbank": ("STOCK", TODAY),
+        }
+        assert stale_by_kind(priced, today=TODAY) == {"wound_up": 29}
+
+    def test_a_suspended_stock_is_still_caught_among_stocks(self):
+        from app.services.portfolio.freshness import stale_by_kind
+
+        priced = {
+            "trading": ("STOCK", days_ago(1)),
+            "suspended": ("STOCK", days_ago(20)),
+            "fund": ("MF", days_ago(3)),
+        }
+        assert stale_by_kind(priced, today=TODAY) == {"suspended": 19}
+
+    def test_the_only_fund_among_stocks_falls_back_to_the_calendar(self):
+        # With no other fund to compare to, it is alone -- and gets the loose
+        # two-week threshold rather than being measured against a stock.
+        from app.services.portfolio.freshness import stale_by_kind
+
+        priced = {"fund": ("MF", days_ago(6)), "stock": ("STOCK", TODAY)}
+        assert stale_by_kind(priced, today=TODAY) == {}

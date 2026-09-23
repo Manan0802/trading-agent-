@@ -32,8 +32,37 @@ BEHIND_PEERS_DAYS = 4
 ALONE_DAYS = 14
 
 
+def stale_by_kind(
+    priced: dict[str, tuple[str, date | None]],
+    *,
+    today: date,
+) -> dict[str, int]:
+    """Days behind, for every stale holding, judged only against its own kind.
+
+    `priced` maps a key (holding id or name) to (asset type, price date).
+
+    Funds are compared with funds and stocks with stocks. A stock gets a close
+    every trading day within hours; a fund NAV is struck after the market and
+    lands overnight, and liquid funds publish on weekends too. Measured against
+    each other, one stock in a portfolio made every fund in it read "5 days
+    behind" -- a warning on nearly every row, none of them about a scheme that
+    had stopped publishing, which is the one thing this exists to catch.
+    """
+    dates_by_kind: dict[str, list[date]] = {}
+    for kind, price_date in priced.values():
+        if price_date is not None:
+            dates_by_kind.setdefault(kind, []).append(price_date)
+
+    out: dict[str, int] = {}
+    for key, (kind, price_date) in priced.items():
+        behind = stale_days(price_date, peer_dates=dates_by_kind.get(kind, []), today=today)
+        if behind is not None:
+            out[key] = behind
+    return out
+
+
 def stale_holdings(
-    priced: dict[str, date | None],
+    priced: dict[str, tuple[str, date | None]],
     *,
     today: date,
 ) -> dict[str, str]:
@@ -45,17 +74,15 @@ def stale_holdings(
     review quoting the identical frozen figure with nothing said -- and those
     are the numbers that actually get acted on.
 
-    `priced` maps holding name to the date its price came from.
+    `priced` maps holding name to (asset type, the date its price came from).
     """
-    dates = [d for d in priced.values() if d is not None]
     out: dict[str, str] = {}
-    for name, price_date in priced.items():
-        behind = stale_days(price_date, peer_dates=dates, today=today)
-        if behind is not None:
-            out[name] = (
-                f"priced from a NAV of {price_date}, {behind} days behind the "
-                "rest of this portfolio, so this figure is not current"
-            )
+    for name, behind in stale_by_kind(priced, today=today).items():
+        price_date = priced[name][1]
+        out[name] = (
+            f"priced from a NAV of {price_date}, {behind} days behind the "
+            "rest of this portfolio, so this figure is not current"
+        )
     return out
 
 
