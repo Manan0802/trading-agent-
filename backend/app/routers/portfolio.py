@@ -51,6 +51,7 @@ from app.services.screener import plain_words
 from app.services.advisor.levers import rank_levers
 from app.services.advisor.tax_regime import compare_regimes, regime_switch_saving
 from app.services.portfolio.holding_cost import cost_review
+from app.services.portfolio.asset_class import classify as classify_holding
 from app.services.portfolio.freshness import stale_by_kind, stale_holdings
 from app.services.portfolio.plan_identity import identify, misnamed_as
 from app.services.portfolio.fifo import TxnInput, apply_fifo
@@ -249,6 +250,12 @@ def get_portfolio(
             },
             today=date.today(),
         )
+        # Local lookups only (the AMFI catalogue and the regular->direct pairs),
+        # so this adds no network call to the page.
+        placed = {
+            row.holding_id: classify_holding(row.asset_type, row.identifier, row.name)
+            for row in out.holdings
+        }
         out = out.model_copy(
             update={
                 "holdings": [
@@ -257,6 +264,8 @@ def get_portfolio(
                             "misnamed_as": resolved.get(row.holding_id, (None, None))[0],
                             "price_as_of": resolved.get(row.holding_id, (None, None))[1],
                             "stale_days": behind.get(row.holding_id),
+                            "asset_class": placed[row.holding_id].asset_class,
+                            "sub_category": placed[row.holding_id].category,
                         }
                     )
                     for row in out.holdings

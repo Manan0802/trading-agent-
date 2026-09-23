@@ -20,6 +20,11 @@ export const PORTFOLIO_QUERY_KEYS = [
   'levers',
   'overlap',
   'announcements',
+  // Missing when the look-through panel shipped, so deleting a holding left
+  // "What you actually own" describing the fund that had just been removed.
+  'look-through',
+  // One holding and its transactions, as the Holdings page expands a row.
+  'holding',
 ] as const
 
 export type HoldingSummary = {
@@ -45,6 +50,15 @@ export type HoldingSummary = {
    * mean the feed stopped rather than the market being shut for a holiday.
    */
   stale_days: number | null
+  /**
+   * Which slice of the allocation chart this belongs in -- equity,
+   * international, debt, gold, hybrid, or "other" when it could not be read.
+   * Resolved from the official AMFI category, never from the text typed
+   * when the holding was added.
+   */
+  asset_class: string | null
+  /** The label inside that slice: "Flexi Cap", "Corporate Bond", "Stocks". */
+  sub_category: string | null
   unrealised_gain: number | null
   realised_gain: number
   absolute_return: number | null
@@ -102,6 +116,30 @@ export async function createHolding(body: NewHolding) {
 
 export async function addTransaction(holdingId: string, body: NewTransaction) {
   return (await api.post(`/api/v1/portfolio/holdings/${holdingId}/transactions`, body)).data
+}
+
+export type Transaction = {
+  id: string
+  txn_date: string
+  txn_type: 'BUY' | 'SELL'
+  units: number
+  price: number
+  amount: number
+}
+
+/** One holding with every transaction on it. */
+export type HoldingDetail = {
+  id: string
+  name: string
+  asset_type: AssetType
+  identifier: string
+  category: string | null
+  transactions: Transaction[]
+  misnamed_as: string | null
+}
+
+export async function fetchHolding(holdingId: string): Promise<HoldingDetail> {
+  return (await api.get(`/api/v1/portfolio/holdings/${holdingId}`)).data
 }
 
 export async function deleteHolding(holdingId: string) {

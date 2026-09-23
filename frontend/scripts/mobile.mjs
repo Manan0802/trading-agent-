@@ -33,6 +33,7 @@ for (let i = 0; i < 8; i++) {
 
 const PAGES = [
   ['portfolio', '/portfolio'],
+  ['holdings', '/portfolio/holdings'],
   ['research', '/research'],
   ['decide', '/decide'],
   ['screener', '/screener'],

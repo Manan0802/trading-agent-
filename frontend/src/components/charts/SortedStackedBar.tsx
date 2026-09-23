@@ -18,9 +18,24 @@
  */
 import { ChartFrame, chartState } from './ChartFrame'
 
-export type Segment = { label: string; value: number; className?: string }
+export type Segment = {
+  label: string
+  value: number
+  /** For a filled swatch: the bar segment, the legend dot. */
+  className?: string
+  /** For a stroke or glyph: `AllocationDonut`'s ring. Tailwind's `bg-*` and
+      `text-*` utilities are different class names, so a swatch colour cannot
+      be reused for a stroke -- an SVG `stroke="currentColor"` reads `color`,
+      not `background-color`. Falls back to PALETTE_TEXT by index. */
+  strokeClassName?: string
+}
 
-const PALETTE = [
+// Written out longhand, in both forms, rather than derived from one another
+// at runtime (e.g. `className.replace('bg-', 'text-')`): Tailwind scans
+// SOURCE TEXT for class names, so a computed string compiles to nothing and
+// the donut it feeds would render as a single dark ring with no colour --
+// which is exactly the bug this pair of arrays replaced.
+export const PALETTE = [
   'bg-sky-500',
   'bg-emerald-500',
   'bg-amber-500',
@@ -28,6 +43,16 @@ const PALETTE = [
   'bg-rose-500',
   'bg-teal-500',
   'bg-orange-500',
+]
+
+export const PALETTE_TEXT = [
+  'text-sky-500',
+  'text-emerald-500',
+  'text-amber-500',
+  'text-violet-500',
+  'text-rose-500',
+  'text-teal-500',
+  'text-orange-500',
 ]
 
 export function SortedStackedBar({

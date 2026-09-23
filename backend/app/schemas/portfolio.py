@@ -65,6 +65,12 @@ class HoldingSummaryOut(BaseModel):
     # Days behind the rest of this portfolio. Set only when it is far enough
     # behind to mean the feed stopped rather than the market was shut.
     stale_days: int | None = None
+    # Which slice of the allocation chart this belongs in, from the official
+    # AMFI category (services/portfolio/asset_class.py) -- never the category
+    # text typed when the holding was added. "other" means it could not be read.
+    asset_class: str | None = None
+    # The label inside that slice: "Flexi Cap", "Corporate Bond", "Stocks".
+    sub_category: str | None = None
     unrealised_gain: float | None
     realised_gain: float
     absolute_return: float | None
