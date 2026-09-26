@@ -60,42 +60,63 @@ export function SortedStackedBar({
   loading = false,
   label,
   format = (pct: number) => `${pct.toFixed(0)}%`,
+  formatValue,
+  order = 'value',
 }: {
   segments: Segment[]
   loading?: boolean
   label: string
   format?: (pct: number) => string
+  /** Optional amount beside each legend entry, e.g. "₹27L". */
+  formatValue?: (value: number) => string
+  /** `given` keeps the caller's order -- for a fixed set such as asset
+      classes, where the same class sitting in the same place every visit
+      matters more than largest-first. */
+  order?: 'value' | 'given'
 }) {
   const total = segments.reduce((sum, s) => sum + Math.max(0, s.value), 0)
   const state = chartState(loading, total > 0 ? segments.length : 0)
-  const sorted = [...segments].filter((s) => s.value > 0).sort((a, b) => b.value - a.value)
+  const shown = segments.filter((s) => s.value > 0)
+  const sorted = order === 'value' ? [...shown].sort((a, b) => b.value - a.value) : shown
 
+  // The frame wraps the BAR only. It used to wrap the legend too, inside a
+  // fixed 64px box, so a legend that wrapped to a third line -- eleven
+  // categories do -- spilled out of its panel and over whatever came next.
   return (
-    <ChartFrame state={state} height={64} label={label} emptyNote="Nothing allocated yet">
-      <div role="img" aria-label={label}>
-        <div className="flex h-6 w-full overflow-hidden rounded-md">
-          {sorted.map((s, i) => {
-            const pct = (s.value / total) * 100
-            return (
-              <div
-                key={s.label}
-                className={`${s.className ?? PALETTE[i % PALETTE.length]} flex items-center justify-center`}
-                style={{ width: `${pct}%` }}
-                title={`${s.label} ${format(pct)}`}
-                aria-hidden
-              />
-            )
-          })}
+    <div className="flex flex-col gap-2">
+      <ChartFrame state={state} height={24} label={label} emptyNote="Nothing allocated yet">
+        {/* Segments grow in proportion to value from a zero basis, so the
+            2px gaps between them come out of the whole rather than pushing
+            the last segment past the end of the bar. */}
+        <div className="flex h-6 w-full gap-0.5 overflow-hidden rounded-md" role="img" aria-label={label}>
+          {sorted.map((s, i) => (
+            <div
+              key={s.label}
+              className={s.className ?? PALETTE[i % PALETTE.length]}
+              style={{ flex: `${s.value} 1 0` }}
+              title={`${s.label} ${format((s.value / total) * 100)}`}
+              aria-hidden
+            />
+          ))}
         </div>
-        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+      </ChartFrame>
+      {state === 'ready' && (
+        <ul className="flex flex-wrap gap-x-4 gap-y-1">
           {sorted.map((s, i) => (
             <li key={s.label} className="flex items-center gap-1.5 text-xs text-foreground">
-              <span className={`size-2 rounded-sm ${s.className ?? PALETTE[i % PALETTE.length]}`} />
-              {s.label} <span className="num">{format((s.value / total) * 100)}</span>
+              <span
+                className={`size-2 rounded-sm ${s.className ?? PALETTE[i % PALETTE.length]}`}
+                aria-hidden
+              />
+              {s.label}
+              {formatValue && (
+                <span className="num text-muted-foreground">{formatValue(s.value)}</span>
+              )}
+              <span className="num font-medium">{format((s.value / total) * 100)}</span>
             </li>
           ))}
         </ul>
-      </div>
-    </ChartFrame>
+      )}
+    </div>
   )
 }

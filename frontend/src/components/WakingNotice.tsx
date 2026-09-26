@@ -42,9 +42,14 @@ export function WakingNotice() {
         &#9679;
       </span>
       <span>
-        <strong className="font-medium">Waking the server.</strong> It sleeps
-        when nobody has used it for a while, and takes about a minute to come
-        back. Nothing is wrong and nothing is lost.
+        {/* Two causes, and the notice cannot tell them apart, so it names
+            both. It used to name only the sleeping host -- which on the
+            machine this app actually runs on never sleeps, so the banner
+            that appeared on the first load of the day (every fund's price
+            re-fetched) was describing something that was not happening. */}
+        <strong className="font-medium">Still loading.</strong> The first load
+        after a while re-fetches every price, and a server that has been idle
+        takes up to a minute to wake. Nothing is wrong and nothing is lost.
         {seconds >= 5 && (
           <span className="tnum text-muted-foreground"> {seconds}s</span>
         )}

@@ -59,7 +59,13 @@ def test_the_notice_says_what_is_happening_and_is_not_a_spinner():
         "a state that appears without focus has to be announced to a screen "
         "reader — a11y.mjs is a real gate here"
     )
-    assert "Waking the server" in source, "the notice does not say what is happening"
+    # Both causes of a slow first load, because the notice cannot tell them
+    # apart: prices being re-fetched, and a host waking from sleep.
+    assert "Still loading" in source, "the notice does not say what is happening"
+    assert "re-fetches every price" in source and "idle" in source, (
+        "the notice names one cause and not the other -- on a machine that "
+        "never sleeps, 'waking the server' describes something not happening"
+    )
     assert "Nothing is wrong" in source, (
         "a sixty-second wait reads as a fault unless the copy says otherwise"
     )

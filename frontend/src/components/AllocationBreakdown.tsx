@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { LayoutGrid, PieChart } from 'lucide-react'
 import { AllocationDonut, SortedStackedBar, type Segment } from '@/components/charts'
 import { Panel } from '@/components/ui/panel'
-import { formatInr } from '@/lib/format'
+import { formatInr, formatInrCompact } from '@/lib/format'
 import type { HoldingSummary } from '@/lib/portfolio-api'
 import { cn } from '@/lib/utils'
 
@@ -15,43 +15,62 @@ const CLASS_LABEL: Record<string, string> = {
   other: 'Unclassified',
 }
 
+type Tone = { bg: string; text: string }
+
 /**
- * Fixed order, not sorted by size: the same class is always the same colour
- * from one look to the next, which sorting by value would break.
+ * Asset classes in a FIXED order, each with a fixed colour, so Equity is the
+ * same blue in the same place on every visit -- colour follows the class,
+ * never its rank this month.
  *
- * Both the fill (`bg-*`, for the bar segment and the legend dot) and the
- * stroke (`text-*`, for the donut ring) are written out as literal strings.
- * Deriving one from the other at runtime (`.replace('bg-', 'text-')`) is the
- * bug this shape replaced: Tailwind scans SOURCE TEXT for class names, so a
- * computed string compiles to nothing and the donut painted every segment
- * the same default ink colour.
+ * Every class is written out longhand, fill and stroke, light and dark:
+ * Tailwind builds only the class names it can find in source text, so a
+ * name assembled at runtime (`.replace('bg-', 'text-')`) compiles to nothing.
+ *
+ * The hexes are a checked set, not a pick by eye. Run through a colour-
+ * blindness validator in both themes, every neighbour in this order stays
+ * distinguishable -- including when a class is missing and its two
+ * neighbours meet. The old set failed that: indigo against violet was
+ * delta-E 3.8 for a protanope, the same colour to one reader in twelve.
  */
-const CLASS_TONE: Record<string, { bg: string; text: string }> = {
-  equity: { bg: 'bg-v-indigo', text: 'text-v-indigo' },
-  international: { bg: 'bg-v-rose', text: 'text-v-rose' },
-  gold: { bg: 'bg-v-amber', text: 'text-v-amber' },
-  debt: { bg: 'bg-v-violet', text: 'text-v-violet' },
-  hybrid: { bg: 'bg-v-cyan', text: 'text-v-cyan' },
-  other: { bg: 'bg-muted-foreground/50', text: 'text-muted-foreground' },
+const CLASS_ORDER = ['equity', 'international', 'debt', 'gold', 'hybrid', 'other'] as const
+
+const CLASS_TONE: Record<string, Tone> = {
+  equity: { bg: 'bg-[#2a78d6] dark:bg-[#3987e5]', text: 'text-[#2a78d6] dark:text-[#3987e5]' },
+  international: { bg: 'bg-[#eb6834] dark:bg-[#d95926]', text: 'text-[#eb6834] dark:text-[#d95926]' },
+  debt: { bg: 'bg-[#1baf7a] dark:bg-[#199e70]', text: 'text-[#1baf7a] dark:text-[#199e70]' },
+  gold: { bg: 'bg-[#eda100] dark:bg-[#c98500]', text: 'text-[#eda100] dark:text-[#c98500]' },
+  hybrid: { bg: 'bg-[#e87ba4] dark:bg-[#d55181]', text: 'text-[#e87ba4] dark:text-[#d55181]' },
+  other: { bg: 'bg-muted-foreground/40', text: 'text-muted-foreground/40' },
 }
 
-function toSegments(
-  holdings: HoldingSummary[],
-  key: (h: HoldingSummary) => string,
-  label: (key: string) => string,
-  tone?: (key: string) => { bg: string; text: string } | undefined,
-): Segment[] {
+/**
+ * Categories are whatever this portfolio holds, so they are coloured by rank,
+ * largest first, from the same validated sequence. Six colours and no more:
+ * the old version cycled a seven-colour palette over eleven categories, so
+ * Flexi Cap and Mid Cap were the same blue and the ring could not be read.
+ * Past six, the rest are folded into "Other" -- and named underneath, so no
+ * category disappears.
+ */
+const RANK_TONES: Tone[] = [
+  { bg: 'bg-[#2a78d6] dark:bg-[#3987e5]', text: 'text-[#2a78d6] dark:text-[#3987e5]' },
+  { bg: 'bg-[#eb6834] dark:bg-[#d95926]', text: 'text-[#eb6834] dark:text-[#d95926]' },
+  { bg: 'bg-[#1baf7a] dark:bg-[#199e70]', text: 'text-[#1baf7a] dark:text-[#199e70]' },
+  { bg: 'bg-[#eda100] dark:bg-[#c98500]', text: 'text-[#eda100] dark:text-[#c98500]' },
+  { bg: 'bg-[#e87ba4] dark:bg-[#d55181]', text: 'text-[#e87ba4] dark:text-[#d55181]' },
+  { bg: 'bg-[#008300]', text: 'text-[#008300]' },
+]
+const MAX_CATEGORIES = RANK_TONES.length
+
+/** Rupees per key, positive holdings only. */
+function sumBy(holdings: HoldingSummary[], key: (h: HoldingSummary) => string): Map<string, number> {
   const by = new Map<string, number>()
   for (const h of holdings) {
     const value = h.current_value
     if (value === null || value <= 0) continue
-    const k = key(h) || 'other'
+    const k = key(h)
     by.set(k, (by.get(k) ?? 0) + value)
   }
-  return [...by.entries()].map(([k, value]) => {
-    const t = tone?.(k)
-    return { label: label(k), value, className: t?.bg, strokeClassName: t?.text }
-  })
+  return by
 }
 
 /**
@@ -63,20 +82,40 @@ function toSegments(
 export function AllocationBreakdown({ holdings }: { holdings: HoldingSummary[] }) {
   const [view, setView] = useState<'bar' | 'donut'>('bar')
 
-  const byClass = toSegments(
-    holdings,
-    (h) => h.asset_class ?? 'other',
-    (k) => CLASS_LABEL[k] ?? k,
-    (k) => CLASS_TONE[k],
+  const classTotals = sumBy(holdings, (h) => h.asset_class ?? 'other')
+  const byClass: Segment[] = CLASS_ORDER.filter((k) => classTotals.has(k)).map((k) => ({
+    label: CLASS_LABEL[k],
+    value: classTotals.get(k) ?? 0,
+    className: CLASS_TONE[k].bg,
+    strokeClassName: CLASS_TONE[k].text,
+  }))
+
+  const ranked = [...sumBy(holdings, (h) => h.sub_category ?? 'Unclassified').entries()].sort(
+    (a, b) => b[1] - a[1],
   )
-  // "Category" has no fixed palette -- it is whichever sub-categories this
-  // portfolio actually holds -- so it falls through to PALETTE/PALETTE_TEXT
-  // by index, the same pairing the bar and the donut already agree on.
-  const byCategory = toSegments(
-    holdings,
-    (h) => h.sub_category ?? 'Unclassified',
-    (k) => k,
-  )
+  const folded = ranked.length > MAX_CATEGORIES ? ranked.slice(MAX_CATEGORIES) : []
+  const kept = folded.length > 0 ? ranked.slice(0, MAX_CATEGORIES) : ranked
+  const byCategory: Segment[] = [
+    ...kept.map(([label, value], i) => ({
+      label,
+      value,
+      className: RANK_TONES[i].bg,
+      strokeClassName: RANK_TONES[i].text,
+    })),
+    ...(folded.length > 0
+      ? [
+          {
+            label: `Other (${folded.length})`,
+            value: folded.reduce((sum, [, v]) => sum + v, 0),
+            className: CLASS_TONE.other.bg,
+            strokeClassName: CLASS_TONE.other.text,
+          },
+        ]
+      : []),
+  ]
+
+  const total = holdings.reduce((sum, h) => sum + Math.max(0, h.current_value ?? 0), 0)
+  const center = { value: formatInrCompact(total), caption: 'total' }
 
   const unclassifiedValue = holdings
     .filter((h) => (h.asset_class ?? 'other') === 'other')
@@ -84,7 +123,6 @@ export function AllocationBreakdown({ holdings }: { holdings: HoldingSummary[] }
 
   if (byClass.length === 0) return null
 
-  const Chart = view === 'bar' ? SortedStackedBar : AllocationDonut
 
   return (
     <Panel
@@ -121,13 +159,32 @@ export function AllocationBreakdown({ holdings }: { holdings: HoldingSummary[] }
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Asset class
           </p>
-          <Chart segments={byClass} label="Portfolio value by asset class" />
+          <AllocationChart
+            view={view}
+            segments={byClass}
+            order="given"
+            formatValue={formatInrCompact}
+            center={center}
+            label="Portfolio value by asset class"
+          />
         </div>
         <div className="flex flex-col gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Category
           </p>
-          <Chart segments={byCategory} label="Portfolio value by category" />
+          <AllocationChart
+            view={view}
+            segments={byCategory}
+            order="given"
+            formatValue={formatInrCompact}
+            center={center}
+            label="Portfolio value by category"
+          />
+          {folded.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Other: {folded.map(([label]) => label).join(', ')}
+            </p>
+          )}
         </div>
       </div>
 
@@ -139,5 +196,25 @@ export function AllocationBreakdown({ holdings }: { holdings: HoldingSummary[] }
         </p>
       )}
     </Panel>
+  )
+}
+
+/** One of the two drawings of the same segments. */
+function AllocationChart({
+  view,
+  center,
+  ...props
+}: {
+  view: 'bar' | 'donut'
+  segments: Segment[]
+  label: string
+  order: 'value' | 'given'
+  formatValue: (value: number) => string
+  center: { value: string; caption: string }
+}) {
+  return view === 'bar' ? (
+    <SortedStackedBar {...props} />
+  ) : (
+    <AllocationDonut {...props} center={center} />
   )
 }
