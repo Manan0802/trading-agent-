@@ -315,6 +315,14 @@ def test_both_screens_describe_the_same_category_identically():
     """The fund page and the decision screen assemble this from one function.
     Two copies is how two screens start quoting different loss rates for the
     same category — the failure `scripts/consistency.py` exists to catch."""
+    # What the app's startup does and this TestClient skips: it is built
+    # without `with`, so the lifespan never runs. On a machine with no NAV
+    # store yet (a fresh clone, CI) the analysis route then hit a store with no
+    # tables and raised "no such table: screener_run" -- before the skip below
+    # could say "no completed run here", which is the honest outcome.
+    from app.services.screener import navstore
+
+    navstore.ensure_schema()
     headers = _new_user()
     holding = _add_fund(headers)
     _recent_sips(headers, holding)
