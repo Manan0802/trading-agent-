@@ -22,6 +22,8 @@ This file now pins the FIXED state. A regression shows up as a failure.
 
 import json
 import sqlite3
+
+import pytest
 from collections import defaultdict
 from pathlib import Path
 
@@ -37,7 +39,13 @@ LIVE_FUNDS_ONCE_AFFECTED = 297
 def _live_house_coverage() -> dict[str, tuple[int, int]]:
     catalogue = json.loads((DATA / "fund_catalogue.json").read_text())
     ters = json.loads((DATA / "expense_ratios.json").read_text())
-    with sqlite3.connect(BACKEND / ".navstore" / "nav.db") as con:
+    store = BACKEND / ".navstore" / "nav.db"
+    # Same guard as test_buyable_have_nav.py. Without the store, "live" is an
+    # empty set and every fund house reads as "no longer in the catalogue" --
+    # a false alarm about data, on a machine that simply has none.
+    if not store.exists():
+        pytest.skip(f"no NAV store at {store}")
+    with sqlite3.connect(store) as con:
         live = {
             row[0]
             for row in con.execute(

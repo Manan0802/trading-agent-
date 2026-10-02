@@ -315,6 +315,15 @@ def test_both_screens_describe_the_same_category_identically():
     """The fund page and the decision screen assemble this from one function.
     Two copies is how two screens start quoting different loss rates for the
     same category — the failure `scripts/consistency.py` exists to catch."""
+    # Same guard as test_buyable_have_nav.py. Without a NAV store (a fresh
+    # clone, CI) the analysis route raised "no such table: screener_run" before
+    # the skip below could say so. Creating the tables here instead would leave
+    # an EMPTY store at the default path, which later tests then mistake for
+    # the real one -- that version of this fix broke two of them.
+    from app.services.screener import navstore
+
+    if not navstore.db_path().exists():
+        pytest.skip(f"no NAV store at {navstore.db_path()}")
     headers = _new_user()
     holding = _add_fund(headers)
     _recent_sips(headers, holding)

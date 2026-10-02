@@ -63,3 +63,10 @@ backend/.parity-venv/
 # Harness screenshot output and MCP tool logs — generated, not source.
 frontend/shots/
 logs/
+
+# Per-machine AI-tool config. Manan's Codex arsenal writes these with
+# absolute paths to his laptop, and a developer's own tool may write its own.
+# The shared project rules live in CONTRIBUTING.md (and CLAUDE.md imports it).
+.agents/
+.codex/
+AGENTS.md
