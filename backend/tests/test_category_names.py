@@ -28,6 +28,8 @@ outside SEBI's taxonomy went 428 -> 26, most of the remainder being ETFs.
 import json
 import re
 import sqlite3
+
+import pytest
 from pathlib import Path
 
 from app.services.advisor.fund_catalogue import (
@@ -87,6 +89,12 @@ def _live_codes() -> set[str]:
     live hid 15 mis-bucketed funds.
     """
     store = DATA.parent.parent / ".navstore" / "nav.db"
+    # The store exists only where the nightly job has run. Same guard as
+    # test_buyable_have_nav.py: on a fresh clone or CI this is "no data to
+    # check", not a failure -- sqlite cannot even open a file in a folder
+    # that does not exist.
+    if not store.exists():
+        pytest.skip(f"no NAV store at {store}")
     with sqlite3.connect(store) as con:
         return {
             row[0]
